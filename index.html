@@ -305,7 +305,7 @@ canvas{display:block;position:absolute;inset:0;width:100%;height:100%}
       <button class="big d" id="mp-enter" style="flex:1;margin:0"><strong>KOD GİR</strong><em>Sana verilen kodla odaya katıl.</em></button>
     </div>
     <div class="rule"></div>
-    <div class="sub" style="margin:0">Haritayı sürükle · iki parmakla yakınlaştır · ülkeye dokunarak seç<br><span id="srm-tag" style="opacity:.55">sürüm 4.5 — zombi kuleleri</span></div>
+    <div class="sub" style="margin:0">Haritayı sürükle · iki parmakla yakınlaştır · ülkeye dokunarak seç<br><span id="srm-tag" style="opacity:.55">sürüm 4.6</span></div>
   </div>
 </div>
 
@@ -1430,7 +1430,33 @@ function issueFire(side,type,tx,ty,n){
 function issueInvest(it){
   if(!(typeof NET!=='undefined'&&NET.on))return invest(it);
   NET.request({k:'inv',id:it.id});}
+function cityAtScreen(sx,sy){
+  let best=null,bd=30;
+  for(let i=0;i<G.cityList.length;i++){
+    const ci=G.cityList[i],p=w2s(ci.x,ci.y);
+    const d=Math.hypot(p[0]-sx,p[1]-sy);
+    if(d<bd){bd=d;best=i;}}
+  return best;}
+function issueZCity(i){
+  if(!(typeof NET!=='undefined'&&NET.on))return runCmd({k:'zcity',i});
+  NET.request({k:'zcity',i});}
+function doLongPress(sx,sy){
+  if(!G.zomOn||G.phase!=='war')return false;
+  const i=cityAtScreen(sx,sy);
+  if(i===null)return false;
+  const ci=G.cityList[i];
+  if(ci.owner==='Z'){hint('Bu şehir zaten salgın altında.');return true;}
+  issueZCity(i);
+  return true;}
 function runCmd(c){
+  if(c.k==='zcity'){
+    const ci=G.cityList[c.i];
+    if(!ci||ci.owner==='Z')return;
+    ci.owner='Z';ci.hp=0;
+    if(ci.land&&typeof infect==='function')infect(ci.land);
+    G.fxs.push({t:'boom',x:ci.x,y:ci.y,r:6,mr:18,a:1});
+    log((ci.land?ci.land.tr:'Bir ülke')+': bir şehir salgına düştü.','w');
+    updateHUD();mapDirty=true;return;}
   if(c.k==='fire'){const keep=G.troopN;G.troopN=c.n||G.troopN;
     fire(c.side,c.w,c.x,c.y,c.n);G.troopN=keep;}
   else if(c.k==='inv'){const it=INV.find(i=>i.id===c.id);if(it)invest(it);}}
@@ -2028,11 +2054,15 @@ function refreshTools(){
 
 /* ================= GİRDİ ================= */
 const st=$('#stage');
-let ptrs=new Map(),drag=false,last=null,pinch=null,downT=0,downP=null;
+let ptrs=new Map(),drag=false,last=null,pinch=null,downT=0,downP=null,lpTimer=0,longFired=false;
 st.addEventListener('pointerdown',e=>{
   st.setPointerCapture(e.pointerId);
   ptrs.set(e.pointerId,{x:e.clientX,y:e.clientY});
-  if(ptrs.size===1){drag=false;last={x:e.clientX,y:e.clientY};downT=Date.now();downP={x:e.clientX,y:e.clientY};}
+  if(ptrs.size===1){drag=false;last={x:e.clientX,y:e.clientY};downT=Date.now();downP={x:e.clientX,y:e.clientY};
+    longFired=false;clearTimeout(lpTimer);
+    if(G.zomOn&&G.phase==='war'){
+      lpTimer=setTimeout(()=>{
+        if(!drag&&ptrs.size===1&&doLongPress(downP.x,downP.y))longFired=true;},600);}}
   else if(ptrs.size===2){const p=[...ptrs.values()];
     pinch={d:dist(p[0].x,p[0].y,p[1].x,p[1].y),z:cam.z};}
 });
@@ -2048,16 +2078,19 @@ st.addEventListener('pointermove',e=>{
     cam.z=clamp(pinch.z*d/pinch.d,.12,6);cam.tz=null;mapDirty=true;drag=true;return;}
   if(ptrs.size===1&&last){
     const dx=e.clientX-last.x,dy=e.clientY-last.y;
-    if(Math.abs(e.clientX-downP.x)+Math.abs(e.clientY-downP.y)>9)drag=true;
+    if(Math.abs(e.clientX-downP.x)+Math.abs(e.clientY-downP.y)>9){drag=true;clearTimeout(lpTimer);}
     cam.x-=dx/cam.z;cam.y-=dy/cam.z;cam.tx=cam.ty=null;
     cam.y=clamp(cam.y,0,H0);last={x:e.clientX,y:e.clientY};mapDirty=true;}
 });
 function up(e){
+  clearTimeout(lpTimer);
+  if(longFired){longFired=false;ptrs.delete(e.pointerId);
+    if(ptrs.size<2)pinch=null;if(!ptrs.size)last=null;return;}
   if(ptrs.size===1&&!drag&&Date.now()-downT<450)tap(e.clientX,e.clientY);
   ptrs.delete(e.pointerId);if(ptrs.size<2)pinch=null;if(!ptrs.size)last=null;
 }
 st.addEventListener('pointerup',up);
-st.addEventListener('pointercancel',e=>{ptrs.delete(e.pointerId);pinch=null;last=null;});
+st.addEventListener('pointercancel',e=>{clearTimeout(lpTimer);ptrs.delete(e.pointerId);pinch=null;last=null;});
 st.addEventListener('wheel',e=>{e.preventDefault();
   const w=s2w(e.clientX,e.clientY);
   cam.z=clamp(cam.z*(e.deltaY<0?1.16:.86),.12,6);cam.tz=null;
