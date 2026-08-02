@@ -303,7 +303,7 @@ canvas{display:block;position:absolute;inset:0;width:100%;height:100%}
       <button class="big d" id="mp-enter" style="flex:1;margin:0"><strong>KOD GİR</strong><em>Sana verilen kodla odaya katıl.</em></button>
     </div>
     <div class="rule"></div>
-    <div class="sub" style="margin:0">Haritayı sürükle · iki parmakla yakınlaştır · ülkeye dokunarak seç<br><span id="srm-tag" style="opacity:.55">sürüm 4.2</span></div>
+    <div class="sub" style="margin:0">Haritayı sürükle · iki parmakla yakınlaştır · ülkeye dokunarak seç<br><span id="srm-tag" style="opacity:.55">sürüm 4.3</span></div>
   </div>
 </div>
 
@@ -1386,9 +1386,11 @@ function startWar(){
   document.documentElement.style.setProperty('--def',cd);
   if(!G.aiSides)G.aiSides={A:(G.mode!=='manual'||G.side!=='A'),D:(G.mode!=='manual'||G.side!=='D')};
   refreshTeamMarks();
-  if(G.zomOn)zomStart();else{G.zom=[];G.wave=0;if(G.infect)G.infect.clear();for(const c of CLIST)c.infected=false;}
   G.phase='war';G.t=0;G.tick=0;G.cmdq.length=0;
+  /* ortak tohum ÖNCE kurulur: salgın kaynağı her oyuncuda aynı çıksın */
   srand(G.seed||((Date.now()^0x5f3759df)>>>0));
+  if(G.zomOn)zomStart();
+  else{G.zom=[];G.wave=0;if(G.infect)G.infect.clear();for(const c of CLIST)c.infected=false;}
   G.lastCap=0;G.res=10;G.res2=30;G.started=performance.now();
   $('#hud').classList.add('show');
   ecoInit();
@@ -2397,8 +2399,13 @@ function zomReset(){
 function zomStart(){
   zomReset();
   /* salgın rastgele orta ya da büyük bir ülkeden başlar */
-  const pool=CLIST.filter(c=>c.power>=22&&c.cities.length>=3);
-  const src=pool.length?pool[(R()*pool.length)|0]:CLIST[(R()*CLIST.length)|0];
+  /* oyuncuların seçtiği ülkelerden başlamasın */
+  const mine=new Set();
+  for(const s of['A','D'])for(const c of (G.team[s]||[]))mine.add(c.name);
+  let pool=CLIST.filter(c=>c.power>=22&&c.cities.length>=3&&!mine.has(c.name));
+  if(!pool.length)pool=CLIST.filter(c=>c.power>=22&&c.cities.length>=3);
+  if(!pool.length)pool=CLIST;
+  const src=pool[(R()*pool.length)|0];
   infect(src);
   G.wave=1;G.waveLeft=10;G.spawnT=0;
   log('SALGIN BAŞLADI — kaynak: '+src.tr,'w');}
