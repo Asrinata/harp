@@ -305,7 +305,7 @@ canvas{display:block;position:absolute;inset:0;width:100%;height:100%}
       <button class="big d" id="mp-enter" style="flex:1;margin:0"><strong>KOD GİR</strong><em>Sana verilen kodla odaya katıl.</em></button>
     </div>
     <div class="rule"></div>
-    <div class="sub" style="margin:0">Haritayı sürükle · iki parmakla yakınlaştır · ülkeye dokunarak seç<br><span id="srm-tag" style="opacity:.55">sürüm 4.4</span></div>
+    <div class="sub" style="margin:0">Haritayı sürükle · iki parmakla yakınlaştır · ülkeye dokunarak seç<br><span id="srm-tag" style="opacity:.55">sürüm 4.5 — zombi kuleleri</span></div>
   </div>
 </div>
 
@@ -1173,7 +1173,7 @@ const G={mode:'manual',phase:'pickA',a:null,d:null,side:'A',hover:null,
   units:[],fxs:[],sol:{A:[],D:[]},stock:{A:{},D:{}},cd:{A:{},D:{}},cityList:[],total:{A:1,D:1},team:{A:[],D:[]},allyA:[],allyD:[],rulerA:null,rulerD:null,gap:0,logOn:true,ecoOn:true,eco:null,
   speed:1,paused:false,tool:null,troopN:30,t:0,ai:{A:0,D:0},started:0,cap:{A:{},D:{}},res:10,res2:30,
   tick:0,cmdq:[],seed:0,aiSides:null,diff:2,
-  zomOn:false,waveMax:50,zom:[],wave:0,waveLeft:0,spawnT:0,infect:null,zomOver:false};
+  zomOn:false,waveMax:50,zom:[],towers:[],towerT:0,wave:0,waveLeft:0,spawnT:0,infect:null,zomOver:false};
 
 const WEP={
   msl :{ic:'🚀',lb:'FÜZE',cd:2.2},
@@ -1562,7 +1562,7 @@ function step(dt){
       u.x=u.x0+(u.tx-u.x0)*k;u.y=u.y0+(u.ty-u.y0)*k;
       u.trail.push([u.x,u.y]);if(u.trail.length>26)u.trail.shift();
       if(aaCheck(u)){G.units.splice(i,1);continue;}
-      if(k>=1){if(G.zomOn)zomBlast(u.x,u.y,16,'msl');boom(u.x,u.y,14,42,u.side);G.units.splice(i,1);continue;}
+      if(k>=1){if(G.zomOn){zomBlast(u.x,u.y,16,'msl');towerHit(u.x,u.y,16,1);}boom(u.x,u.y,14,42,u.side);G.units.splice(i,1);continue;}
     }
     else if(u.t==='jet'){
       const tx=u.st==='go'?u.tx:u.hx,ty=u.st==='go'?u.ty:u.hy;
@@ -1582,7 +1582,7 @@ function step(dt){
     }
     else if(u.t==='bomb'){
       u.p+=dt*2.2;u.x+=(u.tx-u.x)*.12;u.y+=(u.ty-u.y)*.12;
-      if(u.p>=1){if(G.zomOn)zomBlast(u.tx,u.ty,9,'bomb');boom(u.tx,u.ty,8,17,u.side);G.units.splice(i,1);continue;}
+      if(u.p>=1){if(G.zomOn){zomBlast(u.tx,u.ty,9,'bomb');towerHit(u.tx,u.ty,9,.34);}boom(u.tx,u.ty,8,17,u.side);G.units.splice(i,1);continue;}
     }
     else if(u.t==='ship'||u.t==='lship'){
       if(u.hp<=0){boom(u.x,u.y,7,6,other(u.side));G.units.splice(i,1);
@@ -1929,7 +1929,7 @@ function drawUnits(){
       if(u.t==='lship'){g.fillStyle='rgba(240,237,228,.8)';g.font='700 8px "Barlow Condensed"';
         g.textAlign='center';g.fillText(u.cargo+'',p[0],p[1]+16);}}
   }
-  if(G.zomOn&&typeof drawZombies==='function')drawZombies(g,z);
+  if(G.zomOn&&typeof drawZombies==='function'){drawTowers(g,z);drawZombies(g,z);}
   // efektler
   for(const f of G.fxs){
     if(f.t==='boom'){const p=w2s(f.x,f.y),r=f.r*z;
@@ -2394,6 +2394,7 @@ const ZCAP=520;                 // aynı anda ekranda en fazla zombi
 const ZKILL={msl:30,bomb:12,shell:8};   // bir patlamanın öldürebileceği en fazla zombi
 
 function zomReset(){
+  G.towers=[];G.towerT=0;
   G.zom=[];G.wave=0;G.waveLeft=0;G.spawnT=0;G.zomOver=false;
   G.infect=new Set();
   for(const c of CLIST)c.infected=false;}
@@ -2401,12 +2402,16 @@ function zomReset(){
 function zomStart(){
   zomReset();
   /* salgın rastgele orta ya da büyük bir ülkeden başlar */
-  /* oyuncuların seçtiği ülkelerden başlamasın */
-  const mine=new Set();
-  for(const s of['A','D'])for(const c of (G.team[s]||[]))mine.add(c.name);
-  let pool=CLIST.filter(c=>c.power>=22&&c.cities.length>=3&&!mine.has(c.name));
-  if(!pool.length)pool=CLIST.filter(c=>c.power>=22&&c.cities.length>=3);
-  if(!pool.length)pool=CLIST;
+  /* kaynak: oyuncunun ülkesi değil, ne çok yakın ne çok uzak, arada deniz yok */
+  const mine=new Set(),refs=[];
+  for(const s of['A','D'])for(const c of (G.team[s]||[])){mine.add(c.name);refs.push(c);}
+  const nearRef=c=>{let b=1e18;for(const r0 of refs){const d=dist(c.cx,c.cy,r0.cx,r0.cy);if(d<b)b=d;}return b;};
+  const dryTo=c=>{for(const r0 of refs)if(landFraction(r0.cx,r0.cy,c.cx,c.cy)>=.82)return true;return false;};
+  const base=CLIST.filter(c=>!mine.has(c.name)&&c.power>=15&&c.cities.length>=2);
+  let pool=base.filter(c=>{const d=nearRef(c);return d>55&&d<260&&dryTo(c);});
+  if(!pool.length)pool=base.filter(c=>{const d=nearRef(c);return d>40&&d<400&&dryTo(c);});
+  if(!pool.length)pool=base.filter(c=>{const d=nearRef(c);return d>40&&d<400;});
+  if(!pool.length)pool=base.length?base:CLIST;
   const src=pool[(R()*pool.length)|0];
   infect(src);
   G.wave=1;G.waveLeft=10;G.spawnT=0;
@@ -2493,12 +2498,83 @@ function zomStep(dt){
             log('Bir şehir salgına düştü.','w');
             updateHUD();mapDirty=true;}}}}
   }
+  zomTowers(dt);
   /* --- dalga tamamlandı mı --- */
   if(G.waveLeft<=0&&zs.length===0&&!G.zomOver)nextWave();
   /* --- insanlık yenildi mi --- */
   if(!citiesOf('A').length&&!citiesOf('D').length&&!G.zomOver){
     G.zomOver=true;endWar(null,'zombie');}
 }
+
+/* ---------- ZOMBİ KULELERİ ---------- */
+const TOWER_HP=2, TOWER_SEC=20;
+function towerAt(name){
+  for(const t of G.towers)if(t.land&&t.land.name===name)return t;
+  return null;}
+function zomTowers(dt){
+  if(!G.towers)G.towers=[];
+  /* virüsün geçtiği temiz ülkelere kule dikilir */
+  G.towerT-=dt;
+  if(G.towerT<=0&&G.zom.length){
+    G.towerT=1.5;
+    const n=Math.min(8,G.zom.length);
+    for(let i=0;i<n;i++){
+      const z=G.zom[((R()*G.zom.length)|0)];
+      const c=countryAt(z.x,z.y);
+      if(!c||c.infected||towerAt(c.name))continue;
+      G.towers.push({x:z.x,y:z.y,land:c,hp:TOWER_HP,t:0});
+      log(c.tr+' üzerine zombi kulesi dikildi — '+TOWER_SEC+' sn içinde yıkılmazsa ülke düşer.','w');
+      break;}}
+  /* sayaç */
+  for(let i=G.towers.length-1;i>=0;i--){
+    const t=G.towers[i];
+    if(t.hp<=0){G.towers.splice(i,1);continue;}
+    if(t.land&&t.land.infected){G.towers.splice(i,1);continue;}
+    t.t+=dt;
+    if(t.t>=TOWER_SEC){
+      infect(t.land);
+      log(t.land.tr+' salgına düştü — kule yıkılamadı.','w');
+      G.towers.splice(i,1);}}
+}
+/* patlamalar kuleyi de vurur: iki füze yıkar */
+function towerHit(x,y,r0,dmg){
+  if(!G.towers)return;
+  for(let i=G.towers.length-1;i>=0;i--){
+    const t=G.towers[i];
+    if(dist(t.x,t.y,x,y)<r0+6){
+      t.hp-=dmg;
+      G.fxs.push({t:'boom',x:t.x,y:t.y,r:4,mr:12,a:1});
+      if(t.hp<=0){G.towers.splice(i,1);
+        log((t.land?t.land.tr:'Bir ülke')+' kulesi yıkıldı.','d');}}}}
+function drawTowers(g,z0){
+  if(!G.towers||!G.towers.length)return;
+  const h=clamp(12+z0*8,12,34),w=clamp(5+z0*3,5,13);
+  for(const t of G.towers){
+    const p=w2s(t.x,t.y);
+    if(p[0]<-30||p[0]>cw+30||p[1]<-40||p[1]>ch+30)continue;
+    const x=p[0],y=p[1];
+    g.fillStyle='rgba(0,0,0,.35)';
+    g.beginPath();g.ellipse(x,y+2,w*.9,w*.35,0,0,7);g.fill();
+    g.fillStyle='#1d4a1c';
+    g.beginPath();g.moveTo(x-w*.6,y);g.lineTo(x-w*.35,y-h);g.lineTo(x+w*.35,y-h);
+    g.lineTo(x+w*.6,y);g.closePath();g.fill();
+    g.strokeStyle=ZCOL;g.lineWidth=1.4;g.stroke();
+    for(let k=1;k<3;k++){const yy=y-h*k/3;
+      g.beginPath();g.moveTo(x-w*.5,yy);g.lineTo(x+w*.5,yy);g.stroke();}
+    g.fillStyle=ZCOL;
+    g.beginPath();g.arc(x,y-h-w*.35,w*.42,0,7);g.fill();
+    g.strokeStyle='rgba(120,255,110,.55)';g.lineWidth=1;
+    g.beginPath();g.arc(x,y-h-w*.35,w*.75+Math.sin(G.t*4)*1.5,0,7);g.stroke();
+    /* geri sayım halkası */
+    const fr=clamp(t.t/TOWER_SEC,0,1);
+    g.strokeStyle='rgba(0,0,0,.55)';g.lineWidth=3.2;
+    g.beginPath();g.arc(x,y-h-w*.35,w*1.35,0,7);g.stroke();
+    g.strokeStyle=fr>.7?'#ff5a45':ZCOL;g.lineWidth=2.4;
+    g.beginPath();g.arc(x,y-h-w*.35,w*1.35,-Math.PI/2,-Math.PI/2+fr*6.283);g.stroke();
+    /* can */
+    g.fillStyle='#0a1319';g.fillRect(x-w*.8,y+4,w*1.6,2.4);
+    g.fillStyle=ZCOL;g.fillRect(x-w*.8,y+4,w*1.6*(Math.max(0,t.hp)/TOWER_HP),2.4);
+  }}
 
 /* patlamalar zombileri öldürür — üst sınırlı */
 function zomBlast(x,y,r,kind){
