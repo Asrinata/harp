@@ -19,7 +19,5 @@ Kurulum yok: `index.html` yeterli.
 Tek oyunculu: `index.html` dosyasını tarayıcıda aç.
 Çok oyunculu: dosyaları bir `https://` adresinde yayınla (GitHub Pages, Cloudflare Pages).
 
-## Lisans
-MIT License · Copyright (c) 2026 Asrın
-
-Üçüncü taraf bileşenler: PeerJS (MIT), world-atlas / Natural Earth (ISC + public domain), Barlow Condensed & IBM Plex Sans (OFL 1.1).
+## Üçüncü taraf bileşenler
+PeerJS (MIT) · world-atlas / Natural Earth (ISC + public domain) · Barlow Condensed, IBM Plex Sans (OFL 1.1)
