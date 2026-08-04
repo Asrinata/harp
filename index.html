@@ -13,6 +13,7 @@
 <title>HARP — Dünya Savaş Simülatörü</title>
 <link rel="manifest" href="manifest.json">
 <meta name="theme-color" content="#060e13">
+<meta name="robots" content="noindex, nofollow">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -305,7 +306,7 @@ canvas{display:block;position:absolute;inset:0;width:100%;height:100%}
       <button class="big d" id="mp-enter" style="flex:1;margin:0"><strong>KOD GİR</strong><em>Sana verilen kodla odaya katıl.</em></button>
     </div>
     <div class="rule"></div>
-    <div class="sub" style="margin:0">Haritayı sürükle · iki parmakla yakınlaştır · ülkeye dokunarak seç<br><span id="srm-tag" style="opacity:.55">sürüm 4.7</span></div>
+    <div class="sub" style="margin:0">Haritayı sürükle · iki parmakla yakınlaştır · ülkeye dokunarak seç<br><span id="srm-tag" style="opacity:.55">sürüm 5.0 — hava kuvvetleri</span></div>
   </div>
 </div>
 
@@ -1181,6 +1182,8 @@ const WEP={
   ship:{ic:'🚢',lb:'S. GEMİSİ',cd:3.6},
   sol :{ic:'🪖',lb:'ASKER',cd:1.1},
   lship:{ic:'⛴️',lb:'ÇIKARMA',cd:4.5},
+  heli:{ic:'🚁',lb:'HELİKOPTER',cd:3.2},
+  nuke:{ic:'☢️',lb:'NÜKLEER',cd:25},
   cpl :{ic:'🛩️',lb:'NAKLİYE',cd:4.5}
 };
 const SIDEC={A:'#c1332d',D:'#2f6fb0',Z:'#5bd14a'};
@@ -1222,7 +1225,8 @@ function stocksFor(c){
   const p=c.power;
   return{msl:Math.round(8+p/3.2),jet:Math.round(5+p/5),
     ship:c.coastal?Math.round(2+p/9):0,sol:Math.round(120+p*4.5),
-    lship:c.coastal?Math.round(2+p/22):0,cpl:Math.round(2+p/20)};
+    lship:c.coastal?Math.round(2+p/22):0,cpl:Math.round(2+p/20),
+    heli:Math.round(2+p/14),nuke:0};
 }
 
 /* ================= LOG ================= */
@@ -1249,7 +1253,9 @@ const INV=[
  {id:'gemi',  ic:'🚢', n:'Savaş Gemisi',  d:'+2 savaş gemisi.',                          c:300e6, m:-7, st:{ship:2}},
  {id:'asker', ic:'🪖', n:'Asker Topla',   d:'+60 asker. Seferberlik halkı geriyor.',     c:90e6,  m:-7, st:{sol:60}},
  {id:'cik',   ic:'⛴️', n:'Çıkarma Gemisi',d:'+1 çıkarma gemisi.',                        c:180e6, m:-5, st:{lship:1}},
- {id:'nak',   ic:'🛩️', n:'Nakliye Uçağı', d:'+1 nakliye uçağı.',                         c:160e6, m:-4, st:{cpl:1}}
+ {id:'nak',   ic:'🛩️', n:'Nakliye Uçağı', d:'+1 nakliye uçağı.',                         c:160e6, m:-4, st:{cpl:1}},
+ {id:'heli',  ic:'🚁', n:'Helikopter',    d:'+2 helikopter. Her biri 10 bomba bırakır.', c:220e6, m:-5, st:{heli:2}},
+ {id:'nuke',  ic:'☢️', n:'Nükleer Başlık',d:'+1 nükleer başlık. Halk dehşete kapılır; ancak can %50 altındayken ateşlenir.', c:3e9, m:-20, st:{nuke:1}}
 ];
 function fmtM(v){
   if(v>=1e9)return (v/1e9).toFixed(2).replace('.',',')+' Mlr';
@@ -1372,7 +1378,7 @@ function startWar(){
   G.units.length=0;G.fxs.length=0;G.sol.A.length=0;G.sol.D.length=0;
   G.cityList=[];
   for(const s of['A','D']){
-    const st={msl:0,jet:0,ship:0,sol:0,lship:0,cpl:0};
+    const st={msl:0,jet:0,ship:0,sol:0,lship:0,cpl:0,heli:0,nuke:0};
     const mul=aiCtrl(s)?dif().stock:1;
     for(const c of G.team[s]){
       const x=stocksFor(c);for(const k in st)st[k]+=Math.round(x[k]*mul);
@@ -1514,6 +1520,23 @@ function fire(side,type,tx,ty,n){
     log(type==='ship'?`${cm.c.tr}: savaş gemisi denize açıldı.`
       :`${cm.c.tr}: çıkarma gemisi ${cargo} askerle yola çıktı.`,side==='A'?'a':'d');
   }
+  else if(type==='heli'){
+    const [sx,sy]=spawnPoint(side,tx,ty);
+    G.stock[side].heli--;
+    G.units.push({t:'heli',side,x:sx,y:sy,hx:sx,hy:sy,tx,ty,sp:22,bombs:10,st:'go',bcd:0,
+      rot:0,seen:new Set()});
+    log(`${lead.tr}: helikopter havalandı — 10 bomba taşıyor.`,side==='A'?'a':'d');
+  }
+  else if(type==='nuke'){
+    if(hpOf(side)>.5){
+      if(side===G.side)hint('Nükleer başlık ancak canın %50 veya altına düştüğünde ateşlenebilir.');
+      return false;}
+    const [sx,sy]=spawnPoint(side,tx,ty);
+    G.stock[side].nuke--;
+    G.units.push({t:'nuke',side,x:sx,y:sy,x0:sx,y0:sy,tx,ty,p:0,
+      len:dist(sx,sy,tx,ty),sp:42,trail:[],seen:new Set()});
+    log(`${lead.tr}: NÜKLEER BAŞLIK FIRLATILDI.`,'w');
+  }
   else if(type==='cpl'){
     const [sx,sy]=spawnPoint(side,tx,ty);
     const cargo=clamp(G.troopN,5,Math.min(120,G.stock[side].sol));
@@ -1591,6 +1614,35 @@ function step(dt){
       u.trail.push([u.x,u.y]);if(u.trail.length>26)u.trail.shift();
       if(aaCheck(u)){G.units.splice(i,1);continue;}
       if(k>=1){if(G.zomOn){zomBlast(u.x,u.y,16,'msl');towerHit(u.x,u.y,16,1);}boom(u.x,u.y,14,42,u.side);G.units.splice(i,1);continue;}
+    }
+    else if(u.t==='nuke'){
+      u.p+=u.sp*dt;
+      const k=clamp(u.p/Math.max(1,u.len),0,1);
+      u.x=u.x0+(u.tx-u.x0)*k;u.y=u.y0+(u.ty-u.y0)*k;
+      u.trail.push([u.x,u.y]);if(u.trail.length>40)u.trail.shift();
+      if(k>=1){
+        if(G.zomOn){zomBlast(u.x,u.y,46,'nuke');towerHit(u.x,u.y,46,9);}
+        boom(u.x,u.y,44,260,u.side);
+        for(let n=0;n<10;n++){const a=R()*6.283,r0=R()*40;
+          G.fxs.push({t:'boom',x:u.x+Math.cos(a)*r0,y:u.y+Math.sin(a)*r0,r:6,mr:26,a:1});}
+        G.units.splice(i,1);continue;}
+    }
+    else if(u.t==='heli'){
+      const gx=u.st==='back'?u.hx:u.tx, gy=u.st==='back'?u.hy:u.ty;
+      const d=dist(u.x,u.y,gx,gy);
+      u.ang=Math.atan2(gy-u.y,gx-u.x);u.rot+=dt*22;
+      if(d>3){u.x+=Math.cos(u.ang)*u.sp*dt;u.y+=Math.sin(u.ang)*u.sp*dt;}
+      if(u.st==='go'&&aaCheck(u)){G.units.splice(i,1);continue;}
+      if(u.st==='go'&&d<9){u.st='drop';}
+      if(u.st==='drop'){
+        u.x+=Math.cos(G.t*2.2+u.rot*.02)*6*dt;
+        u.y+=Math.sin(G.t*1.7)*6*dt;
+        u.bcd-=dt;
+        if(u.bcd<=0&&u.bombs>0){u.bombs--;u.bcd=.7;
+          G.units.push({t:'bomb',side:u.side,x:u.x,y:u.y,tx:u.x+rnd(-4,4),ty:u.y+rnd(-4,4),p:0});}
+        if(!u.bombs)u.st='back';
+        if(aaCheck(u)){G.units.splice(i,1);continue;}}
+      if(u.st==='back'&&d<5){G.units.splice(i,1);continue;}
     }
     else if(u.t==='jet'){
       const tx=u.st==='go'?u.tx:u.hx,ty=u.st==='go'?u.ty:u.hy;
@@ -1714,7 +1766,8 @@ function step(dt){
   if(G.res2<=0){G.res2=30;
     for(const s of['A','D']){const st=G.stock[s],cp=G.cap[s];
       st.ship=Math.min(cp.ship,st.ship+1);st.lship=Math.min(cp.lship,st.lship+1);
-      st.cpl=Math.min(cp.cpl,st.cpl+1);}}
+      st.cpl=Math.min(cp.cpl,st.cpl+1);
+      st.heli=Math.min(cp.heli,st.heli+1);}}
   // efektler
   for(let i=G.fxs.length-1;i>=0;i--){const f=G.fxs[i];
     if(f.t==='boom'){f.r+=dt*32;f.a-=dt*1.4;}
@@ -1738,6 +1791,7 @@ function aiTurn(side){
     const opts=[];
     if(canFire(side,'msl'))opts.push('msl');
     if(canFire(side,'jet'))opts.push('jet');
+    if(canFire(side,'heli'))opts.push('heli');
     if(canFire(side,'sol')&&st.sol>20)opts.push('sol');
     if(canFire(side,'cpl')&&st.sol>20)opts.push('cpl');
     if(!opts.length)return;
@@ -1753,6 +1807,7 @@ function aiTurn(side){
   const opts=[];
   if(canFire(side,'msl'))opts.push(['msl',5]);
   if(canFire(side,'jet'))opts.push(['jet',4]);
+  if(canFire(side,'heli'))opts.push(['heli',3]);
   if(canFire(side,'ship'))opts.push(['ship',2.5]);
   if(canFire(side,'sol')&&st.sol>20)opts.push(['sol',4]);
   if(canFire(side,'lship')&&st.sol>20)opts.push(['lship',2]);
@@ -1909,7 +1964,35 @@ function drawUnits(){
     const p=w2s(u.x,u.y);
     if(p[0]<-60||p[0]>cw+60||p[1]<-60||p[1]>ch+60)continue;
     const col=SIDEC[u.side];
-    if(u.t==='msl'){
+    if(u.t==='heli'){
+      g.save();g.translate(p[0],p[1]);g.rotate(u.ang||0);
+      const L=clamp(8+z*3,8,16);
+      g.fillStyle='rgba(0,0,0,.25)';g.beginPath();g.ellipse(-2,4,L*.5,2,0,0,7);g.fill();
+      g.fillStyle='#c6d2d6';
+      g.beginPath();g.ellipse(0,0,L*.45,L*.28,0,0,7);g.fill();
+      g.fillStyle='#8d9ba2';g.fillRect(-L*.85,-1.1,L*.5,2.2);
+      g.beginPath();g.moveTo(-L*.85,0);g.lineTo(-L*1.05,-3);g.lineTo(-L*.75,0);g.closePath();g.fill();
+      g.fillStyle=col;g.fillRect(-L*.12,-L*.14,L*.24,L*.28);
+      g.strokeStyle='rgba(220,235,240,.85)';g.lineWidth=1.4;
+      const rr=L*.95,a0=u.rot||0;
+      g.beginPath();g.moveTo(Math.cos(a0)*-rr,Math.sin(a0)*-rr);g.lineTo(Math.cos(a0)*rr,Math.sin(a0)*rr);
+      g.moveTo(Math.cos(a0+1.57)*-rr,Math.sin(a0+1.57)*-rr);g.lineTo(Math.cos(a0+1.57)*rr,Math.sin(a0+1.57)*rr);
+      g.stroke();
+      g.restore();
+      if(u.bombs>0){g.fillStyle='rgba(240,237,228,.8)';g.font='700 8px "Barlow Condensed"';
+        g.textAlign='center';g.fillText(u.bombs+'',p[0],p[1]-13);}}
+    else if(u.t==='nuke'){
+      g.strokeStyle='rgba(255,220,120,.7)';g.lineWidth=2;g.beginPath();
+      u.trail.forEach((q2,i2)=>{const s2=w2s(q2[0],q2[1]);g[i2?'lineTo':'moveTo'](s2[0],s2[1]);});g.stroke();
+      const a=Math.atan2(u.ty-u.y,u.tx-u.x);
+      g.save();g.translate(p[0],p[1]);g.rotate(a);
+      g.fillStyle='#e8e2d0';g.beginPath();g.moveTo(11,0);g.lineTo(3,3);g.lineTo(-7,3);
+      g.lineTo(-7,-3);g.lineTo(3,-3);g.closePath();g.fill();
+      g.fillStyle='#111';g.fillRect(-2,-3,3,6);
+      g.fillStyle='rgba(255,170,60,.95)';g.beginPath();g.moveTo(-7,0);
+      g.lineTo(-7-13*(1+R()*.5),2.4);g.lineTo(-7-13*(1+R()*.5),-2.4);g.closePath();g.fill();
+      g.restore();}
+    else if(u.t==='msl'){
       g.strokeStyle=u.side==='A'?'rgba(255,150,120,.55)':'rgba(140,190,255,.55)';
       g.lineWidth=1.4;g.beginPath();
       u.trail.forEach((q,i)=>{const s=w2s(q[0],q[1]);g[i?'lineTo':'moveTo'](s[0],s[1]);});g.stroke();
@@ -2429,7 +2512,7 @@ if('serviceWorker' in navigator)
 /* ================= ZOMBİ SALGINI ================= */
 const ZCOL='#5bd14a', ZDARK='#1e3d1c';
 const ZCAP=520;                 // aynı anda ekranda en fazla zombi
-const ZKILL={msl:30,bomb:12,shell:8};   // bir patlamanın öldürebileceği en fazla zombi
+const ZKILL={msl:30,bomb:12,shell:8,nuke:250};   // bir patlamanın öldürebileceği en fazla zombi
 
 function zomReset(){
   G.towers=[];G.towerT=0;
@@ -3033,10 +3116,18 @@ function applyStart(d){
 
 /* ---------- durum eşitleme ---------- */
 function r2(v){return Math.round(v*100)/100;}
+const OWN={A:0,D:1,Z:2};
+const OWNR=['A','D','Z',null];
+function ciIdx(c){return CLIST.indexOf(c);}
 function makeSnap(){
   const ix=c=>{const a=G.team.A.indexOf(c);return a>=0?a:16+G.team.D.indexOf(c);};
   return {tick:G.tick,t:r2(G.t),
-    ci:G.cityList.map(c=>[Math.round(c.hp),c.owner==='A'?0:1,r2(c.lock||0)]),
+    /* salgın durumu */
+    zw:G.zomOn?[G.wave,G.waveLeft,r2(G.spawnT)]:null,
+    zi:G.zomOn?CLIST.filter(c=>c.infected).map(ciIdx):null,
+    zz:G.zomOn?G.zom.map(z=>[r2(z.x),r2(z.y),Math.round(z.hp)]):null,
+    zt:G.zomOn?(G.towers||[]).map(t=>[r2(t.x),r2(t.y),ciIdx(t.land),r2(t.hp),r2(t.t)]):null,
+    ci:G.cityList.map(c=>[Math.round(c.hp),(OWN[c.owner]!=null?OWN[c.owner]:3),r2(c.lock||0)]),
     st:[G.stock.A,G.stock.D],
     u:G.units.filter(u=>u.t==='ship'||u.t==='lship').map(u=>
       [u.t==='ship'?0:1,u.side==='A'?0:1,r2(u.x),r2(u.y),r2(u.dx),r2(u.dy),
@@ -3047,7 +3138,19 @@ function applySnap(s){
   if(!s||G.phase!=='war')return;
   G.tick=s.tick;G.t=s.t;
   s.ci.forEach((v,i)=>{const c=G.cityList[i];if(!c)return;
-    c.hp=v[0];c.owner=v[1]?'D':'A';c.lock=v[2];});
+    c.hp=v[0];c.owner=OWNR[v[1]]||null;c.lock=v[2];});
+  /* salgın durumunu birebir eşitle */
+  if(s.zi){
+    for(const c of CLIST)c.infected=false;
+    G.infect=new Set();
+    for(const i of s.zi){const c=CLIST[i];if(c){c.infected=true;G.infect.add(c.name);}}}
+  if(s.zw){G.wave=s.zw[0];G.waveLeft=s.zw[1];G.spawnT=s.zw[2];}
+  if(s.zz){
+    G.zom=s.zz.map(v=>({z:true,x:v[0],y:v[1],tx:v[0],ty:v[1],hp:v[2],
+      sp:rnd(3.4,4.6),rt:rnd(0,.6),fc:rnd(0,1),tgt:null,city:null,bob:rnd(0,6)}));}
+  if(s.zt){
+    G.towers=s.zt.map(v=>({x:v[0],y:v[1],land:CLIST[v[2]]||null,hp:v[3],t:v[4]}))
+      .filter(t=>t.land);}
   G.stock.A=s.st[0];G.stock.D=s.st[1];
   G.units=G.units.filter(u=>u.t!=='ship'&&u.t!=='lship');
   for(const v of s.u){
