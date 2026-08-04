@@ -21,7 +21,7 @@
 <link rel="icon" href="icon-192.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=Barlow+Condensed:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
 :root{
   --ocean:#0d2733; --ocean-deep:#081a23;
@@ -263,6 +263,16 @@ canvas{display:block;position:absolute;inset:0;width:100%;height:100%}
   .marka{font-size:clamp(46px,16vw,80px)}
 }
 
+#ov-start .ayar b.adm{border-color:var(--atk);color:var(--atk)}
+#gift-list{border:1px solid var(--line);max-height:44vh;overflow-y:auto}
+.grow{display:flex;align-items:center;gap:8px;padding:8px 10px;border-bottom:1px solid #16262f}
+.gnm{width:96px;flex:0 0 auto}
+.gnm b{display:block;font-size:13px}
+.gnm span{font-size:10px;color:var(--dim)}
+.gin{flex:1;margin:0!important;padding:7px 9px!important;font-size:13px!important;min-width:0}
+.gbtn{font-family:"Barlow Condensed",sans-serif;font-size:13px;letter-spacing:.1em;
+  background:var(--atk);color:#fff;border:none;padding:8px 14px;cursor:pointer;flex:0 0 auto}
+.gbtn:hover{background:#d94a42}
 /* ===== BAŞARIM BİLDİRİMİ ===== */
 #toast{position:fixed;top:calc(env(safe-area-inset-top) + 52px);right:10px;z-index:80;
   display:flex;flex-direction:column;gap:8px;pointer-events:none;max-width:min(78vw,300px)}
@@ -441,6 +451,7 @@ canvas{display:block;position:absolute;inset:0;width:100%;height:100%}
     <button class="sicil-btn" id="user-ach-btn">BAŞARIMLAR</button>
     <button class="sicil-btn" id="user-tag-btn">ETİKET DÜKKÂNI</button>
     <div class="ayar" id="eco-row"><span>Ekonomi</span><b id="eco-state">AÇIK</b></div>
+    <div class="ayar" id="adm-row" style="display:none"><span>Özel etiketler</span><b class="adm">HEDİYE VER</b></div>
   </aside>
 
   <section class="sag">
@@ -491,7 +502,7 @@ canvas{display:block;position:absolute;inset:0;width:100%;height:100%}
 
       <div class="not">
         Haritayı sürükle · iki parmakla yakınlaştır · ülkeye dokunarak seç
-        <span id="srm-tag">sürüm 5.3 — yeni menü</span>
+        <span id="srm-tag">sürüm 5.4</span>
       </div>
     </div>
   </section>
@@ -563,6 +574,16 @@ canvas{display:block;position:absolute;inset:0;width:100%;height:100%}
     <button class="big n" id="pick-open"><strong id="pick-lbl">ÜLKE SEÇ</strong><em>Listeden ara ya da haritadan dokun.</em></button>
     <div id="pick-list"></div>
     <div style="text-align:right;margin-top:8px"><button class="btn" id="pick-leave">ODADAN ÇIK</button></div>
+  </div>
+</div>
+
+<div class="ov hide" id="ov-gift">
+  <div class="card">
+    <h1 class="cond" style="font-size:24px;letter-spacing:.12em">ÖZEL ETİKETLER</h1>
+    <div class="sub">Kullanıcı adını yaz, VER'e bas. Kişi aynı odada olmalı.</div>
+    <div id="gift-msg" class="sub" style="color:var(--amber)"></div>
+    <div id="gift-list"></div>
+    <div style="margin-top:10px;text-align:right"><button class="btn" id="gift-close">KAPAT</button></div>
   </div>
 </div>
 
@@ -3126,6 +3147,7 @@ function onHostData(conn,d){
   if(d.t==='req'){
     const tick=G.tick+NET.lead;
     G.cmdq.push({tick,c:d.c});sendAll({t:'cmd',tick,c:d.c});return;}
+  if(d.t==='gift'){sendAll(d,conn);takeGift(d);return;}
   if(d.t==='join'){
     if(NET.players.length>=MAXP){try{conn.send({t:'full'});}catch(e){}return;}
     conn.__id=d.id;
@@ -3160,6 +3182,7 @@ function onClientData(d){
     syncPick();
     renderRoom();updateMpBar();updateDiffBtn();updateZomBtns();}
   else if(d.t==='cd'){startCountdown();}
+  else if(d.t==='gift'){takeGift(d);}
   else if(d.t==='begin'){openPick();}
   else if(d.t==='start'){applyStart(d);}
   else if(d.t==='cmd'){G.cmdq.push({tick:d.tick,c:d.c});}
@@ -3574,8 +3597,13 @@ const TAGS=[
   {id:'maresal',n:'Mareşal',        c:20},
   {id:'baron',  n:'Savaş Baronu',   c:30},
   {id:'efsane', n:'Efsane',         c:50},
-  {id:'admin',  n:'Admin',          c:0, pw:'2349852123'}
+  {id:'admin',  n:'Admin',          c:0, pw:'2349852123'},
+  {id:'tester', n:'Tester',         c:0, gift:1},
+  {id:'bug',    n:'Bug Bulucu',     c:0, gift:1},
+  {id:'beyin',  n:'Mr.Beyin',       c:0, gift:1},
+  {id:'knk',    n:'knk',            c:0, gift:1}
 ];
+const GIFTS=TAGS.filter(t=>t.gift);
 function tagName(){
   const t=TAGS.find(x=>x.id===PROF.tag);
   return t&&t.id?t.n:'';}
@@ -3585,6 +3613,8 @@ function fullName(base){
   if(achDone())parts.push('· Başarımlar Başkanı');
   return parts.join(' ');}
 function buyTag(t){
+  if(t.gift&&PROF.tags.indexOf(t.id)<0){
+    log('Bu etiket satın alınamaz, yalnızca hediye edilir.','w');return;}
   if(t.id==='admin'&&!PROF.admin){
     const pw=prompt('Admin parolası:');
     if(pw!==t.pw){log('Parola yanlış.','w');return;}
@@ -3596,6 +3626,43 @@ function buyTag(t){
   if(TAGS.every(x=>!x.id||PROF.tags.indexOf(x.id)>=0))unlockAch('coll');
   renderTags();renderUser();
   if(t.id)toast('🏷 ETİKET SEÇİLDİ',t.n);}
+
+/* ---------- hediye sistemi (admin) ---------- */
+function renderGift(){
+  const L=$('#gift-list');if(!L)return;
+  L.innerHTML='';
+  for(const t of GIFTS){
+    const d=document.createElement('div');d.className='grow';
+    const nm=document.createElement('div');nm.className='gnm';
+    nm.innerHTML='<b>'+t.n+'</b><span>özel etiket</span>';
+    const inp=document.createElement('input');
+    inp.className='searchbox gin';inp.placeholder='kullanıcı adı';
+    inp.maxLength=14;inp.autocomplete='off';
+    const btn=document.createElement('button');
+    btn.className='gbtn';btn.textContent='VER';
+    btn.addEventListener('click',()=>{sendGift(inp.value,t.id);inp.value='';});
+    d.appendChild(nm);d.appendChild(inp);d.appendChild(btn);
+    L.appendChild(d);}
+  const s=$('#gift-msg');
+  if(s)s.textContent=(typeof NET!=='undefined'&&NET.on)
+    ?('Oda: '+(NET.code||'—')+' · '+NET.players.length+' oyuncu'):
+     'Hediye göndermek için aynı odada olmalısınız.';}
+function sendGift(to,tagId){
+  to=(to||'').trim();
+  if(!to){log('Kullanıcı adı yaz.','w');return;}
+  if(!(typeof NET!=='undefined'&&NET.on)){log('Önce bir oda kur ya da odaya katıl.','w');return;}
+  const msg={t:'gift',to,tag:tagId,from:NET.name};
+  if(NET.host){sendAll(msg);}else{sendHost(msg);}
+  takeGift(msg);
+  log('Hediye gönderildi: '+to+' → '+(TAGS.find(x=>x.id===tagId)||{}).n,'d');}
+function takeGift(g){
+  if(!g||!g.tag)return;
+  const me=(NET.name||'').trim().toLocaleLowerCase('tr');
+  if((g.to||'').trim().toLocaleLowerCase('tr')!==me)return;
+  const t=TAGS.find(x=>x.id===g.tag);if(!t)return;
+  if(PROF.tags.indexOf(t.id)<0){PROF.tags.push(t.id);saveProf();}
+  toast('🎁 HEDİYE GELDİ','Hediye geldi ('+t.n+')!','Gönderen: '+(g.from||'bilinmiyor'));
+  renderTags();renderUser();}
 
 /* ---------- yükseltmeler (maç içi, para ile) ---------- */
 const UPG=[
@@ -3631,6 +3698,7 @@ function renderUser(){
   const e=$('#user-name');if(e)e.textContent=NET.name||'Komutan';
   const r=$('#user-rank'),tn=tagName();
   if(r){r.textContent=tn||'';r.style.display=tn?'':'none';}
+  const ar=$('#adm-row');if(ar)ar.style.display=PROF.admin?'':'none';
   const u=$('#user-unvan');
   if(u)u.textContent=achDone()?'👑 Başarımlar Başkanı':'Cephe kaydı açık';
   const w=$('#user-wins');if(w)w.textContent=PROF.wins;
@@ -3658,11 +3726,11 @@ function renderTags(){
   L.innerHTML='';
   for(const t of TAGS){
     const own=!t.id||PROF.tags.indexOf(t.id)>=0;
-    const can=own||PROF.wins>=t.c||t.id==='admin';
+    const can=own||t.id==='admin'||(!t.gift&&PROF.wins>=t.c);
     const d=document.createElement('div');
     d.className='trow'+(PROF.tag===t.id?' on':'')+(can?'':' no')+(t.id==='admin'?' admin':'');
     d.innerHTML='<div class="ttx"><b>'+(t.id?t.n:'Etiketsiz')+'</b>'+
-      '<span>'+(t.id==='admin'?'parola gerekir':(own?'sahipsin':t.c+' galibiyet'))+'</span></div>'+
+      '<span>'+(t.id==='admin'?'parola gerekir':(t.gift?(own?'hediye edildi':'özel · hediye ile gelir'):(own?'sahipsin':t.c+' galibiyet')))+'</span></div>'+
       '<div class="tst">'+(PROF.tag===t.id?'SEÇİLİ':(own?'SEÇ':(t.id==='admin'?'🔑':'🔒')))+'</div>';
     d.addEventListener('click',()=>buyTag(t));
     L.appendChild(d);}
@@ -3689,6 +3757,8 @@ function renderUpg(){
 on('#user-ach-btn','click',()=>{renderAch();show('#ov-ach');});
 on('#ach-close','click',()=>hide('#ov-ach'));
 on('#user-tag-btn','click',()=>{renderTags();show('#ov-tags');});
+on('#adm-row','click',()=>{renderGift();show('#ov-gift');});
+on('#gift-close','click',()=>hide('#ov-gift'));
 on('#tag-close','click',()=>hide('#ov-tags'));
 on('#b-upg','click',()=>{renderUpg();show('#ov-upg');});
 on('#upg-close','click',()=>hide('#ov-upg'));
