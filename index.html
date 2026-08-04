@@ -269,7 +269,12 @@ canvas{display:block;position:absolute;inset:0;width:100%;height:100%}
 .gnm{width:96px;flex:0 0 auto}
 .gnm b{display:block;font-size:13px}
 .gnm span{font-size:10px;color:var(--dim)}
-.gin{flex:1;margin:0!important;padding:7px 9px!important;font-size:13px!important;min-width:0}
+.gkod{flex:1;min-width:0;text-align:center;font-family:"Barlow Condensed",sans-serif;
+  font-size:19px;letter-spacing:.16em;color:var(--dim);background:#0a151c;
+  border:1px dashed var(--line);padding:7px 6px;user-select:all}
+.gkod.dolu{color:var(--amber);border-color:var(--amber);border-style:solid}
+.kodkutu{display:flex;gap:8px;margin-bottom:10px}
+.kodkutu .searchbox{flex:1;margin:0;letter-spacing:.14em;text-align:center}
 .gbtn{font-family:"Barlow Condensed",sans-serif;font-size:13px;letter-spacing:.1em;
   background:var(--atk);color:#fff;border:none;padding:8px 14px;cursor:pointer;flex:0 0 auto}
 .gbtn:hover{background:#d94a42}
@@ -502,7 +507,7 @@ canvas{display:block;position:absolute;inset:0;width:100%;height:100%}
 
       <div class="not">
         Haritayı sürükle · iki parmakla yakınlaştır · ülkeye dokunarak seç
-        <span id="srm-tag">sürüm 5.4</span>
+        <span id="srm-tag">sürüm 5.5</span>
       </div>
     </div>
   </section>
@@ -590,7 +595,11 @@ canvas{display:block;position:absolute;inset:0;width:100%;height:100%}
 <div class="ov hide" id="ov-ach">
   <div class="card">
     <h1 class="cond" style="font-size:24px;letter-spacing:.12em">BAŞARIMLAR</h1>
-    <div class="sub" id="ach-sum">0/13 başarım</div>
+    <div class="sub" id="ach-sum">0/35 başarım</div>
+    <div class="kodkutu">
+      <input class="searchbox" id="ach-code" placeholder="Hediye kodu (örn. AB2-K7QF9)" maxlength="9" autocomplete="off" style="text-transform:uppercase">
+      <button class="gbtn" id="ach-al">AL</button>
+    </div>
     <div id="ach-list"></div>
     <div style="margin-top:10px;text-align:right"><button class="btn" id="ach-close">KAPAT</button></div>
   </div>
@@ -3147,7 +3156,6 @@ function onHostData(conn,d){
   if(d.t==='req'){
     const tick=G.tick+NET.lead;
     G.cmdq.push({tick,c:d.c});sendAll({t:'cmd',tick,c:d.c});return;}
-  if(d.t==='gift'){sendAll(d,conn);takeGift(d);return;}
   if(d.t==='join'){
     if(NET.players.length>=MAXP){try{conn.send({t:'full'});}catch(e){}return;}
     conn.__id=d.id;
@@ -3182,7 +3190,6 @@ function onClientData(d){
     syncPick();
     renderRoom();updateMpBar();updateDiffBtn();updateZomBtns();}
   else if(d.t==='cd'){startCountdown();}
-  else if(d.t==='gift'){takeGift(d);}
   else if(d.t==='begin'){openPick();}
   else if(d.t==='start'){applyStart(d);}
   else if(d.t==='cmd'){G.cmdq.push({tick:d.tick,c:d.c});}
@@ -3490,12 +3497,14 @@ const PROF={
   ach:LS('harp_ach',[]),
   tags:LS('harp_tags',[]),
   tag:LS('harp_tag',''),
+  used:LS('harp_used',[]),
   admin:LS('harp_admin',false)
 };
 function saveProf(){
   SS('harp_wins',PROF.wins);SS('harp_ach',PROF.ach);
   SS('harp_games',PROF.games);SS('harp_towers',PROF.towers);
-  SS('harp_tags',PROF.tags);SS('harp_tag',PROF.tag);SS('harp_admin',PROF.admin);}
+  SS('harp_tags',PROF.tags);SS('harp_tag',PROF.tag);SS('harp_admin',PROF.admin);
+  SS('harp_used',PROF.used);}
 
 /* ---------- başarımlar ---------- */
 const ACH=[
@@ -3627,42 +3636,57 @@ function buyTag(t){
   renderTags();renderUser();
   if(t.id)toast('🏷 ETİKET SEÇİLDİ',t.n);}
 
-/* ---------- hediye sistemi (admin) ---------- */
+/* ---------- hediye kodları (admin üretir, herkes kullanır) ---------- */
+const KALP='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+function kdChk(body){
+  let h=7;const s=body+'HARP-2026-KOD';
+  for(let i=0;i<s.length;i++)h=(Math.imul(h,31)+s.charCodeAt(i))>>>0;
+  return KALP[h%32];}
+function kdYap(idx){
+  let body=KALP[idx];
+  for(let i=0;i<5;i++)body+=KALP[(Math.random()*32)|0];
+  return body+kdChk(body);}
+function kdBic(c){return c.slice(0,3)+'-'+c.slice(3);}
+function kdCoz(code){
+  code=(code||'').toUpperCase().replace(/[^A-Z0-9]/g,'');
+  if(code.length!==7)return null;
+  const body=code.slice(0,6);
+  if(kdChk(body)!==code[6])return null;
+  const idx=KALP.indexOf(body[0]);
+  if(idx<0||idx>=GIFTS.length)return null;
+  return {tag:GIFTS[idx],code};}
+function kdKullan(raw){
+  const r=kdCoz(raw);
+  if(!r){toast('❌ GEÇERSİZ KOD','Kod tanınmadı','Harfleri ve rakamları kontrol et.');return;}
+  if(!PROF.used)PROF.used=[];
+  if(PROF.used.indexOf(r.code)>=0){
+    toast('❌ KOD KULLANILMIŞ',r.tag.n,'Bu kod daha önce kullanıldı.');return;}
+  PROF.used.push(r.code);
+  if(PROF.tags.indexOf(r.tag.id)<0)PROF.tags.push(r.tag.id);
+  saveProf();
+  toast('🎁 HEDİYE GELDİ','Hediye geldi ('+r.tag.n+')!','Etiket dükkânından seçebilirsin.');
+  renderTags();renderUser();
+  const inp=$('#ach-code');if(inp)inp.value='';}
 function renderGift(){
   const L=$('#gift-list');if(!L)return;
   L.innerHTML='';
-  for(const t of GIFTS){
+  GIFTS.forEach((t,i)=>{
     const d=document.createElement('div');d.className='grow';
     const nm=document.createElement('div');nm.className='gnm';
     nm.innerHTML='<b>'+t.n+'</b><span>özel etiket</span>';
-    const inp=document.createElement('input');
-    inp.className='searchbox gin';inp.placeholder='kullanıcı adı';
-    inp.maxLength=14;inp.autocomplete='off';
+    const kod=document.createElement('div');kod.className='gkod';
+    kod.textContent='— — —';
     const btn=document.createElement('button');
-    btn.className='gbtn';btn.textContent='VER';
-    btn.addEventListener('click',()=>{sendGift(inp.value,t.id);inp.value='';});
-    d.appendChild(nm);d.appendChild(inp);d.appendChild(btn);
-    L.appendChild(d);}
+    btn.className='gbtn';btn.textContent='OLUŞTUR';
+    btn.addEventListener('click',()=>{
+      const c=kdYap(i);
+      kod.textContent=kdBic(c);
+      kod.classList.add('dolu');
+      log(t.n+' kodu üretildi: '+kdBic(c),'d');});
+    d.appendChild(nm);d.appendChild(kod);d.appendChild(btn);
+    L.appendChild(d);});
   const s=$('#gift-msg');
-  if(s)s.textContent=(typeof NET!=='undefined'&&NET.on)
-    ?('Oda: '+(NET.code||'—')+' · '+NET.players.length+' oyuncu'):
-     'Hediye göndermek için aynı odada olmalısınız.';}
-function sendGift(to,tagId){
-  to=(to||'').trim();
-  if(!to){log('Kullanıcı adı yaz.','w');return;}
-  if(!(typeof NET!=='undefined'&&NET.on)){log('Önce bir oda kur ya da odaya katıl.','w');return;}
-  const msg={t:'gift',to,tag:tagId,from:NET.name};
-  if(NET.host){sendAll(msg);}else{sendHost(msg);}
-  takeGift(msg);
-  log('Hediye gönderildi: '+to+' → '+(TAGS.find(x=>x.id===tagId)||{}).n,'d');}
-function takeGift(g){
-  if(!g||!g.tag)return;
-  const me=(NET.name||'').trim().toLocaleLowerCase('tr');
-  if((g.to||'').trim().toLocaleLowerCase('tr')!==me)return;
-  const t=TAGS.find(x=>x.id===g.tag);if(!t)return;
-  if(PROF.tags.indexOf(t.id)<0){PROF.tags.push(t.id);saveProf();}
-  toast('🎁 HEDİYE GELDİ','Hediye geldi ('+t.n+')!','Gönderen: '+(g.from||'bilinmiyor'));
-  renderTags();renderUser();}
+  if(s)s.textContent='Kodu üret, arkadaşına gönder. O da Başarımlar ekranından girsin.';}
 
 /* ---------- yükseltmeler (maç içi, para ile) ---------- */
 const UPG=[
@@ -3756,6 +3780,7 @@ function renderUpg(){
 
 on('#user-ach-btn','click',()=>{renderAch();show('#ov-ach');});
 on('#ach-close','click',()=>hide('#ov-ach'));
+on('#ach-al','click',()=>kdKullan($('#ach-code').value));
 on('#user-tag-btn','click',()=>{renderTags();show('#ov-tags');});
 on('#adm-row','click',()=>{renderGift();show('#ov-gift');});
 on('#gift-close','click',()=>hide('#ov-gift'));
