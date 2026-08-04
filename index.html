@@ -168,6 +168,28 @@ canvas{display:block;position:absolute;inset:0;width:100%;height:100%}
 .row2{display:flex;gap:7px;margin-bottom:9px}
 .row2 .btn{flex:1;text-align:center;padding:10px}
 #mp-msg{font-size:11.5px;color:var(--amber);min-height:15px;margin-bottom:8px}
+/* profil / başarım / etiket */
+#user-row2{display:flex;gap:7px;margin-bottom:10px}
+#user-row2 .btn{flex:1;font-size:11px;padding:7px 6px}
+#user-row2 b{color:var(--amber)}
+#b-upg{background:var(--panel-2);color:var(--bone);border:1px solid var(--line);
+  font-family:"Barlow Condensed",sans-serif;font-size:13px;letter-spacing:.05em;
+  padding:6px 10px;border-radius:3px;cursor:pointer;white-space:nowrap}
+#ach-list,#tag-list,#upg-list{border:1px solid var(--line);max-height:46vh;overflow-y:auto}
+.arow{display:flex;gap:9px;align-items:center;padding:8px 10px;border-bottom:1px solid #16262f;opacity:.45}
+.arow.got{opacity:1;background:#16262f}
+.arow .aic{font-size:18px;width:24px;text-align:center}
+.atx b{display:block;font-size:13px}
+.atx span{font-size:10.5px;color:var(--dim)}
+.trow{display:flex;align-items:center;gap:9px;padding:9px 10px;border-bottom:1px solid #16262f;cursor:pointer}
+.trow:hover{background:#182a34}
+.trow.on{background:#20303a;border-left:3px solid var(--amber)}
+.trow.no{opacity:.45}
+.trow.admin{border-left:3px solid var(--atk)}
+.ttx{flex:1;min-width:0}
+.ttx b{display:block;font-size:14px}
+.ttx span{font-size:10.5px;color:var(--dim)}
+.tst{font-family:"Barlow Condensed",sans-serif;font-size:12px;letter-spacing:.06em;color:var(--amber)}
 /* çok oyunculu */
 #user-row{display:flex;align-items:center;justify-content:space-between;gap:8px;
   background:var(--panel-2);border:1px solid var(--line);padding:8px 10px;margin-bottom:10px;font-size:13px}
@@ -283,6 +305,7 @@ canvas{display:block;position:absolute;inset:0;width:100%;height:100%}
     <div id="money">1,00 Mlr</div>
     <div id="mor"><span class="fc">😟</span><div class="mbar"><i id="mbar-i" style="width:60%"></i></div><span class="fc">😀</span></div>
     <button id="b-inv">💰 YATIRIM</button>
+    <button id="b-upg">⚙️ YÜKSELT</button>
   </div>
   <div id="troop"><label>ASKER</label><input type="range" id="tslider" min="5" max="120" step="5" value="30"><div id="tval">30</div></div>
   <div id="hint"></div>
@@ -294,7 +317,11 @@ canvas{display:block;position:absolute;inset:0;width:100%;height:100%}
     <div class="sub">Dünya haritası üzerinde savaş simülasyonu. Önce saldıran tarafı, sonra savunan tarafı seç. Aynı safa birden çok ülke ekleyip koalisyon kurabilirsin (2'ye 1 gibi).</div>
     <div id="user-row">
       <span>👤 <b id="user-name">Komutan</b></span>
-      <button class="btn" id="user-edit">KULLANICI ADINI DEĞİŞTİR</button>
+      <button class="btn" id="user-edit">AD</button>
+    </div>
+    <div id="user-row2">
+      <button class="btn" id="user-ach-btn">🏆 BAŞARIMLAR <b id="user-ach">0/13</b></button>
+      <button class="btn" id="user-tag-btn">🏷 ETİKETLER <b id="user-wins">0</b> galibiyet</button>
     </div>
     <div id="eco-row"><span><strong>EKONOMİ</strong><em>Bütçe, vergi ve halk memnuniyeti. Yanlış yatırım yaparsan halk isyan eder.</em></span><span id="eco-state">AÇIK</span></div>
     <button class="big n" data-mode="manual"><strong>MANUEL KOMUTA</strong><em>Füzeleri, savaş uçaklarını, gemileri ve asker çıkarmasını sen yönetirsin. İster saldıran ister savunan tarafı oyna.</em></button>
@@ -306,7 +333,7 @@ canvas{display:block;position:absolute;inset:0;width:100%;height:100%}
       <button class="big d" id="mp-enter" style="flex:1;margin:0"><strong>KOD GİR</strong><em>Sana verilen kodla odaya katıl.</em></button>
     </div>
     <div class="rule"></div>
-    <div class="sub" style="margin:0">Haritayı sürükle · iki parmakla yakınlaştır · ülkeye dokunarak seç<br><span id="srm-tag" style="opacity:.55">sürüm 5.0 — hava kuvvetleri</span></div>
+    <div class="sub" style="margin:0">Haritayı sürükle · iki parmakla yakınlaştır · ülkeye dokunarak seç<br><span id="srm-tag" style="opacity:.55">sürüm 5.1 — başarımlar</span></div>
   </div>
 </div>
 
@@ -389,6 +416,33 @@ canvas{display:block;position:absolute;inset:0;width:100%;height:100%}
     <button class="big n" id="pick-open"><strong id="pick-lbl">ÜLKE SEÇ</strong><em>Listeden ara ya da haritadan dokun.</em></button>
     <div id="pick-list"></div>
     <div style="text-align:right;margin-top:8px"><button class="btn" id="pick-leave">ODADAN ÇIK</button></div>
+  </div>
+</div>
+
+<div class="ov hide" id="ov-ach">
+  <div class="card">
+    <h1 class="cond" style="font-size:24px;letter-spacing:.12em">BAŞARIMLAR</h1>
+    <div class="sub" id="ach-sum">0/13 başarım</div>
+    <div id="ach-list"></div>
+    <div style="margin-top:10px;text-align:right"><button class="btn" id="ach-close">KAPAT</button></div>
+  </div>
+</div>
+
+<div class="ov hide" id="ov-tags">
+  <div class="card">
+    <h1 class="cond" style="font-size:24px;letter-spacing:.12em">ETİKET DÜKKÂNI</h1>
+    <div class="sub">Galibiyetin: <b id="tag-wins">0</b> · Manuel modda kazandığın her savaş 1 galibiyet.</div>
+    <div id="tag-list"></div>
+    <div style="margin-top:10px;text-align:right"><button class="btn" id="tag-close">KAPAT</button></div>
+  </div>
+</div>
+
+<div class="ov hide" id="ov-upg">
+  <div class="card">
+    <h1 class="cond" style="font-size:24px;letter-spacing:.12em">YÜKSELTME</h1>
+    <div class="sub" id="upg-top">Bütçe: —</div>
+    <div id="upg-list"></div>
+    <div style="margin-top:10px;text-align:right"><button class="btn" id="upg-close">KAPAT</button></div>
   </div>
 </div>
 
@@ -1255,7 +1309,7 @@ const INV=[
  {id:'cik',   ic:'⛴️', n:'Çıkarma Gemisi',d:'+1 çıkarma gemisi.',                        c:180e6, m:-5, st:{lship:1}},
  {id:'nak',   ic:'🛩️', n:'Nakliye Uçağı', d:'+1 nakliye uçağı.',                         c:160e6, m:-4, st:{cpl:1}},
  {id:'heli',  ic:'🚁', n:'Helikopter',    d:'+2 helikopter. Her biri 10 bomba bırakır.', c:220e6, m:-5, st:{heli:2}},
- {id:'nuke',  ic:'☢️', n:'Nükleer Başlık',d:'+1 nükleer başlık. Halk dehşete kapılır; ancak can %50 altındayken ateşlenir.', c:3e9, m:-20, st:{nuke:1}}
+ {id:'nuke',  ic:'☢️', n:'Nükleer Başlık',d:'+1 nükleer başlık. Halk dehşete kapılır; ancak can %50 altındayken ateşlenir.', c:1.5e9, m:-20, st:{nuke:1}}
 ];
 function fmtM(v){
   if(v>=1e9)return (v/1e9).toFixed(2).replace('.',',')+' Mlr';
@@ -1273,7 +1327,7 @@ function ecoStep(dt){
   if(!G.ecoS)return;
   for(const s of['A','D']){
     const e=G.ecoS[s];if(!e||!e.on)continue;
-    e.money+=(11e6*e.tax+e.inc)*dt;
+    e.money+=(19e6*e.tax+e.inc)*dt;
     e.morale=clamp(e.morale+(-(e.tax-1)*4-0.25)*dt,0,100);
     if(e.morale<=4){e.riot+=dt;
       if(e.riot>=10){
@@ -1394,6 +1448,7 @@ function startWar(){
   document.documentElement.style.setProperty('--def',cd);
   if(!G.aiSides)G.aiSides={A:(G.mode!=='manual'||G.side!=='A'),D:(G.mode!=='manual'||G.side!=='D')};
   refreshTeamMarks();
+  G.upg={};
   G.phase='war';G.t=0;G.tick=0;G.cmdq.length=0;
   /* ortak tohum ÖNCE kurulur: salgın kaynağı her oyuncuda aynı çıksın */
   srand(G.seed||((Date.now()^0x5f3759df)>>>0));
@@ -1435,7 +1490,17 @@ function issueFire(side,type,tx,ty,n){
   return true;}
 function issueInvest(it){
   if(!(typeof NET!=='undefined'&&NET.on))return invest(it);
-  NET.request({k:'inv',id:it.id});}
+  const e=G.eco;
+  if(!e||!e.on){log('Ekonomi kapalı.','w');return;}
+  if(e.money<it.c){hint('Bütçe yetmiyor.');return;}
+  e.money-=it.c;
+  if(it.tax)e.tax=clamp(e.tax+it.tax,.4,2.2);
+  if(it.inc)e.inc+=it.inc;
+  if(it.m)e.morale=clamp(e.morale+it.m,0,100);
+  updateEco();
+  NET.request({k:'inv',id:it.id,side:G.side});
+  log(`${it.n}: ${it.c?fmtM(it.c)+' harcandı':'vergi ayarlandı'} · halk ${it.m>0?'+':''}${it.m}`,
+      it.m>0?'d':'a');}
 function cityAtScreen(sx,sy){
   let best=null,bd=30;
   for(let i=0;i<G.cityList.length;i++){
@@ -1465,7 +1530,13 @@ function runCmd(c){
     updateHUD();mapDirty=true;return;}
   if(c.k==='fire'){const keep=G.troopN;G.troopN=c.n||G.troopN;
     fire(c.side,c.w,c.x,c.y,c.n);G.troopN=keep;}
-  else if(c.k==='inv'){const it=INV.find(i=>i.id===c.id);if(it)invest(it);}}
+  else if(c.k==='inv'){
+    const it=INV.find(i=>i.id===c.id);if(!it)return;
+    const sd=c.side||G.side;
+    if(it.st)for(const k in it.st){
+      G.stock[sd][k]=(G.stock[sd][k]||0)+it.st[k];
+      G.cap[sd][k]=(G.cap[sd][k]||0)+it.st[k];}
+    updateHUD();}}
 function runCmds(){
   for(let i=G.cmdq.length-1;i>=0;i--)if(G.cmdq[i].tick<=G.tick){
     const c=G.cmdq[i];G.cmdq.splice(i,1);
@@ -1613,7 +1684,8 @@ function step(dt){
       u.x=u.x0+(u.tx-u.x0)*k;u.y=u.y0+(u.ty-u.y0)*k;
       u.trail.push([u.x,u.y]);if(u.trail.length>26)u.trail.shift();
       if(aaCheck(u)){G.units.splice(i,1);continue;}
-      if(k>=1){if(G.zomOn){zomBlast(u.x,u.y,16,'msl');towerHit(u.x,u.y,16,1);}boom(u.x,u.y,14,42,u.side);G.units.splice(i,1);continue;}
+      if(k>=1){const U=upg('msl');
+        if(G.zomOn){zomBlast(u.x,u.y,16*U.r,'msl');towerHit(u.x,u.y,16*U.r,1);}boom(u.x,u.y,14*U.r,42*U.d,u.side);G.units.splice(i,1);continue;}
     }
     else if(u.t==='nuke'){
       u.p+=u.sp*dt;
@@ -1621,8 +1693,10 @@ function step(dt){
       u.x=u.x0+(u.tx-u.x0)*k;u.y=u.y0+(u.ty-u.y0)*k;
       u.trail.push([u.x,u.y]);if(u.trail.length>40)u.trail.shift();
       if(k>=1){
-        if(G.zomOn){zomBlast(u.x,u.y,46,'nuke');towerHit(u.x,u.y,46,9);}
-        boom(u.x,u.y,44,260,u.side);
+        const N=upg('nuke');
+        if(G.zomOn){zomBlast(u.x,u.y,46*N.r,'nuke');towerHit(u.x,u.y,46*N.r,9);}
+        boom(u.x,u.y,44*N.r,260*N.d,u.side);
+        if(typeof unlockAch==='function')unlockAch('nuke');
         for(let n=0;n<10;n++){const a=R()*6.283,r0=R()*40;
           G.fxs.push({t:'boom',x:u.x+Math.cos(a)*r0,y:u.y+Math.sin(a)*r0,r:6,mr:26,a:1});}
         G.units.splice(i,1);continue;}
@@ -1639,7 +1713,7 @@ function step(dt){
         u.y+=Math.sin(G.t*1.7)*6*dt;
         u.bcd-=dt;
         if(u.bcd<=0&&u.bombs>0){u.bombs--;u.bcd=.7;
-          G.units.push({t:'bomb',side:u.side,x:u.x,y:u.y,tx:u.x+rnd(-4,4),ty:u.y+rnd(-4,4),p:0});}
+          G.units.push({t:'bomb',side:u.side,src:'heli',x:u.x,y:u.y,tx:u.x+rnd(-4,4),ty:u.y+rnd(-4,4),p:0});}
         if(!u.bombs)u.st='back';
         if(aaCheck(u)){G.units.splice(i,1);continue;}}
       if(u.st==='back'&&d<5){G.units.splice(i,1);continue;}
@@ -1653,7 +1727,7 @@ function step(dt){
       if(u.st==='go'&&d<10){
         u.bcd-=dt;
         if(u.bcd<=0&&u.bombs>0){u.bombs--;u.bcd=.35;
-          G.units.push({t:'bomb',side:u.side,x:u.x,y:u.y,tx:u.tx+rnd(-6,6),ty:u.ty+rnd(-6,6),p:0});}
+          G.units.push({t:'bomb',side:u.side,src:'jet',x:u.x,y:u.y,tx:u.tx+rnd(-6,6),ty:u.ty+rnd(-6,6),p:0});}
         if(!u.bombs)u.st='back';}
       if(u.st==='back'&&d<6){G.units.splice(i,1);continue;}
     }
@@ -1662,7 +1736,8 @@ function step(dt){
     }
     else if(u.t==='bomb'){
       u.p+=dt*2.2;u.x+=(u.tx-u.x)*.12;u.y+=(u.ty-u.y)*.12;
-      if(u.p>=1){if(G.zomOn){zomBlast(u.tx,u.ty,9,'bomb');towerHit(u.tx,u.ty,9,.34);}boom(u.tx,u.ty,8,17,u.side);G.units.splice(i,1);continue;}
+      if(u.p>=1){const U=upg(u.src||'jet');
+        if(G.zomOn){zomBlast(u.tx,u.ty,9*U.r,'bomb');towerHit(u.tx,u.ty,9*U.r,.34);}boom(u.tx,u.ty,8*U.r,17*U.d,u.side);G.units.splice(i,1);continue;}
     }
     else if(u.t==='ship'||u.t==='lship'){
       if(u.hp<=0){boom(u.x,u.y,7,6,other(u.side));G.units.splice(i,1);
@@ -1738,7 +1813,7 @@ function step(dt){
         u.fc-=dt;
         if(u.fc<=0){u.fc=.5+R()*.5;
           if(tg){G.fxs.push({t:'tracer',x1:u.x,y1:u.y,x2:tg.x,y2:tg.y,a:.9,c:SIDEC[side]});
-            if(R()<.55){tg.hp-=rnd(2,5);
+            if(R()<.55){tg.hp-=rnd(2,5)*upg('sol').d;
               if(tg.hp<=0){
                 if(tg.z){const kz=G.zom.indexOf(tg);if(kz>=0)G.zom.splice(kz,1);
                   u.kills=(u.kills||0)+1;
@@ -1746,7 +1821,7 @@ function step(dt){
                     G.fxs.push({t:'dead',x:u.x,y:u.y,a:1});}}
                 else{const k=foes.indexOf(tg);if(k>=0)foes.splice(k,1);}
                 G.fxs.push({t:'dead',x:tg.x,y:tg.y,a:1});}}}
-          else if(u.city&&u.city.owner!==side&&(u.city.lock||0)<=G.t){u.city.hp-=rnd(2.2,3.8);if(u.city.hp<=0)capture(u.city,side);
+          else if(u.city&&u.city.owner!==side&&(u.city.lock||0)<=G.t){u.city.hp-=rnd(2.2,3.8)*upg('sol').d;if(u.city.hp<=0)capture(u.city,side);
             G.fxs.push({t:'tracer',x1:u.x,y1:u.y,x2:u.city.x,y2:u.city.y,a:.7,c:SIDEC[side]});
             }}
       }
@@ -1867,6 +1942,7 @@ function endWar(w,reason,rside){
     return;
   }
   const wc={tr:teamName(w)},lc={tr:teamName(other(w))};
+  if(G.mode==='manual'&&G.side===w&&typeof addWin==='function')addWin();
   const mine=G.side==='W'?null:G.side;
   const t=$('#res-title');
   if(mine===null){t.textContent='SAVAŞ BİTTİ';t.className='';}
@@ -1885,6 +1961,7 @@ function endWar(w,reason,rside){
       'Süre: <b>'+Math.floor(dur/60)+' dk '+(dur%60)+' sn</b>';
     $('#ov-res').classList.remove('hide');$('#eco').classList.remove('show');return;}
   if(reason==='riot'){
+    if(typeof unlockAch==='function')unlockAch('riot');
     const mine=(rside===G.side);
     t.textContent='İSYAN';t.className=mine?'lose':'win';
     const re=G.ecoS[rside]||{money:0,tax:1};
@@ -2557,6 +2634,7 @@ function addZombie(x,y){
 
 function nextWave(){
   G.wave++;
+  if(typeof waveAch==='function')waveAch(G.wave);
   if(G.waveMax&&G.wave>G.waveMax){
     G.zomOver=true;
     endWar(citiesOf('A').length>=citiesOf('D').length?'A':'D','survived');
@@ -2783,12 +2861,14 @@ const NET={on:false,host:false,peer:null,conns:[],code:null,
 function loadName(){
   let n='Komutan';
   try{n=localStorage.getItem('harp_name')||n;}catch(e){}
-  NET.name=n;const e=$('#user-name');if(e)e.textContent=n;}
+  NET.name=n;const e=$('#user-name');if(e)e.textContent=n;
+  try{renderUser();}catch(e2){}}
 function saveName(n){
   n=(n||'').trim().slice(0,14)||'Komutan';
   NET.name=n;
   try{localStorage.setItem('harp_name',n);}catch(e){}
   const el=$('#user-name');if(el)el.textContent=n;
+  try{renderUser();}catch(e){}
   const me=NET.players.find(p=>p.id===NET.id);
   if(me){me.name=n;
     if(NET.host){pushLobby();renderRoom();}else sendHost({t:'set',id:NET.id,name:n});}}
@@ -2824,7 +2904,7 @@ function createRoom(){
   hide('#ov-start');show('#ov-room');
   $('#room-code').textContent='…';
   NET.host=true;NET.code=code5();NET.id='H';NET.stage='lobby';
-  NET.players=[{id:'H',name:NET.name,country:null,side:'A',host:true}];
+  NET.players=[{id:'H',name:(typeof fullName==='function'?fullName(NET.name):NET.name),cs:[],country:null,side:'A',host:true}];
   renderRoom();
   if(!window.Peer){roomMsg('Bağlantı kütüphanesi yüklenemedi.',1);return;}
   if(!needSecure())return;
@@ -2867,7 +2947,7 @@ function joinRoom(code){
     const wd=setTimeout(()=>{if(!NET.on)
       joinMsg('Oda bulunamadı ya da sunucuya ulaşılamıyor.');},12000);
     conn.on('open',()=>{clearTimeout(wd);NET.on=true;
-      conn.send({t:'join',id:myid,name:NET.name});
+      conn.send({t:'join',id:myid,name:(typeof fullName==='function'?fullName(NET.name):NET.name)});
       hide('#ov-join');hide('#ov-start');show('#ov-room');
       $('#room-code').textContent=code;
       roomMsg('Odaya katıldın — oda sahibinin başlatmasını bekle.');});
@@ -3211,6 +3291,171 @@ on('#room-start','click',()=>{
   NET.stage='pick';sendAll({t:'begin'});pushLobby();openPick();});
 on('#pick-open','click',openPick);
 loadName();
+
+/* ================= PROFİL · BAŞARIM · ETİKET · YÜKSELTME ================= */
+function LS(k,d){try{const v=localStorage.getItem(k);return v==null?d:JSON.parse(v);}catch(e){return d;}}
+function SS(k,v){try{localStorage.setItem(k,JSON.stringify(v));}catch(e){}}
+
+const PROF={
+  wins:LS('harp_wins',0),
+  ach:LS('harp_ach',[]),
+  tags:LS('harp_tags',[]),
+  tag:LS('harp_tag',''),
+  admin:LS('harp_admin',false)
+};
+function saveProf(){
+  SS('harp_wins',PROF.wins);SS('harp_ach',PROF.ach);
+  SS('harp_tags',PROF.tags);SS('harp_tag',PROF.tag);SS('harp_admin',PROF.admin);}
+
+/* ---------- başarımlar ---------- */
+const ACH=[
+  {id:'start', n:'Yeni Başlangıç',   d:'Oyunu ilk kez aç.'},
+  {id:'nuke',  n:'Kıyamet Düğmesi',  d:'Nükleer başlık ateşle.'},
+  {id:'riot',  n:'Halkın Sesi',      d:'Halkı isyan ettir.'},
+  {id:'w10',   n:'Çaylak Komutan',   d:'10 galibiyet kazan.'},
+  {id:'w20',   n:'Tecrübeli',        d:'20 galibiyet kazan.'},
+  {id:'w30',   n:'Savaş Kurdu',      d:'30 galibiyet kazan.'},
+  {id:'w40',   n:'Cephe Ustası',     d:'40 galibiyet kazan.'},
+  {id:'w50',   n:'Yenilmez',         d:'50 galibiyet kazan.'},
+  {id:'v10',   n:'Karantina',        d:'Zombi salgınında 10. dalgaya ulaş.'},
+  {id:'v20',   n:'Direniş',          d:'20. dalgaya ulaş.'},
+  {id:'v30',   n:'Son Kale',         d:'30. dalgaya ulaş.'},
+  {id:'v40',   n:'İnsanlığın Umudu', d:'40. dalgaya ulaş.'},
+  {id:'v50',   n:'Salgın Avcısı',    d:'50. dalgaya ulaş.'}
+];
+function hasAch(id){return PROF.ach.indexOf(id)>=0;}
+function unlockAch(id){
+  if(hasAch(id))return;
+  const a=ACH.find(x=>x.id===id);if(!a)return;
+  PROF.ach.push(id);saveProf();
+  log('🏆 BAŞARIM: '+a.n,'w');
+  if(PROF.ach.length>=ACH.length)log('👑 Tüm başarımlar tamam — artık Başarımlar Başkanısın!','w');
+  renderAch();renderUser();}
+function achDone(){return PROF.ach.length>=ACH.length;}
+function addWin(){
+  PROF.wins++;saveProf();
+  for(const n of [10,20,30,40,50])if(PROF.wins>=n)unlockAch('w'+n);
+  renderUser();renderTags();}
+function waveAch(w){
+  for(const n of [50,40,30,20,10])if(w>=n){unlockAch('v'+n);break;}}
+
+/* ---------- etiketler ---------- */
+const TAGS=[
+  {id:'',       n:'Etiketsiz',      c:0},
+  {id:'acemi',  n:'Acemi',          c:1},
+  {id:'komutan',n:'Komutan',        c:5},
+  {id:'general',n:'General',        c:10},
+  {id:'maresal',n:'Mareşal',        c:20},
+  {id:'baron',  n:'Savaş Baronu',   c:30},
+  {id:'efsane', n:'Efsane',         c:50},
+  {id:'admin',  n:'Admin',          c:0, pw:'2349852123'}
+];
+function tagName(){
+  const t=TAGS.find(x=>x.id===PROF.tag);
+  return t&&t.id?t.n:'';}
+function fullName(base){
+  const parts=[base||NET.name||'Komutan'];
+  const t=tagName();if(t)parts.push('['+t+']');
+  if(achDone())parts.push('· Başarımlar Başkanı');
+  return parts.join(' ');}
+function buyTag(t){
+  if(t.id==='admin'&&!PROF.admin){
+    const pw=prompt('Admin parolası:');
+    if(pw!==t.pw){log('Parola yanlış.','w');return;}
+    PROF.admin=true;}
+  if(PROF.tags.indexOf(t.id)<0){
+    if(PROF.wins<t.c){log('Yetersiz galibiyet: '+t.c+' gerekiyor.','w');return;}
+    PROF.tags.push(t.id);}
+  PROF.tag=t.id;saveProf();
+  renderTags();renderUser();
+  log(t.id?('Etiket seçildi: '+t.n):'Etiket kaldırıldı.','w');}
+
+/* ---------- yükseltmeler (maç içi, para ile) ---------- */
+const UPG=[
+  {k:'msl', ic:'🚀', n:'Füze'},
+  {k:'jet', ic:'✈️', n:'Savaş Uçağı'},
+  {k:'heli',ic:'🚁', n:'Helikopter'},
+  {k:'ship',ic:'🚢', n:'Savaş Gemisi'},
+  {k:'sol', ic:'🪖', n:'Asker'},
+  {k:'nuke',ic:'☢️', n:'Nükleer Başlık'}
+];
+const UPG_MAX=5;
+function upgLvl(k){return (G.upg&&G.upg[k])||0;}
+function upgCost(k){return 200e6*(upgLvl(k)+1);}
+function upg(k){const l=upgLvl(k);return{l,d:1+.22*l,r:1+.13*l};}
+function buyUpg(k){
+  const e=G.eco;
+  if(!e||!e.on){log('Yükseltme için ekonomi açık olmalı.','w');return;}
+  if(upgLvl(k)>=UPG_MAX){log('Bu silah zaten tam yükseltilmiş.','w');return;}
+  const c=upgCost(k);
+  if(e.money<c){log('Bütçe yetmiyor ('+fmtM(c)+').','w');return;}
+  e.money-=c;
+  if(!G.upg)G.upg={};
+  G.upg[k]=upgLvl(k)+1;
+  const u=UPG.find(x=>x.k===k);
+  log(u.n+' seviye '+G.upg[k]+' — hasar +%'+Math.round((upg(k).d-1)*100)+
+      ', etki alanı +%'+Math.round((upg(k).r-1)*100),'d');
+  renderUpg();updateEco();}
+
+/* ---------- arayüz ---------- */
+function renderUser(){
+  const e=$('#user-name');if(e)e.textContent=fullName(NET.name);
+  const w=$('#user-wins');if(w)w.textContent=PROF.wins;
+  const a=$('#user-ach');if(a)a.textContent=PROF.ach.length+'/'+ACH.length;}
+function renderAch(){
+  const L=$('#ach-list');if(!L)return;
+  L.innerHTML='';
+  for(const a of ACH){
+    const got=hasAch(a.id);
+    const d=document.createElement('div');
+    d.className='arow'+(got?' got':'');
+    d.innerHTML='<div class="aic">'+(got?'🏆':'🔒')+'</div><div class="atx">'+
+      '<b>'+a.n+'</b><span>'+a.d+'</span></div>';
+    L.appendChild(d);}
+  const s=$('#ach-sum');
+  if(s)s.textContent=PROF.ach.length+'/'+ACH.length+' başarım'+
+    (achDone()?' · 👑 Başarımlar Başkanı':'');}
+function renderTags(){
+  const L=$('#tag-list');if(!L)return;
+  L.innerHTML='';
+  for(const t of TAGS){
+    const own=!t.id||PROF.tags.indexOf(t.id)>=0;
+    const can=own||PROF.wins>=t.c||t.id==='admin';
+    const d=document.createElement('div');
+    d.className='trow'+(PROF.tag===t.id?' on':'')+(can?'':' no')+(t.id==='admin'?' admin':'');
+    d.innerHTML='<div class="ttx"><b>'+(t.id?t.n:'Etiketsiz')+'</b>'+
+      '<span>'+(t.id==='admin'?'parola gerekir':(own?'sahipsin':t.c+' galibiyet'))+'</span></div>'+
+      '<div class="tst">'+(PROF.tag===t.id?'SEÇİLİ':(own?'SEÇ':(t.id==='admin'?'🔑':'🔒')))+'</div>';
+    d.addEventListener('click',()=>buyTag(t));
+    L.appendChild(d);}
+  const w=$('#tag-wins');if(w)w.textContent=PROF.wins;}
+function renderUpg(){
+  const L=$('#upg-list');if(!L)return;
+  L.innerHTML='';
+  for(const u of UPG){
+    const l=upgLvl(u.k),max=l>=UPG_MAX,c=upgCost(u.k);
+    const e=G.eco,afford=e&&e.on&&e.money>=c&&!max;
+    const d=document.createElement('div');
+    d.className='iv'+(afford?'':' no');
+    d.innerHTML='<div class="ic">'+u.ic+'</div><div class="tx">'+
+      '<div class="tt">'+u.n+' · SV '+l+'/'+UPG_MAX+'</div>'+
+      '<div class="dd">hasar +%'+Math.round(upg(u.k).d*100-100)+
+      ' · etki alanı +%'+Math.round(upg(u.k).r*100-100)+'</div></div>'+
+      '<div class="pr">'+(max?'TAM':fmtM(c))+'</div>';
+    d.addEventListener('click',()=>{if(!max)buyUpg(u.k);});
+    L.appendChild(d);}
+  const t=$('#upg-top');
+  if(t&&G.eco)t.textContent='Bütçe: '+fmtM(G.eco.money)+
+    ' · yükseltmeler halkı etkilemez';}
+
+on('#user-ach-btn','click',()=>{renderAch();show('#ov-ach');});
+on('#ach-close','click',()=>hide('#ov-ach'));
+on('#user-tag-btn','click',()=>{renderTags();show('#ov-tags');});
+on('#tag-close','click',()=>hide('#ov-tags'));
+on('#b-upg','click',()=>{renderUpg();show('#ov-upg');});
+on('#upg-close','click',()=>hide('#ov-upg'));
+unlockAch('start');
+renderUser();
 
 </script>
 </body>
