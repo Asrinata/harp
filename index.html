@@ -320,7 +320,7 @@ canvas{display:block;position:absolute;inset:0;width:100%;height:100%}
       <button class="btn" id="user-edit">AD</button>
     </div>
     <div id="user-row2">
-      <button class="btn" id="user-ach-btn">🏆 BAŞARIMLAR <b id="user-ach">0/13</b></button>
+      <button class="btn" id="user-ach-btn">🏆 BAŞARIMLAR <b id="user-ach">0/34</b></button>
       <button class="btn" id="user-tag-btn">🏷 ETİKETLER <b id="user-wins">0</b> galibiyet</button>
     </div>
     <div id="eco-row"><span><strong>EKONOMİ</strong><em>Bütçe, vergi ve halk memnuniyeti. Yanlış yatırım yaparsan halk isyan eder.</em></span><span id="eco-state">AÇIK</span></div>
@@ -333,7 +333,7 @@ canvas{display:block;position:absolute;inset:0;width:100%;height:100%}
       <button class="big d" id="mp-enter" style="flex:1;margin:0"><strong>KOD GİR</strong><em>Sana verilen kodla odaya katıl.</em></button>
     </div>
     <div class="rule"></div>
-    <div class="sub" style="margin:0">Haritayı sürükle · iki parmakla yakınlaştır · ülkeye dokunarak seç<br><span id="srm-tag" style="opacity:.55">sürüm 5.1 — başarımlar</span></div>
+    <div class="sub" style="margin:0">Haritayı sürükle · iki parmakla yakınlaştır · ülkeye dokunarak seç<br><span id="srm-tag" style="opacity:.55">sürüm 5.2 — 34 başarım</span></div>
   </div>
 </div>
 
@@ -1420,6 +1420,7 @@ function absorb(win,lose){
   return n;}
 function worldEnd(r){
   G.phase='over';
+  if(typeof unlockAch==='function')unlockAch('world');
   const t=$('#res-title');t.textContent='DÜNYA FETHEDİLDİ';t.className='win';
   $('#res-body').innerHTML=`<b>${r.tr}</b> tüm dünyayı ele geçirdi.<br><br>`+
     `Toplam savaş: <b>${G.warCount||0}</b><br>Yönetilen ülke: <b>${CLIST.length}</b>`;
@@ -1449,6 +1450,7 @@ function startWar(){
   if(!G.aiSides)G.aiSides={A:(G.mode!=='manual'||G.side!=='A'),D:(G.mode!=='manual'||G.side!=='D')};
   refreshTeamMarks();
   G.upg={};
+  if(typeof statReset==='function'){statReset();addGame();}
   G.phase='war';G.t=0;G.tick=0;G.cmdq.length=0;
   /* ortak tohum ÖNCE kurulur: salgın kaynağı her oyuncuda aynı çıksın */
   srand(G.seed||((Date.now()^0x5f3759df)>>>0));
@@ -1523,7 +1525,7 @@ function runCmd(c){
   if(c.k==='zcity'){
     const ci=G.cityList[c.i];
     if(!ci||ci.owner==='Z')return;
-    ci.owner='Z';ci.hp=0;
+    ci.owner='Z';ci.hp=0;if(G.stat)G.stat.waveLoss=true;
     if(ci.land&&typeof infect==='function')infect(ci.land);
     G.fxs.push({t:'boom',x:ci.x,y:ci.y,r:6,mr:18,a:1});
     log((ci.land?ci.land.tr:'Bir ülke')+': bir şehir salgına düştü.','w');
@@ -1557,6 +1559,7 @@ function fire(side,type,tx,ty,n){
       return false;}
     G.stock[side].sol-=n;
     for(let i=0;i<n;i++)addSoldier(side,sx+rnd(-4,4),sy+rnd(-4,4),tx,ty,me);
+    if(G.stat&&side===G.side)G.stat.land=true;
     log(`${me.tr}: ${n} asker kara harekâtına başladı.`,side==='A'?'a':'d');
   }
   else if(type==='msl'){
@@ -1596,6 +1599,7 @@ function fire(side,type,tx,ty,n){
     G.stock[side].heli--;
     G.units.push({t:'heli',side,x:sx,y:sy,hx:sx,hy:sy,tx,ty,sp:22,bombs:10,st:'go',bcd:0,
       rot:0,seen:new Set()});
+    if(G.stat&&side===G.side&&++G.stat.heli>=10)unlockAch('air');
     log(`${lead.tr}: helikopter havalandı — 10 bomba taşıyor.`,side==='A'?'a':'d');
   }
   else if(type==='nuke'){
@@ -1606,6 +1610,7 @@ function fire(side,type,tx,ty,n){
     G.stock[side].nuke--;
     G.units.push({t:'nuke',side,x:sx,y:sy,x0:sx,y0:sy,tx,ty,p:0,
       len:dist(sx,sy,tx,ty),sp:42,trail:[],seen:new Set()});
+    if(G.stat&&side===G.side&&++G.stat.nuke>=3)unlockAch('winter');
     log(`${lead.tr}: NÜKLEER BAŞLIK FIRLATILDI.`,'w');
   }
   else if(type==='cpl'){
@@ -1645,6 +1650,7 @@ function boom(x,y,r,pow,side){
 
 function capture(ci,side){
   ci.owner=side;ci.hp=ci.max*.45;ci.lock=G.t+7;G.lastCap=G.t;
+  if(G.stat){if(side===G.side)G.stat.cap++;else G.stat.waveLoss=true;}
   G.fxs.push({t:'boom',x:ci.x,y:ci.y,r:6,mr:16,a:1});
   mapDirty=true;
   if(G.ecoS&&G.ecoS[other(side)]&&G.ecoS[other(side)].on)
@@ -1766,6 +1772,7 @@ function step(dt){
           const[lx,ly]=tgc?nearestPointIn(tgc,u.x,u.y)
             :[(u.dx!=null?u.dx:u.x),(u.dy!=null?u.dy:u.y)];
           for(let s2=0;s2<u.cargo;s2++)addSoldier(u.side,u.x+rnd(-3,3),u.y+rnd(-3,3),lx,ly,u.land);
+          if(G.stat&&u.side===G.side)G.stat.sea=true;
           log(`Çıkarma yapıldı: ${u.cargo} asker karaya çıktı.`,u.side==='A'?'a':'d');
           G.units.splice(i,1);continue;}
       }
@@ -1829,6 +1836,7 @@ function step(dt){
   }
   if(typeof zomStep==='function')zomStep(dt);
   ecoStep(dt);
+  if(typeof statCheck==='function')statCheck();
   if(G.phase!=='war')return;
   // takviye
   G.res-=dt;G.res2-=dt;
@@ -1942,7 +1950,7 @@ function endWar(w,reason,rside){
     return;
   }
   const wc={tr:teamName(w)},lc={tr:teamName(other(w))};
-  if(G.mode==='manual'&&G.side===w&&typeof addWin==='function')addWin();
+  if(G.mode==='manual'&&G.side===w&&typeof addWin==='function'){addWin();winAch(w);}
   const mine=G.side==='W'?null:G.side;
   const t=$('#res-title');
   if(mine===null){t.textContent='SAVAŞ BİTTİ';t.className='';}
@@ -2633,8 +2641,11 @@ function addZombie(x,y){
     rt:rnd(0,.6),fc:rnd(0,1),tgt:null,city:null,bob:rnd(0,6)});}
 
 function nextWave(){
+  if(G.stat&&!G.stat.waveLoss&&G.wave>0&&typeof unlockAch==='function')unlockAch('quar');
+  if(G.stat)G.stat.waveLoss=false;
   G.wave++;
   if(typeof waveAch==='function')waveAch(G.wave);
+  if(G.wave>=10&&G.infect&&G.infect.size<=1&&typeof unlockAch==='function')unlockAch('clean');
   if(G.waveMax&&G.wave>G.waveMax){
     G.zomOver=true;
     endWar(citiesOf('A').length>=citiesOf('D').length?'A':'D','survived');
@@ -2691,7 +2702,7 @@ function zomStep(dt){
         else if(z.city&&z.city.hp>0){
           z.city.hp-=rnd(2.5,4.5);
           if(z.city.hp<=0){
-            z.city.hp=0;z.city.owner='Z';
+            z.city.hp=0;z.city.owner='Z';if(G.stat)G.stat.waveLoss=true;
             const land=z.city.land;
             if(land)infect(land);
             log('Bir şehir salgına düştü.','w');
@@ -2744,6 +2755,7 @@ function towerHit(x,y,r0,dmg){
       t.hp-=dmg;
       G.fxs.push({t:'boom',x:t.x,y:t.y,r:4,mr:12,a:1});
       if(t.hp<=0){G.towers.splice(i,1);
+        if(typeof addTowerKill==='function')addTowerKill();
         log((t.land?t.land.tr:'Bir ülke')+' kulesi yıkıldı.','d');}}}}
 function drawTowers(g,z0){
   if(!G.towers||!G.towers.length)return;
@@ -2784,6 +2796,7 @@ function zomBlast(x,y,r,kind){
     const z=zs[i];
     if(dist(z.x,z.y,x,y)<r){zs.splice(i,1);n++;
       G.fxs.push({t:'dead',x:z.x,y:z.y,a:1});}}
+  if(kind==='msl'&&n>=30&&typeof unlockAch==='function')unlockAch('perf');
   return n;}
 
 /* asker zombiyi hedefler mi */
@@ -3298,6 +3311,8 @@ function SS(k,v){try{localStorage.setItem(k,JSON.stringify(v));}catch(e){}}
 
 const PROF={
   wins:LS('harp_wins',0),
+  games:LS('harp_games',0),
+  towers:LS('harp_towers',0),
   ach:LS('harp_ach',[]),
   tags:LS('harp_tags',[]),
   tag:LS('harp_tag',''),
@@ -3305,6 +3320,7 @@ const PROF={
 };
 function saveProf(){
   SS('harp_wins',PROF.wins);SS('harp_ach',PROF.ach);
+  SS('harp_games',PROF.games);SS('harp_towers',PROF.towers);
   SS('harp_tags',PROF.tags);SS('harp_tag',PROF.tag);SS('harp_admin',PROF.admin);}
 
 /* ---------- başarımlar ---------- */
@@ -3319,9 +3335,31 @@ const ACH=[
   {id:'w50',   n:'Yenilmez',         d:'50 galibiyet kazan.'},
   {id:'v10',   n:'Karantina',        d:'Zombi salgınında 10. dalgaya ulaş.'},
   {id:'v20',   n:'Direniş',          d:'20. dalgaya ulaş.'},
-  {id:'v30',   n:'Son Kale',         d:'30. dalgaya ulaş.'},
+  {id:'v30',   n:'Son Sığınak',         d:'30. dalgaya ulaş.'},
   {id:'v40',   n:'İnsanlığın Umudu', d:'40. dalgaya ulaş.'},
-  {id:'v50',   n:'Salgın Avcısı',    d:'50. dalgaya ulaş.'}
+  {id:'v50',   n:'Salgın Avcısı',    d:'50. dalgaya ulaş.'},
+  {id:'first', n:'İlk Kan',           d:'İlk savaşını kazan.'},
+  {id:'blitz', n:'Yıldırım Harekâtı', d:'60 saniyeden kısa sürede kazan.'},
+  {id:'stand', n:'Son Kale',          d:'Canın %10 altına düştükten sonra kazan.'},
+  {id:'conq',  n:'Fatih',             d:'Tek savaşta 10 şehir işgal et.'},
+  {id:'landg', n:'Çıkarma',           d:'Karadan hiç asker göndermeden, sadece denizden kazan.'},
+  {id:'coal',  n:'Koalisyon Lideri',  d:'3 veya daha çok ülkeyle aynı safta kazan.'},
+  {id:'world', n:'Dünya Fatihi',      d:'Dünya fethi modunu tamamla.'},
+  {id:'oneman',n:'Tek Adam',          d:'Tüm dünyaya karşı tek ülkeyle kazan.'},
+  {id:'bilio', n:'Milyarder',         d:'5 milyar bütçeye ulaş.'},
+  {id:'hero',  n:'Halk Kahramanı',    d:'Halk memnuniyetini %95 yap.'},
+  {id:'brink', n:'Uçurumun Kenarı',   d:'Memnuniyet %5 altına düşsün ama isyan çıkmasın.'},
+  {id:'arsen', n:'Cephanelik',        d:'Bir silahı seviye 5 yap.'},
+  {id:'fullk', n:'Tam Donanım',       d:'Altı silahın hepsini seviye 5 yap.'},
+  {id:'perf',  n:'Tam İsabet',        d:'Tek füzeyle 30 zombi öldür.'},
+  {id:'air',   n:'Hava Üstünlüğü',    d:'Tek savaşta 10 helikopter görevi yap.'},
+  {id:'winter',n:'Nükleer Kış',       d:'Tek savaşta 3 nükleer ateşle.'},
+  {id:'tower', n:'Kule Avcısı',       d:'Toplam 10 zombi kulesi yık.'},
+  {id:'quar',  n:'Karantina Başarılı',d:'Bir dalgayı hiç şehir kaybetmeden bitir.'},
+  {id:'clean', n:'Sıfır Bulaşma',     d:'10. dalgaya kadar başka ülke bulaşmasın.'},
+  {id:'buddy', n:'Omuz Omuza',        d:'Çok oyunculuda müttefikle birlikte kazan.'},
+  {id:'grind', n:'Israrcı',           d:'50 savaş oyna.'},
+  {id:'coll',  n:'Koleksiyoncu',      d:'Tüm etiketleri satın al.'}
 ];
 function hasAch(id){return PROF.ach.indexOf(id)>=0;}
 function unlockAch(id){
@@ -3338,6 +3376,33 @@ function addWin(){
   renderUser();renderTags();}
 function waveAch(w){
   for(const n of [50,40,30,20,10])if(w>=n){unlockAch('v'+n);break;}}
+
+function addGame(){PROF.games++;saveProf();if(PROF.games>=50)unlockAch('grind');}
+function addTowerKill(){PROF.towers++;saveProf();if(PROF.towers>=10)unlockAch('tower');}
+/* maç içi sayaçlar */
+function statReset(){
+  G.stat={cap:0,nuke:0,heli:0,land:false,sea:false,low:false,dip:false,waveLoss:false};}
+function statCheck(){
+  const s=G.stat;if(!s)return;
+  const e=G.eco;
+  if(e&&e.on){
+    if(e.money>=5e9)unlockAch('bilio');
+    if(e.morale>=95)unlockAch('hero');
+    if(e.morale<5)s.dip=true;
+    else if(s.dip&&e.morale>=20)unlockAch('brink');}
+  if(G.side!=='W'&&hpOf(G.side)<=.10)s.low=true;}
+function winAch(w){
+  const s=G.stat||{};
+  unlockAch('first');
+  if(G.t<60)unlockAch('blitz');
+  if(s.low)unlockAch('stand');
+  if(s.cap>=10)unlockAch('conq');
+  if(s.sea&&!s.land)unlockAch('landg');
+  const mine=(G.team[w]||[]).length,foe=(G.team[w==='A'?'D':'A']||[]).length;
+  if(mine>=3)unlockAch('coal');
+  if(mine===1&&foe>=CLIST.length-8)unlockAch('oneman');
+  if(typeof NET!=='undefined'&&NET.on&&
+     NET.players.filter(p=>p.side===w).length>=2)unlockAch('buddy');}
 
 /* ---------- etiketler ---------- */
 const TAGS=[
@@ -3367,6 +3432,7 @@ function buyTag(t){
     if(PROF.wins<t.c){log('Yetersiz galibiyet: '+t.c+' gerekiyor.','w');return;}
     PROF.tags.push(t.id);}
   PROF.tag=t.id;saveProf();
+  if(TAGS.every(x=>!x.id||PROF.tags.indexOf(x.id)>=0))unlockAch('coll');
   renderTags();renderUser();
   log(t.id?('Etiket seçildi: '+t.n):'Etiket kaldırıldı.','w');}
 
@@ -3395,6 +3461,8 @@ function buyUpg(k){
   const u=UPG.find(x=>x.k===k);
   log(u.n+' seviye '+G.upg[k]+' — hasar +%'+Math.round((upg(k).d-1)*100)+
       ', etki alanı +%'+Math.round((upg(k).r-1)*100),'d');
+  if(G.upg[k]>=UPG_MAX)unlockAch('arsen');
+  if(UPG.every(x=>upgLvl(x.k)>=UPG_MAX))unlockAch('fullk');
   renderUpg();updateEco();}
 
 /* ---------- arayüz ---------- */
