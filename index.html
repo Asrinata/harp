@@ -21,7 +21,7 @@
 <link rel="icon" href="icon-192.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=Barlow+Condensed:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
 :root{
   --ocean:#0d2733; --ocean-deep:#081a23;
@@ -168,6 +168,116 @@ canvas{display:block;position:absolute;inset:0;width:100%;height:100%}
 .row2{display:flex;gap:7px;margin-bottom:9px}
 .row2 .btn{flex:1;text-align:center;padding:10px}
 #mp-msg{font-size:11.5px;color:var(--amber);min-height:15px;margin-bottom:8px}
+
+/* ===== ANA MENÜ: HAREKÂT MASASI ===== */
+#ov-start{align-items:flex-start;padding:0;overflow-y:auto;
+  background:radial-gradient(120% 90% at 50% -10%,#2b333d 0%,#1b2027 55%,#0e1216 100%)}
+#ov-start .masa{width:100%;max-width:1180px;margin:0 auto;padding:24px 18px 40px;
+  display:grid;grid-template-columns:250px 1fr;gap:24px;align-items:start}
+#ov-start .sicil{background:linear-gradient(180deg,#232a33,#1a2027);border:1px solid #333d47;
+  border-top:3px solid var(--atk);padding:16px 15px 14px}
+.sicil-et{font-family:"Barlow Condensed",sans-serif;font-size:11px;letter-spacing:.26em;
+  color:#8b98a2;margin-bottom:12px}
+.sicil-ad{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap}
+.sicil-ad h2{font-family:"Barlow Condensed",sans-serif;font-weight:700;font-size:26px;
+  letter-spacing:.03em;margin:0;line-height:1;word-break:break-word}
+.rutbe{font-family:"Barlow Condensed",sans-serif;font-size:12px;letter-spacing:.12em;
+  color:#11161b;background:#d9a441;padding:2px 7px}
+.unvan{font-size:11px;color:#d9a441;letter-spacing:.05em;margin:4px 0 14px}
+.olcu{display:flex;gap:12px;margin-bottom:12px}
+.olcu div{flex:1}
+.olcu span{display:block;font-family:"Barlow Condensed",sans-serif;font-size:26px;line-height:1}
+.olcu em{font-style:normal;font-size:10px;letter-spacing:.14em;color:#8b98a2}
+.ilerleme{height:4px;background:#0e1318}
+.ilerleme i{display:block;height:100%;background:#d9a441;transition:width .4s}
+.ilerleme-yazi{font-size:10.5px;color:#8b98a2;margin:6px 0 14px}
+.sicil-btn{display:block;width:100%;text-align:left;background:transparent;
+  border:1px solid #333d47;color:var(--bone);font-family:"Barlow Condensed",sans-serif;
+  font-size:14px;letter-spacing:.08em;padding:9px 11px;margin-bottom:7px;cursor:pointer;
+  transition:border-color .15s,background .15s}
+.sicil-btn:hover{border-color:#d9a441;background:#20272f}
+.sicil-btn:active{transform:translateY(1px)}
+#ov-start .ayar{display:flex;justify-content:space-between;align-items:center;
+  border-top:1px solid #333d47;padding-top:11px;margin-top:6px;cursor:pointer}
+#ov-start .ayar span{font-size:11.5px;color:#8b98a2}
+#ov-start .ayar b{font-family:"Barlow Condensed",sans-serif;font-size:12px;letter-spacing:.1em;
+  border:1px solid #d9a441;color:#d9a441;padding:3px 9px;font-weight:500}
+#ov-start .ayar b.off{border-color:#333d47;color:#8b98a2}
+#ov-start .bas{margin-bottom:20px}
+.marka{font-family:"Archivo Black","Barlow Condensed",sans-serif;
+  font-size:clamp(50px,9vw,98px);line-height:.82;letter-spacing:-.03em;margin:0;
+  display:flex;align-items:flex-end;gap:.08em;color:var(--bone)}
+.pip{position:relative;width:.19em;height:.19em;flex:0 0 auto;margin-bottom:.06em}
+.pip i{position:absolute;inset:0;border-radius:50%;background:var(--atk)}
+.pip::after,.pip::before{content:"";position:absolute;left:50%;top:50%;
+  border:1px solid var(--atk);border-radius:50%;transform:translate(-50%,-50%);opacity:0;
+  animation:nisan 3.4s ease-out infinite}
+.pip::after{width:230%;height:230%}
+.pip::before{width:230%;height:230%;animation-delay:1.7s}
+@keyframes nisan{0%{opacity:.75;width:60%;height:60%}70%{opacity:0}100%{opacity:0;width:300%;height:300%}}
+.altbas{font-family:"Barlow Condensed",sans-serif;letter-spacing:.34em;font-size:13px;
+  color:#8b98a2;margin-top:10px}
+.dosyalar{display:grid;grid-template-columns:repeat(2,1fr);gap:16px}
+.dosya{position:relative;background:#e7e0d2;color:#11161b;border:none;text-align:left;
+  padding:20px 18px 18px;cursor:pointer;box-shadow:0 10px 22px rgba(0,0,0,.42);
+  transform-origin:12% 0;animation:dagit .5s cubic-bezier(.2,.8,.3,1) backwards;
+  transition:transform .16s ease,box-shadow .16s ease;font-family:inherit}
+.dosya:nth-child(1){animation-delay:.05s}.dosya:nth-child(2){animation-delay:.12s}
+.dosya:nth-child(3){animation-delay:.19s}.dosya:nth-child(4){animation-delay:.26s}
+.dosya:nth-child(5){animation-delay:.33s}
+@keyframes dagit{from{opacity:0;transform:translateY(-16px) rotate(-2.5deg)}}
+.dosya::before{content:attr(data-sekme);position:absolute;top:-15px;left:16px;
+  background:#cfc6b2;color:#3a3428;font-family:"Barlow Condensed",sans-serif;
+  font-size:11px;letter-spacing:.18em;padding:3px 11px}
+.dosya::after{content:"";position:absolute;inset:0;pointer-events:none;
+  background:repeating-linear-gradient(0deg,transparent 0 21px,rgba(17,22,27,.05) 21px 22px)}
+.dosya:hover{transform:translateY(-4px) rotate(-.6deg);box-shadow:0 16px 30px rgba(0,0,0,.5)}
+.dosya .no{font-family:"Barlow Condensed",sans-serif;font-size:11px;letter-spacing:.2em;
+  color:#7a7161;position:absolute;top:14px;right:16px}
+.dosya h3{font-family:"Barlow Condensed",sans-serif;font-weight:700;font-size:24px;
+  letter-spacing:.02em;margin:0 0 6px;line-height:1.05}
+.dosya p{font-size:12.5px;line-height:1.5;color:#4a4437;margin:0 0 14px;max-width:34ch}
+.kunye{display:flex;gap:7px;flex-wrap:wrap}
+.kunye span{font-family:"Barlow Condensed",sans-serif;font-size:11px;letter-spacing:.1em;
+  border:1px solid #b9af99;color:#5c5445;padding:2px 8px}
+.damga{position:absolute;right:14px;bottom:12px;font-family:"Barlow Condensed",sans-serif;
+  font-weight:700;font-size:20px;letter-spacing:.16em;color:var(--atk);
+  border:3px solid var(--atk);padding:3px 10px;transform:rotate(-11deg) scale(2.4);opacity:0;
+  transition:transform .18s cubic-bezier(.2,1.5,.4,1),opacity .12s;pointer-events:none}
+.dosya.secili .damga{opacity:.88;transform:rotate(-11deg) scale(1)}
+.dosya.genis{grid-column:1/-1;background:linear-gradient(100deg,#e7e0d2 0%,#dcd4c3 100%);cursor:default}
+.dosya.genis:hover{transform:none;box-shadow:0 10px 22px rgba(0,0,0,.42)}
+.mp2{display:flex;gap:9px;flex-wrap:wrap}
+.mpbtn{font-family:"Barlow Condensed",sans-serif;font-size:16px;letter-spacing:.08em;
+  background:#11161b;color:#e7e0d2;border:none;padding:10px 18px;cursor:pointer;
+  transition:background .15s}
+.mpbtn:hover{background:var(--atk)}
+.mpbtn.ikinci{background:transparent;color:#11161b;border:1px solid #11161b}
+.mpbtn.ikinci:hover{background:#11161b;color:#e7e0d2}
+#ov-start .not{grid-column:1/-1;margin-top:18px;border-top:1px solid #333d47;padding-top:12px;
+  font-size:11.5px;color:#8b98a2;display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap}
+#srm-tag{opacity:.6}
+@media(max-width:820px){
+  #ov-start .masa{grid-template-columns:1fr;gap:16px;padding:16px 12px 34px}
+  .dosyalar{grid-template-columns:1fr}
+  .marka{font-size:clamp(46px,16vw,80px)}
+}
+
+/* ===== BAŞARIM BİLDİRİMİ ===== */
+#toast{position:fixed;top:calc(env(safe-area-inset-top) + 52px);right:10px;z-index:80;
+  display:flex;flex-direction:column;gap:8px;pointer-events:none;max-width:min(78vw,300px)}
+.tst{background:linear-gradient(180deg,#232a33,#161c23);border:1px solid #333d47;
+  border-left:3px solid #d9a441;padding:9px 12px 10px;
+  box-shadow:0 8px 20px rgba(0,0,0,.5);animation:tstIn .35s cubic-bezier(.2,.9,.3,1)}
+.tst.out{animation:tstOut .4s ease forwards}
+.tst .ust{display:flex;align-items:center;gap:6px;font-family:"Barlow Condensed",sans-serif;
+  font-size:11px;letter-spacing:.2em;color:#d9a441}
+.tst .adi{font-family:"Barlow Condensed",sans-serif;font-weight:700;font-size:19px;
+  letter-spacing:.03em;color:var(--bone);margin-top:2px;line-height:1.1}
+.tst .aciklama{font-size:10.5px;color:#8b98a2;margin-top:3px;line-height:1.35}
+@keyframes tstIn{from{opacity:0;transform:translateX(40px)}}
+@keyframes tstOut{to{opacity:0;transform:translateX(40px)}}
+
 /* profil / başarım / etiket */
 #user-row2{display:flex;gap:7px;margin-bottom:10px}
 #user-row2 .btn{flex:1;font-size:11px;padding:7px 6px}
@@ -281,6 +391,7 @@ canvas{display:block;position:absolute;inset:0;width:100%;height:100%}
 <div id="errbar" style="display:none;position:absolute;left:8px;right:8px;bottom:8px;z-index:60;
   background:#3a1512;border:1px solid #c1332d;color:#ffd9d4;font-size:12px;padding:8px 10px;
   border-radius:3px;word-break:break-word"></div>
+<div id="toast"></div>
 <div id="log"></div>
 
 <div id="hud">
@@ -312,29 +423,79 @@ canvas{display:block;position:absolute;inset:0;width:100%;height:100%}
 </div>
 
 <div class="ov" id="ov-start">
-  <div class="card">
-    <h1>HARP<span>.</span></h1>
-    <div class="sub">Dünya haritası üzerinde savaş simülasyonu. Önce saldıran tarafı, sonra savunan tarafı seç. Aynı safa birden çok ülke ekleyip koalisyon kurabilirsin (2'ye 1 gibi).</div>
-    <div id="user-row">
-      <span>👤 <b id="user-name">Komutan</b></span>
-      <button class="btn" id="user-edit">AD</button>
+ <div class="masa">
+  <aside class="sicil">
+    <div class="sicil-et">SİCİL KAYDI</div>
+    <div class="sicil-ad">
+      <h2 id="user-name">Komutan</h2>
+      <div class="rutbe" id="user-rank" style="display:none">—</div>
     </div>
-    <div id="user-row2">
-      <button class="btn" id="user-ach-btn">🏆 BAŞARIMLAR <b id="user-ach">0/34</b></button>
-      <button class="btn" id="user-tag-btn">🏷 ETİKETLER <b id="user-wins">0</b> galibiyet</button>
+    <div class="unvan" id="user-unvan">Cephe kaydı açık</div>
+    <div class="olcu">
+      <div><span id="user-wins">0</span><em>GALİBİYET</em></div>
+      <div><span id="user-ach">0</span><em>BAŞARIM</em></div>
     </div>
-    <div id="eco-row"><span><strong>EKONOMİ</strong><em>Bütçe, vergi ve halk memnuniyeti. Yanlış yatırım yaparsan halk isyan eder.</em></span><span id="eco-state">AÇIK</span></div>
-    <button class="big n" data-mode="manual"><strong>MANUEL KOMUTA</strong><em>Füzeleri, savaş uçaklarını, gemileri ve asker çıkarmasını sen yönetirsin. İster saldıran ister savunan tarafı oyna.</em></button>
-    <button class="big" data-mode="auto"><strong>OTOMATİK SAVAŞ</strong><em>Ülkeleri sen seçersin, savaşı yapay zekâ yönetir. Sen izlersin.</em></button>
-    <button class="big a" data-mode="world"><strong>TAM OTOMATİK — DÜNYA FETHİ</strong><em>Rastgele ülkeler birbirine savaş açar, başkaları taraf tutar ya da tarafsız kalır. Bir savaş biter bitmez yenisi başlar; dünyayı tek bir devlet ele geçirene kadar sürer.</em></button>
-    <div class="rule"></div>
-    <div class="mprow">
-      <button class="big n" id="mp-create" style="flex:1;margin:0"><strong>KOD OLUŞTUR</strong><em>Oda kurup kodu arkadaşlarına gönder.</em></button>
-      <button class="big d" id="mp-enter" style="flex:1;margin:0"><strong>KOD GİR</strong><em>Sana verilen kodla odaya katıl.</em></button>
+    <div class="ilerleme"><i id="user-prog" style="width:0%"></i></div>
+    <div class="ilerleme-yazi" id="user-progtxt">0/35 başarım</div>
+    <button class="sicil-btn" id="user-edit">ADI DEĞİŞTİR</button>
+    <button class="sicil-btn" id="user-ach-btn">BAŞARIMLAR</button>
+    <button class="sicil-btn" id="user-tag-btn">ETİKET DÜKKÂNI</button>
+    <div class="ayar" id="eco-row"><span>Ekonomi</span><b id="eco-state">AÇIK</b></div>
+  </aside>
+
+  <section class="sag">
+    <header class="bas">
+      <h1 class="marka">HARP<span class="pip"><i></i></span></h1>
+      <div class="altbas">DÜNYA SAVAŞ SİMÜLATÖRÜ</div>
+    </header>
+
+    <div class="dosyalar">
+      <button class="dosya" data-sekme="H-01" data-mode="manual">
+        <div class="no">TEK OYUNCU</div>
+        <h3>MANUEL KOMUTA</h3>
+        <p>Füzeyi sen atarsın, çıkarmayı sen yaparsın. Saldıran ya da savunan tarafı seç.</p>
+        <div class="kunye"><span>KOALİSYON</span><span>EKONOMİ</span><span>YÜKSELTME</span></div>
+        <div class="damga">SEÇİLDİ</div>
+      </button>
+
+      <button class="dosya" data-sekme="H-02" data-mode="auto">
+        <div class="no">İZLEME</div>
+        <h3>OTOMATİK SAVAŞ</h3>
+        <p>Ülkeleri sen seçersin, savaşı yapay zekâ yönetir. Altı zorluk kademesi.</p>
+        <div class="kunye"><span>1x – 8x HIZ</span><span>6 KADEME</span></div>
+        <div class="damga">SEÇİLDİ</div>
+      </button>
+
+      <button class="dosya" data-sekme="H-03" data-mode="world">
+        <div class="no">UZUN OYUN</div>
+        <h3>DÜNYA FETHİ</h3>
+        <p>Rastgele cepheler açılır, kazanan kaybedeni yutar. Tek devlet kalana kadar sürer.</p>
+        <div class="kunye"><span>~47 SAVAŞ</span><span>MÜTTEFİKLER</span></div>
+        <div class="damga">SEÇİLDİ</div>
+      </button>
+
+      <button class="dosya" data-sekme="H-04" data-mode="manual" data-zom="1">
+        <div class="no">HAYATTA KALMA</div>
+        <h3>ZOMBİ SALGINI</h3>
+        <p>Salgın orta ölçekli bir ülkeden başlar. Kuleleri 20 saniye içinde yık, yoksa ülke düşer.</p>
+        <div class="kunye"><span>50 DALGA</span><span>SONSUZ MOD</span><span>KULELER</span></div>
+        <div class="damga">SEÇİLDİ</div>
+      </button>
+
+      <div class="dosya genis" data-sekme="H-05">
+        <div class="no">5 KİŞİYE KADAR</div>
+        <h3>ÇOK OYUNCULU</h3>
+        <p>Oda kodu üret ya da arkadaşının kodunu gir. Herkes kendi ülkesini seçer, takımlar serbesttir.</p>
+        <div class="mp2"><button class="mpbtn" id="mp-create">KOD OLUŞTUR</button><button class="mpbtn ikinci" id="mp-enter">KOD GİR</button></div>
+      </div>
+
+      <div class="not">
+        Haritayı sürükle · iki parmakla yakınlaştır · ülkeye dokunarak seç
+        <span id="srm-tag">sürüm 5.3 — yeni menü</span>
+      </div>
     </div>
-    <div class="rule"></div>
-    <div class="sub" style="margin:0">Haritayı sürükle · iki parmakla yakınlaştır · ülkeye dokunarak seç<br><span id="srm-tag" style="opacity:.55">sürüm 5.2 — 34 başarım</span></div>
-  </div>
+  </section>
+ </div>
 </div>
 
 <div class="ov hide" id="ov-side">
@@ -354,20 +515,6 @@ canvas{display:block;position:absolute;inset:0;width:100%;height:100%}
     <input class="searchbox" id="q" placeholder="Ülke adı yaz…" autocomplete="off">
     <div id="clist"></div>
     <div style="margin-top:10px;text-align:right"><button class="btn" id="find-close">KAPAT</button></div>
-  </div>
-</div>
-
-<div class="ov hide" id="ov-mp0">
-  <div class="card">
-    <h1 class="cond" style="font-size:26px;letter-spacing:.12em">ÇOK OYUNCULU</h1>
-    <div class="sub">Aynı odadaki herkes kendi ülkesini yönetir. 30 kişiye kadar.</div>
-    <input class="searchbox" id="mp-name" placeholder="Kullanıcı adın" maxlength="14" autocomplete="off">
-    <button class="big a" id="mp-create"><strong>ODA KUR</strong><em>Sana bir oyun kodu verilir, arkadaşlarına gönderirsin.</em></button>
-    <div class="rule"></div>
-    <input class="searchbox" id="mp-code" placeholder="Oyun kodu (örn. K7QM2)" maxlength="6" autocomplete="off" style="text-transform:uppercase">
-    <button class="big d" id="mp-join"><strong>KODLA KATIL</strong><em>Arkadaşının verdiği kodu yaz.</em></button>
-    <div id="mp-msg0" style="font-size:11.5px;color:var(--amber);min-height:15px"></div>
-    <div style="text-align:right"><button class="btn" id="mp0-close">GERİ</button></div>
   </div>
 </div>
 
@@ -2383,9 +2530,13 @@ function goFS(){
       e.requestFullscreen({navigationUI:'hide'}).catch(()=>{});
     if(screen.orientation&&screen.orientation.lock)screen.orientation.lock('any').catch(()=>{});
   }catch(e){}}
-$$('#ov-start .big[data-mode]').forEach(b=>b.addEventListener('click',()=>{
+$$('#ov-start [data-mode]').forEach(b=>b.addEventListener('click',()=>{
+  b.classList.add('secili');
   goFS();
-  G.mode=b.dataset.mode;$('#ov-start').classList.add('hide');
+  G.mode=b.dataset.mode;
+  G.zomOn=b.dataset.zom==='1';
+  if(typeof updateZomBtns==='function')updateZomBtns();
+  setTimeout(()=>{$('#ov-start').classList.add('hide');b.classList.remove('secili');},260);
   if(G.mode!=='mp'){G.aiSides=null;if(typeof NET!=='undefined'&&NET.on){try{NET.peer&&NET.peer.destroy();}catch(e){}NET.on=false;}}
   if(G.mode==='world'){
     resetWorld();G.warCount=0;
@@ -3362,12 +3513,22 @@ const ACH=[
   {id:'coll',  n:'Koleksiyoncu',      d:'Tüm etiketleri satın al.'}
 ];
 function hasAch(id){return PROF.ach.indexOf(id)>=0;}
+function toast(ust,ad,ac){
+  const box=document.getElementById('toast');if(!box)return;
+  const d=document.createElement('div');d.className='tst';
+  d.innerHTML='<div class="ust">'+ust+'</div><div class="adi"></div>'+
+    (ac?'<div class="aciklama"></div>':'');
+  d.querySelector('.adi').textContent=ad;
+  if(ac)d.querySelector('.aciklama').textContent=ac;
+  box.appendChild(d);
+  while(box.children.length>4)box.removeChild(box.firstChild);
+  setTimeout(()=>{d.classList.add('out');setTimeout(()=>d.remove(),420);},4200);}
 function unlockAch(id){
   if(hasAch(id))return;
   const a=ACH.find(x=>x.id===id);if(!a)return;
   PROF.ach.push(id);saveProf();
-  log('🏆 BAŞARIM: '+a.n,'w');
-  if(PROF.ach.length>=ACH.length)log('👑 Tüm başarımlar tamam — artık Başarımlar Başkanısın!','w');
+  toast('🏆 BAŞARIM KAZANILDI',a.n,a.d);
+  if(PROF.ach.length>=ACH.length)toast('👑 UNVAN AÇILDI','Başarımlar Başkanı','Tüm başarımları topladın.');
   renderAch();renderUser();}
 function achDone(){return PROF.ach.length>=ACH.length;}
 function addWin(){
@@ -3434,7 +3595,7 @@ function buyTag(t){
   PROF.tag=t.id;saveProf();
   if(TAGS.every(x=>!x.id||PROF.tags.indexOf(x.id)>=0))unlockAch('coll');
   renderTags();renderUser();
-  log(t.id?('Etiket seçildi: '+t.n):'Etiket kaldırıldı.','w');}
+  if(t.id)toast('🏷 ETİKET SEÇİLDİ',t.n);}
 
 /* ---------- yükseltmeler (maç içi, para ile) ---------- */
 const UPG=[
@@ -3467,9 +3628,18 @@ function buyUpg(k){
 
 /* ---------- arayüz ---------- */
 function renderUser(){
-  const e=$('#user-name');if(e)e.textContent=fullName(NET.name);
+  const e=$('#user-name');if(e)e.textContent=NET.name||'Komutan';
+  const r=$('#user-rank'),tn=tagName();
+  if(r){r.textContent=tn||'';r.style.display=tn?'':'none';}
+  const u=$('#user-unvan');
+  if(u)u.textContent=achDone()?'👑 Başarımlar Başkanı':'Cephe kaydı açık';
   const w=$('#user-wins');if(w)w.textContent=PROF.wins;
-  const a=$('#user-ach');if(a)a.textContent=PROF.ach.length+'/'+ACH.length;}
+  const a=$('#user-ach');if(a)a.textContent=PROF.ach.length;
+  const pr=$('#user-prog');
+  if(pr)pr.style.width=Math.round(PROF.ach.length/ACH.length*100)+'%';
+  const pt=$('#user-progtxt');
+  if(pt)pt.textContent=PROF.ach.length+'/'+ACH.length+' başarım'+
+    (PROF.ach.length<ACH.length?(' · '+(ACH.length-PROF.ach.length)+' tanesi kaldı'):' · tamamlandı');}
 function renderAch(){
   const L=$('#ach-list');if(!L)return;
   L.innerHTML='';
