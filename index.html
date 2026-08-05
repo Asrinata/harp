@@ -327,7 +327,10 @@ canvas{display:block;position:absolute;inset:0;width:100%;height:100%}
 #ov-auth .searchbox{margin-bottom:8px}
 #lb-liste,#oda-liste{border-top:1px solid #333d47;max-height:52vh;overflow-y:auto}
 .devlet.ben{background:#1e2731;box-shadow:inset 3px 0 0 var(--amber)}
-#sec-vaat,#sec-oy{max-height:46vh;overflow-y:auto;border:1px solid var(--line)}
+#sec-vaat,#sec-oy{max-height:38vh;overflow-y:auto;border:1px solid var(--line)}
+#sec-adaylar{max-height:18vh;overflow-y:auto;border:1px solid var(--line)}
+#test-liste{max-height:56vh;overflow-y:auto;border-top:1px solid var(--line)}
+#test-liste .iv{cursor:pointer}
 #sec-vaat .iv.sec{border-left:3px solid var(--amber);background:#1c2a33}
 .sayac{display:flex;align-items:center;gap:5px;flex:0 0 auto}
 .sayac .btn{padding:4px 9px;font-size:15px;line-height:1}
@@ -335,6 +338,11 @@ canvas{display:block;position:absolute;inset:0;width:100%;height:100%}
 .frow.secili{background:#1e2731;box-shadow:inset 3px 0 0 var(--amber)}
 .oysay{font-family:"Barlow Condensed",sans-serif;font-size:15px;color:var(--amber);
   width:52px;text-align:right;flex:0 0 auto}
+#rt-pnl{position:absolute;left:10px;top:56px;z-index:13;width:min(84vw,290px);
+  background:linear-gradient(180deg,#232a33,#181e25);border:1px solid var(--line);
+  box-shadow:0 10px 26px rgba(0,0,0,.5);max-height:72vh;overflow-y:auto}
+#rt-pnl.hide{display:none}
+#rt-liste{border-top:1px solid var(--line)}
 #gorev-pnl{position:absolute;left:10px;top:56px;z-index:13;width:min(80vw,240px);
   background:linear-gradient(180deg,#232a33,#181e25);border:1px solid var(--line);
   border-left:3px solid var(--amber);box-shadow:0 10px 24px rgba(0,0,0,.5)}
@@ -593,6 +601,21 @@ canvas{display:block;position:absolute;inset:0;width:100%;height:100%}
   <div id="gorev-liste"></div>
   <button class="ikinci" id="sec-ac" style="width:100%;padding:7px">SEÇİM PANELİ</button>
 </div>
+<div id="rt-pnl" class="hide">
+  <div class="dunya-ust">
+    <div class="buyuk"><span id="rt-benim">0</span><small>ÜLKEN</small></div>
+    <div style="flex:1;min-width:0">
+      <div style="font-size:11px;color:var(--dim)"><span id="rt-bos">0</span> boş ülke ·
+        <span id="rt-oyuncu">0</span> oyuncu</div>
+      <div style="font-size:11px;color:var(--amber)" id="rt-cd">saldırıya hazır</div>
+    </div>
+  </div>
+  <div id="rt-liste"></div>
+  <div class="dugmeler">
+    <button class="ikinci" id="rt-yenile" style="flex:1">YENİLE</button>
+    <button class="ikinci" id="rt-cik" style="flex:1">ÇIK</button>
+  </div>
+</div>
 <div id="toast"></div>
 <div id="log"></div>
 
@@ -699,6 +722,14 @@ canvas{display:block;position:absolute;inset:0;width:100%;height:100%}
         <div class="damga">SEÇİLDİ</div>
       </button>
 
+      <button class="dosya" data-sekme="H-06" id="mod-rt">
+        <div class="no">KALICI DÜNYA</div>
+        <h3>GERÇEK ZAMANLI DÜNYA</h3>
+        <p>Herkes aynı dünyada. Boş ülkeyi sahiplen, başkasınınkine saldır. Çıksan da ülken korunmaz.</p>
+        <div class="kunye"><span>HESAP GEREKİR</span><span>177 ÜLKE</span><span>KALICI</span></div>
+        <div class="damga">SEÇİLDİ</div>
+      </button>
+
       <div class="dosya genis" data-sekme="H-05">
         <div class="no">5 KİŞİYE KADAR</div>
         <h3>ÇOK OYUNCULU</h3>
@@ -708,7 +739,7 @@ canvas{display:block;position:absolute;inset:0;width:100%;height:100%}
 
       <div class="not">
         Haritayı sürükle · iki parmakla yakınlaştır · ülkeye dokunarak seç
-        <span id="srm-tag">sürüm 7.4</span>
+        <span id="srm-tag">sürüm 8.1 — test paneli</span>
       </div>
     </div>
   </section>
@@ -814,12 +845,25 @@ canvas{display:block;position:absolute;inset:0;width:100%;height:100%}
   </div>
 </div>
 
+<div class="ov hide" id="ov-test">
+  <div class="pano">
+    <div class="pano-bas"><h3>TEST PANELİ</h3><div class="rozet">TEK OYUNCULU</div></div>
+    <div class="pano-ic" style="padding-bottom:0">
+      <div class="sub">Geliştirici kısayolları. Çok oyunculuda kapalıdır.</div>
+    </div>
+    <div id="test-liste"></div>
+    <div class="dugmeler"><button class="ikinci" id="test-close" style="flex:1">KAPAT</button></div>
+  </div>
+</div>
+
 <div class="ov hide" id="ov-sec">
   <div class="pano">
     <div class="pano-bas"><h3 id="sec-bas">ADAYLIK</h3><div class="rozet"><span id="sec-sure">40 sn</span></div></div>
     <div class="pano-ic">
       <div class="sub" id="sec-alt" style="margin-bottom:10px">Seçilirsen ne yapacağını söyle.</div>
       <div id="sec-vaat"></div>
+      <div style="font-size:11px;color:var(--dim);margin:8px 0 4px">ADAYLAR</div>
+      <div id="sec-adaylar"></div>
       <div id="sec-oy"></div>
     </div>
     <div class="dugmeler">
@@ -1695,6 +1739,13 @@ function refreshTeamMarks(){
   for(const c of G.team.D)if(c)c.teamSide='D';}
 const _ws={fill:'',line:'',lw:1};
 function warState(c){
+  if(typeof RT!=='undefined'&&RT.on){
+    if(c.rtOwner){
+      const r=rtRenk(c.rtOwner),ben=rtBenim(c.rtOwner);
+      _ws.fill=mix(r,'#16232b',ben?.28:.5);
+      _ws.line=ben?'#e8b23a':mix(r,'#ffffff',.4);
+      _ws.lw=ben?2.4:1.2;return _ws;}
+    _ws.fill='#2c3a30';_ws.line='#5c6f5e';_ws.lw=.9;return _ws;}
   if(G.mpPickSet&&G.mpPickSet.has(c.name)){_ws.fill=c.fillHot;_ws.line='#e8b23a';_ws.lw=2.4;return _ws;}
   if(c.infected){_ws.fill='#1f3a1c';_ws.line='#5bd14a';_ws.lw=1.8;return _ws;}
   const t=teamOf(c);
@@ -3051,6 +3102,7 @@ function tap(sx,sy){
   const [wx,wy]=s2w(sx,sy);
   if(G.pickFor==='mp'){const c=countryAt(wx,wy);if(c)setMyCountry(c.name);return;}
   if(G.place&&G.phase==='war'){if(placeTap(wx,wy))return;}
+  if(typeof RT!=='undefined'&&RT.on){rtTap(wx,wy);return;}
   if(G.phase==='pickA'||G.phase==='pickD'){pickToggle(countryAt(wx,wy));return;}
   if(G.phase==='war'&&G.mode==='manual'&&G.side!=='W'&&G.tool){
     if(issueFire(G.side,G.tool,wx,wy)){
@@ -3263,6 +3315,7 @@ function loop(now){
     else{toolT+=dt;if(toolT>.1){toolT=0;refreshTools();}}
   }
   perfWatch(dt);
+  if(typeof rtTick==='function')rtTick(dt);
   try{if(typeof netTick==='function')netTick(dt);}catch(e){softErr(e);}
   try{if(mapDirty)drawMap();}catch(e){mapDirty=false;softErr(e);}
   try{drawUnits();}catch(e){softErr(e);}
@@ -4876,9 +4929,16 @@ function secTaslak(id,d){
   secRender();}
 function secAdayOl(){
   const v=secVaatler();
-  if(!v.length){log('En az bir vaat seç.','w');return;}
-  const c={k:'aday',id:(NET&&NET.on)?NET.id:'ben',name:NET?NET.name:'Komutan',v};
-  if(NET&&NET.on)NET.request(c);else runCmd(c);}
+  if(!v.length){
+    toast('⚠️ VAAT YOK','En az bir kalem seç','+ düğmesiyle adet ver.');return;}
+  const id=(typeof NET!=='undefined'&&NET.on)?NET.id:'ben';
+  const ad=(typeof NET!=='undefined'&&NET.name)?NET.name:'Komutan';
+  const c={k:'aday',id,name:ad,v};
+  if(typeof NET!=='undefined'&&NET.on)NET.request(c);else runCmd(c);
+  G.sec.benAday=true;
+  toast('🗳 ADAYLIĞINI KOYDUN',ad,
+    v.map(x=>{const it=INV.find(y=>y.id===x.id);return (it?it.n:x.id)+' ×'+x.n;}).join(', '));
+  secRender();}
 function secAdayEkle(id,name,v){
   if(G.sec.cands.some(c=>c.id===id))
     G.sec.cands=G.sec.cands.filter(c=>c.id!==id);
@@ -4981,7 +5041,21 @@ function secRender(){
   const V=$('#sec-vaat'),O=$('#sec-oy');
   if(V)V.style.display=s.stage==='aday'?'':'none';
   if(O)O.style.display=s.stage==='oy'?'':'none';
-  const b=$('#sec-adayol');if(b)b.style.display=s.stage==='aday'?'':'none';
+  const b=$('#sec-adayol');
+  if(b){b.style.display=s.stage==='aday'?'':'none';
+    b.textContent=s.benAday?'VAADİ GÜNCELLE':'ADAY OL';}
+  const AL=$('#sec-adaylar');
+  if(AL){
+    AL.style.display=s.stage==='aday'?'':'none';
+    AL.innerHTML='';
+    if(s.stage==='aday'){
+      if(!s.cands.length)AL.innerHTML='<div class="frow bos">Henüz aday yok.</div>';
+      for(const c of s.cands){
+        const d=document.createElement('div');d.className='frow';
+        d.innerHTML='<div class="fnm"><b>'+c.name+'</b><span>'+
+          c.v.map(x=>{const it=INV.find(y=>y.id===x.id);return (it?it.n:x.id)+' ×'+x.n;}).join(', ')+
+          '</span></div>';
+        AL.appendChild(d);}}}
   /* vaat listesi */
   if(V&&s.stage==='aday'){
     V.innerHTML='';
@@ -4989,6 +5063,7 @@ function secRender(){
       if(!it.c)continue;
       const n=(s.taslak&&s.taslak[it.id])||0;
       const d=document.createElement('div');d.className='iv'+(n?' sec':'');
+      d.addEventListener('click',()=>secTaslak(it.id,1));
       d.innerHTML='<div class="ic">'+it.ic+'</div><div class="tx">'+
         '<div class="tt">'+it.n+'</div><div class="dd">'+fmtM(it.c)+' · halk '+
         (it.m>0?'+':'')+it.m+'</div></div>';
@@ -5046,6 +5121,273 @@ on('#secim-row','click',()=>{
   G.secimOn=!G.secimOn;
   const b=$('#secim-state');
   if(b){b.textContent=G.secimOn?'AÇIK':'KAPALI';b.classList.toggle('off',!G.secimOn);}});
+
+/* ================= GERÇEK ZAMANLI DÜNYA ================= */
+const RT={on:false,doc:null,data:null,timer:0,busy:false,son:0,cd:0};
+const RT_HP=100, RT_HASAR=[26,38], RT_BEKLE=25, RT_YENILE=6, RT_REJEN=0.6;
+
+function rtRenk(uid){
+  if(!uid)return '#3b4a3e';
+  let h=0;for(let i=0;i<uid.length;i++)h=(Math.imul(h,31)+uid.charCodeAt(i))>>>0;
+  return 'hsl('+(h%360)+' 58% 46%)';}
+function rtBenim(uid){return FB.user&&uid===FB.user.uid;}
+function rtUlkeler(){return (RT.data&&RT.data.c)||{};}
+function rtSayim(uid){let n=0;const c=rtUlkeler();
+  for(const k in c)if(c[k].u===uid)n++;return n;}
+function rtGuc(){return 1+Math.min(6,rtSayim(FB.user&&FB.user.uid)*0.35);}
+function rtCan(o){
+  if(!o)return 0;
+  const gecen=(Date.now()-(o.t||0))/60000;
+  return clamp((o.hp||RT_HP)+gecen*RT_REJEN*60,0,RT_HP);}
+
+/* ---------- açılış ---------- */
+async function rtBasla(){
+  if(!await fbInit()){toast('⚠️ BAĞLANTI YOK','Gerçek zamanlı dünya','https:// adresinden aç.');return;}
+  if(!FB.user){toast('⚠️ GİRİŞ GEREKLİ','Dünyaya katılmak için hesap gerekir');authAc('giris');return;}
+  RT.doc=FB.db.collection('world').doc('state');
+  RT.on=true;G.mode='rt';G.phase='rt';
+  hide('#ov-start');show2('#rt-pnl');
+  mapDirty=true;
+  await rtCek(true);
+  log('GERÇEK ZAMANLI DÜNYA — boş bir ülkeye dokunup sahiplen.','w');}
+function show2(id){const e=$(id);if(e)e.classList.remove('hide');}
+function rtCik(){
+  RT.on=false;RT.data=null;
+  const e=$('#rt-pnl');if(e)e.classList.add('hide');
+  for(const c of CLIST)c.rtOwner=null;
+  goHome();}
+
+/* ---------- veri ---------- */
+async function rtCek(zorla){
+  if(!RT.on||RT.busy)return;
+  RT.busy=true;
+  try{
+    const d=await RT.doc.get();
+    RT.data=d.exists?(d.data()||{c:{}}):{c:{}};
+    if(!RT.data.c)RT.data.c={};
+    rtIsle();
+  }catch(e){if(zorla)toast('❌ DÜNYA OKUNAMADI','Kurallar veya bağlantı');}
+  RT.busy=false;}
+function rtIsle(){
+  const c=rtUlkeler();
+  for(const k of CLIST)k.rtOwner=null;
+  for(const ad in c){
+    const u=COUNTRIES[ad];
+    if(u){u.rtOwner=c[ad].u;u.rtAd=c[ad].n;u.rtHp=rtCan(c[ad]);}}
+  mapDirty=true;rtPanel();}
+
+async function rtSahiplen(ad){
+  if(RT.busy)return;RT.busy=true;
+  try{
+    await FB.db.runTransaction(async tx=>{
+      const d=await tx.get(RT.doc);
+      const v=d.exists?(d.data()||{}):{};
+      const c=v.c||{};
+      if(c[ad]&&c[ad].u)throw new Error('dolu');
+      c[ad]={u:FB.user.uid,n:NET.name,hp:RT_HP,t:Date.now()};
+      tx.set(RT.doc,{c,ts:Date.now()},{merge:true});
+    });
+    toast('🚩 ÜLKE ALINDI',COUNTRIES[ad].tr,'Sen çevrimdışıyken de saldırıya açık.');
+    await rtCek();
+  }catch(e){
+    toast(String(e.message)==='dolu'?'⚠️ DOLU':'❌ OLMADI',
+      COUNTRIES[ad]?COUNTRIES[ad].tr:ad);}
+  RT.busy=false;}
+
+async function rtSaldir(ad){
+  if(RT.busy)return;
+  if(RT.cd>Date.now()){
+    toast('⏳ BEKLE',Math.ceil((RT.cd-Date.now())/1000)+' sn','Saldırılar arası süre.');return;}
+  if(!rtSayim(FB.user.uid)){toast('⚠️ ÜLKEN YOK','Önce boş bir ülke sahiplen');return;}
+  RT.busy=true;
+  let sonuc='';
+  try{
+    await FB.db.runTransaction(async tx=>{
+      const d=await tx.get(RT.doc);
+      const v=d.exists?(d.data()||{}):{};
+      const c=v.c||{};
+      const o=c[ad];
+      const hasar=Math.round((RT_HASAR[0]+Math.random()*(RT_HASAR[1]-RT_HASAR[0]))*rtGuc());
+      if(!o||!o.u){
+        c[ad]={u:FB.user.uid,n:NET.name,hp:RT_HP,t:Date.now()};sonuc='bos';
+      }else{
+        const can=Math.max(0,rtCan(o)-hasar);
+        if(can<=0){c[ad]={u:FB.user.uid,n:NET.name,hp:Math.round(RT_HP*0.4),t:Date.now()};sonuc='fetih';}
+        else{c[ad]={u:o.u,n:o.n,hp:Math.round(can),t:Date.now()};sonuc=Math.round(can)+'';}
+      }
+      tx.set(RT.doc,{c,ts:Date.now()},{merge:true});
+    });
+    RT.cd=Date.now()+RT_BEKLE*1000;
+    const nm=COUNTRIES[ad].tr;
+    if(sonuc==='fetih')toast('🏴 ÜLKE FETHEDİLDİ',nm,'Artık senin.');
+    else if(sonuc==='bos')toast('🚩 SAHİPSİZ ÜLKE',nm,'Doğrudan alındı.');
+    else toast('💥 SALDIRI',nm,'Kalan direnç: %'+sonuc);
+    await rtCek();
+  }catch(e){toast('❌ SALDIRI BAŞARISIZ',(e&&e.message)||'');}
+  RT.busy=false;}
+
+/* ---------- dokunma ---------- */
+function rtTap(wx,wy){
+  const c=countryAt(wx,wy);
+  if(!c)return true;
+  const o=rtUlkeler()[c.name];
+  if(!o||!o.u){rtSahiplen(c.name);return true;}
+  if(rtBenim(o.u)){
+    toast('🚩 SENİN ÜLKEN',c.tr,'Direnç %'+Math.round(rtCan(o)));return true;}
+  rtSaldir(c.name);return true;}
+
+/* ---------- panel ---------- */
+function rtPanel(){
+  const p=$('#rt-pnl');if(!p||p.classList.contains('hide'))return;
+  const c=rtUlkeler();
+  const sahip={};
+  for(const k in c){const u=c[k].u;if(!u)continue;
+    if(!sahip[u])sahip[u]={n:c[k].n,say:0};sahip[u].say++;}
+  const liste=Object.entries(sahip).sort((a,b)=>b[1].say-a[1].say).slice(0,8);
+  const bos=CLIST.length-Object.keys(c).length;
+  const b1=$('#rt-benim'),b2=$('#rt-bos'),b3=$('#rt-oyuncu');
+  if(b1)b1.textContent=FB.user?rtSayim(FB.user.uid):0;
+  if(b2)b2.textContent=bos;
+  if(b3)b3.textContent=liste.length;
+  const L=$('#rt-liste');if(!L)return;
+  L.innerHTML='';
+  if(!liste.length){L.innerHTML='<div class="frow bos">Dünya boş — ilk ülkeyi sen al.</div>';return;}
+  let i=0;
+  for(const [uid,v] of liste){
+    i++;
+    const d=document.createElement('div');
+    d.className='devlet'+(rtBenim(uid)?' ben':'');
+    d.innerHTML='<div class="sira">'+i+'</div>'+
+      '<div class="ad" style="color:'+rtRenk(uid)+'">'+(v.n||'Komutan')+'</div>'+
+      '<div class="say">'+v.say+'</div>';
+    L.appendChild(d);}
+  const cd=$('#rt-cd');
+  if(cd){const k=Math.max(0,Math.ceil((RT.cd-Date.now())/1000));
+    cd.textContent=k?('saldırı: '+k+' sn'):'saldırıya hazır';}}
+
+function rtTick(dt){
+  if(!RT.on)return;
+  RT.timer-=dt;
+  if(RT.timer<=0){RT.timer=RT_YENILE;rtCek();}
+  rtPanel();}
+
+on('#rt-cik','click',rtCik);
+on('#rt-yenile','click',()=>rtCek(true));
+on('#mod-rt','click',rtBasla);
+
+/* ================= ADMIN TEST PANELİ (tek oyunculu) ================= */
+const TEST_KOD='19342345';
+let testBuf='';
+
+function testAcik(){
+  return !(typeof NET!=='undefined'&&NET.on);}
+function testAc(){
+  if(!testAcik()){toast('⚠️ KAPALI','Test paneli','Çok oyunculuda kullanılamaz.');return;}
+  testListe();show('#ov-test');}
+
+const TESTLER=[
+  {id:'isyan', ic:'🔥', n:'İsyan çıkar',        d:'Halk memnuniyeti sıfırlanır, isyan başlar.'},
+  {id:'kazan', ic:'🏆', n:'Savaşı kazan',       d:'Anında zafer ekranı.'},
+  {id:'kaybet',ic:'💀', n:'Savaşı kaybet',      d:'Anında yenilgi.'},
+  {id:'secKazan',ic:'🗳', n:'Seçimi kazan',     d:'Seçim biter, sen kazanırsın.'},
+  {id:'secKaybet',ic:'🗳', n:'Seçimi kaybet',   d:'Seçim biter, rakip kazanır.'},
+  {id:'gorevBitir',ic:'✅', n:'Görevleri tamamla', d:'Tüm seçim vaatleri yapılmış sayılır.'},
+  {id:'gorevSure',ic:'⏳', n:'Görev süresini 10 sn yap', d:'Zaman baskısını test et.'},
+  {id:'para',  ic:'💰', n:'+10 milyar bütçe',   d:'Kasaya para ekler.'},
+  {id:'halkTam',ic:'😀', n:'Halk %100',          d:'Memnuniyeti tavana çeker.'},
+  {id:'halkDip',ic:'😟', n:'Halk %3',            d:'İsyanın eşiğine getirir.'},
+  {id:'cephane',ic:'🚀', n:'Cephaneyi doldur',   d:'Tüm silahlar tavana.'},
+  {id:'nukleer',ic:'☢️', n:'+3 nükleer başlık',  d:'Can şartı yine geçerli.'},
+  {id:'yukselt',ic:'⚙️', n:'Tüm silahlar SV5',   d:'Yükseltmeleri tamamlar.'},
+  {id:'dalga',  ic:'🧟', n:'Zombi dalgası atla', d:'Sonraki dalgaya geçer.'},
+  {id:'zombiSil',ic:'🧹', n:'Zombileri temizle', d:'Haritadaki tüm zombiler ölür.'},
+  {id:'sehirAl',ic:'🏙', n:'Düşman şehri al',   d:'Bir düşman şehrini işgal eder.'},
+  {id:'sehirVer',ic:'🏚', n:'Şehir kaybet',     d:'Kendi şehrinden birini düşürür.'}
+];
+
+function testYap(id){
+  const e=G.ecoS&&G.ecoS[(G.side==='A'||G.side==='D')?G.side:'A'];
+  const ben=(G.side==='A'||G.side==='D')?G.side:'A';
+  switch(id){
+    case 'isyan':
+      if(e&&e.on){e.morale=0;e.riot=9.5;}
+      else endWar(other(ben),'riot',ben);
+      toast('🔥 TEST','İsyan tetiklendi');break;
+    case 'kazan': endWar(ben);toast('🏆 TEST','Zafer');break;
+    case 'kaybet': endWar(other(ben));toast('💀 TEST','Yenilgi');break;
+    case 'secKazan':
+      if(!G.sec||G.sec.stage==='off'){toast('⚠️ SEÇİM YOK','Seçimler kapalı');break;}
+      if(!G.sec.cands.length)G.sec.cands.push({id:'ben',name:NET.name,v:[{id:'konut',n:2}],oy:0});
+      for(const c of G.sec.cands)c.oy=(c.id==='ben')?99:0;
+      G.sec.stage='oy';G.sec.timer=0.1;toast('🗳 TEST','Seçimi kazanıyorsun');break;
+    case 'secKaybet':
+      if(!G.sec||G.sec.stage==='off'){toast('⚠️ SEÇİM YOK','Seçimler kapalı');break;}
+      if(G.sec.cands.length<2)G.sec.cands.push({id:'yz9',name:'Muhalefet',v:[{id:'konut',n:3}],oy:0});
+      for(const c of G.sec.cands)c.oy=(c.id==='ben')?0:99;
+      G.sec.stage='oy';G.sec.timer=0.1;toast('🗳 TEST','Seçimi kaybediyorsun');break;
+    case 'gorevBitir':
+      if(G.sec&&G.sec.tasks)for(const t of G.sec.tasks)secYapildi(t.id,t.hedef);
+      toast('✅ TEST','Görevler tamamlandı');break;
+    case 'gorevSure':
+      if(G.sec&&G.sec.stage==='gorev'){G.sec.timer=10;G.sec.uyari=false;}
+      toast('⏳ TEST','Görev süresi 10 sn');break;
+    case 'para': if(e)e.money+=10e9;toast('💰 TEST','+10 Mlr');break;
+    case 'halkTam': if(e)e.morale=100;toast('😀 TEST','Halk %100');break;
+    case 'halkDip': if(e)e.morale=3;toast('😟 TEST','Halk %3');break;
+    case 'cephane':
+      for(const k in G.stock[ben])G.stock[ben][k]=Math.max(G.stock[ben][k],G.cap[ben][k]||30);
+      updateHUD();toast('🚀 TEST','Cephane dolu');break;
+    case 'nukleer': G.stock[ben].nuke+=3;updateHUD();toast('☢️ TEST','+3 nükleer');break;
+    case 'yukselt':
+      if(!G.upg)G.upg={};
+      for(const u of UPG)G.upg[u.k]=5;
+      toast('⚙️ TEST','Tüm silahlar SV5');break;
+    case 'dalga':
+      if(G.zomOn){G.zom.length=0;G.waveLeft=0;toast('🧟 TEST','Dalga atlandı');}
+      else toast('⚠️ ZOMBİ KAPALI','');break;
+    case 'zombiSil':
+      if(G.zomOn){G.zom.length=0;toast('🧹 TEST','Zombiler silindi');}
+      else toast('⚠️ ZOMBİ KAPALI','');break;
+    case 'sehirAl':{
+      const cs=citiesOf(other(ben));
+      if(cs.length){capture(cs[0],ben);toast('🏙 TEST','Şehir alındı');}
+      else toast('⚠️ ŞEHİR YOK','');break;}
+    case 'sehirVer':{
+      const cs=citiesOf(ben);
+      if(cs.length>0){capture(cs[0],other(ben));toast('🏚 TEST','Şehir kaybedildi');}
+      else toast('⚠️ ŞEHİR YOK','');break;}
+  }
+  updateHUD();mapDirty=true;}
+
+function testListe(){
+  const L=$('#test-liste');if(!L)return;
+  L.innerHTML='';
+  for(const t of TESTLER){
+    const d=document.createElement('div');d.className='iv';
+    d.innerHTML='<div class="ic">'+t.ic+'</div><div class="tx">'+
+      '<div class="tt">'+t.n+'</div><div class="dd">'+t.d+'</div></div>';
+    d.addEventListener('click',()=>testYap(t.id));
+    L.appendChild(d);}}
+
+window.addEventListener('keydown',e=>{
+  if(e.target&&/INPUT|TEXTAREA/.test(e.target.tagName))return;
+  if(!/^[0-9]$/.test(e.key)){testBuf='';return;}
+  testBuf=(testBuf+e.key).slice(-TEST_KOD.length);
+  if(testBuf===TEST_KOD){testBuf='';testAc();}
+});
+/* telefon için: bildirim düğmesine 1,5 sn basılı tut */
+(function(){
+  const b=$('#b-log');if(!b)return;
+  let t=0;
+  const bas=()=>{t=setTimeout(()=>{
+    const k=prompt('Test kodu:');
+    if(k&&k.trim()===TEST_KOD)testAc();},1500);};
+  const birak=()=>clearTimeout(t);
+  b.addEventListener('pointerdown',bas);
+  b.addEventListener('pointerup',birak);
+  b.addEventListener('pointerleave',birak);
+})();
+on('#test-close','click',()=>hide('#ov-test'));
 
 </script>
 </body>

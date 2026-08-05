@@ -1,5 +1,5 @@
 /* HARP servis çalışanı — sürüm her güncellemede artmalı */
-const VER='harp-v50';
+const VER='harp-v52';
 const FILES=['./','./index.html','./manifest.json','./icon-192.png','./icon-512.png','./icon-maskable-512.png'];
 
 self.addEventListener('install',e=>{
