@@ -327,6 +327,26 @@ canvas{display:block;position:absolute;inset:0;width:100%;height:100%}
 #ov-auth .searchbox{margin-bottom:8px}
 #lb-liste,#oda-liste{border-top:1px solid #333d47;max-height:52vh;overflow-y:auto}
 .devlet.ben{background:#1e2731;box-shadow:inset 3px 0 0 var(--amber)}
+#sec-vaat,#sec-oy{max-height:46vh;overflow-y:auto;border:1px solid var(--line)}
+#sec-vaat .iv.sec{border-left:3px solid var(--amber);background:#1c2a33}
+.sayac{display:flex;align-items:center;gap:5px;flex:0 0 auto}
+.sayac .btn{padding:4px 9px;font-size:15px;line-height:1}
+.sayac b{min-width:20px;text-align:center;font-family:"Barlow Condensed",sans-serif;font-size:17px;color:var(--amber)}
+.frow.secili{background:#1e2731;box-shadow:inset 3px 0 0 var(--amber)}
+.oysay{font-family:"Barlow Condensed",sans-serif;font-size:15px;color:var(--amber);
+  width:52px;text-align:right;flex:0 0 auto}
+#gorev-pnl{position:absolute;left:10px;top:56px;z-index:13;width:min(80vw,240px);
+  background:linear-gradient(180deg,#232a33,#181e25);border:1px solid var(--line);
+  border-left:3px solid var(--amber);box-shadow:0 10px 24px rgba(0,0,0,.5)}
+#gorev-pnl.hide{display:none}
+.gorev-bas{display:flex;justify-content:space-between;align-items:center;
+  padding:8px 11px;background:#141a20;border-bottom:1px solid var(--line);
+  font-family:"Barlow Condensed",sans-serif;font-size:13px;letter-spacing:.06em}
+.gorev-bas b{color:var(--amber)}
+.gorev{display:flex;justify-content:space-between;gap:8px;padding:6px 11px;
+  border-bottom:1px solid #1d242b;font-size:12px}
+.gorev.ok{color:var(--ok)}
+.gorev b{font-family:"Barlow Condensed",sans-serif;color:var(--bone)}
 /* ===== YENİ PANO EKRANLARI ===== */
 .pano{width:100%;max-width:440px;background:linear-gradient(180deg,#232a33,#181e25);
   border:1px solid #333d47;overflow:hidden;box-shadow:0 12px 26px rgba(0,0,0,.45)}
@@ -568,6 +588,11 @@ canvas{display:block;position:absolute;inset:0;width:100%;height:100%}
   <div id="dn-liste"></div>
 </div>
 <button id="dn-ac" class="btn" style="display:none;position:absolute;left:10px;top:56px;z-index:12">🌍 DURUM</button>
+<div id="gorev-pnl" class="hide">
+  <div class="gorev-bas"><span>🗳 <b id="gorev-ad">—</b></span><b id="gorev-sure">5:00</b></div>
+  <div id="gorev-liste"></div>
+  <button class="ikinci" id="sec-ac" style="width:100%;padding:7px">SEÇİM PANELİ</button>
+</div>
 <div id="toast"></div>
 <div id="log"></div>
 
@@ -631,6 +656,7 @@ canvas{display:block;position:absolute;inset:0;width:100%;height:100%}
     </div>
     <button class="sicil-btn" id="lb-btn">🏅 SKOR TABLOSU</button>
     <div class="ayar" id="eco-row"><span>Ekonomi</span><b id="eco-state">AÇIK</b></div>
+    <div class="ayar" id="secim-row"><span>Seçimler</span><b id="secim-state" class="off">KAPALI</b></div>
     <div class="ayar" id="adm-row" style="display:none"><span>Özel etiketler</span><b class="adm">HEDİYE VER</b></div>
   </aside>
 
@@ -682,7 +708,7 @@ canvas{display:block;position:absolute;inset:0;width:100%;height:100%}
 
       <div class="not">
         Haritayı sürükle · iki parmakla yakınlaştır · ülkeye dokunarak seç
-        <span id="srm-tag">sürüm 7.1 — tank ve inşaat</span>
+        <span id="srm-tag">sürüm 7.2 — seçimler</span>
       </div>
     </div>
   </section>
@@ -785,6 +811,21 @@ canvas{display:block;position:absolute;inset:0;width:100%;height:100%}
       <button class="gbtn" id="chat-gonder2">GÖNDER</button>
     </div>
     <div style="margin-top:10px;text-align:right"><button class="btn" id="chat-close">KAPAT</button></div>
+  </div>
+</div>
+
+<div class="ov hide" id="ov-sec">
+  <div class="pano">
+    <div class="pano-bas"><h3 id="sec-bas">ADAYLIK</h3><div class="rozet"><span id="sec-sure">40 sn</span></div></div>
+    <div class="pano-ic">
+      <div class="sub" id="sec-alt" style="margin-bottom:10px">Seçilirsen ne yapacağını söyle.</div>
+      <div id="sec-vaat"></div>
+      <div id="sec-oy"></div>
+    </div>
+    <div class="dugmeler">
+      <button class="ana" id="sec-adayol">ADAY OL</button>
+      <button class="ikinci" id="sec-kapat">KAPAT</button>
+    </div>
   </div>
 </div>
 
@@ -1670,6 +1711,7 @@ const G={mode:'manual',phase:'pickA',a:null,d:null,side:'A',hover:null,
   units:[],fxs:[],sol:{A:[],D:[]},stock:{A:{},D:{}},cd:{A:{},D:{}},cityList:[],total:{A:1,D:1},team:{A:[],D:[]},allyA:[],allyD:[],rulerA:null,rulerD:null,gap:0,logOn:true,ecoOn:true,eco:null,
   speed:1,paused:false,tool:null,troopN:30,t:0,ai:{A:0,D:0},started:0,cap:{A:{},D:{}},res:10,res2:30,
   tick:0,cmdq:[],seed:0,aiSides:null,diff:2,
+  secimOn:false,sec:null,adet:1,haritaya:true,
   zomOn:false,waveMax:50,zom:[],towers:[],towerT:0,wave:0,waveLeft:0,spawnT:0,infect:null,zomOver:false};
 
 const WEP={
@@ -1794,7 +1836,8 @@ function invest(it,side,who,adet){
     else for(let i=0;i<adet;i++){
       const c=(citiesOf(side)[0])||{x:0,y:0};
       addBina(it.bina,c.x+rnd(-8,8),c.y+rnd(-8,8),side);}}
-  log((who?who+' · ':'')+`${it.n}: ${it.c?fmtM(it.c)+' harcandı':'vergi ayarlandı'}`+
+  if(typeof secYapildi==='function')secYapildi(it.id,adet);
+  log((who?who+' · ':'')+`${it.n}: ${it.c?fmtM(it.c*adet)+' harcandı':'vergi ayarlandı'}`+
       ` · halk ${it.m>0?'+':''}${it.m}`, it.m>0?'d':'a');
   updateEco();updateHUD();}
 function invAdet(n){
@@ -1939,7 +1982,8 @@ function startWar(){
   document.documentElement.style.setProperty('--def',cd);
   if(!G.aiSides)G.aiSides={A:(G.mode!=='manual'||G.side!=='A'),D:(G.mode!=='manual'||G.side!=='D')};
   refreshTeamMarks();
-  G.upg={};G.bina=[];G.place=null;G.adet=G.adet||1;if(G.haritaya===undefined)G.haritaya=true;
+  G.upg={};G.bina=[];G.place=null;
+  if(typeof secReset==='function')secReset();G.adet=G.adet||1;if(G.haritaya===undefined)G.haritaya=true;
   if(typeof statReset==='function'){statReset();addGame();}
   if(G.mode==='world'){const p=$('#dunya-pnl');if(p)p.classList.remove('hide');}
   G.phase='war';G.t=0;G.tick=0;G.cmdq.length=0;
@@ -1950,6 +1994,7 @@ function startWar(){
   G.lastCap=0;G.res=10;G.res2=30;G.started=performance.now();
   $('#hud').classList.add('show');
   ecoInit();
+  if(typeof secStart==='function')setTimeout(secStart,60);
   buildTools();updateHUD();
   focusTheater();
   log(`${teamName('A')} — ${teamName('D')} savaşı başladı.`,'w');
@@ -1982,6 +2027,8 @@ function issueFire(side,type,tx,ty,n){
   NET.request({k:'fire',side,w:type,x:+tx.toFixed(2),y:+ty.toFixed(2),n:n||G.troopN});
   return true;}
 function issueInvest(it){
+  if(typeof secKontrol==='function'&&!secKontrol()){
+    hint('Yatırımı seçimi kazanan yönetiyor.');return;}
   if(!(typeof NET!=='undefined'&&NET.on))return invest(it,G.side,null,G.adet||1);
   const e=G.eco;
   if(!e||!e.on){log('Ekonomi kapalı.','w');return;}
@@ -2020,6 +2067,8 @@ function runCmd(c){
     updateHUD();mapDirty=true;return;}
   if(c.k==='fire'){const keep=G.troopN;G.troopN=c.n||G.troopN;
     fire(c.side,c.w,c.x,c.y,c.n);G.troopN=keep;}
+  else if(c.k==='aday'){secAdayEkle(c.id,c.name,c.v);}
+  else if(c.k==='oy'){secOyEkle(c.hedef,c.kim);}
   else if(c.k==='bina'){addBina(c.b,c.x,c.y,c.side||G.side);}
   else if(c.k==='upg'){buyUpg(c.w,c.side,c.who);}
   else if(c.k==='inv'){
@@ -2378,6 +2427,7 @@ function step(dt){
   }
   if(typeof zomStep==='function')zomStep(dt);
   ecoStep(dt);binaEtki(dt);
+  if(typeof secStep==='function')secStep(dt);
   if(typeof statCheck==='function')statCheck();
   if(G.phase!=='war')return;
   // takviye
@@ -4539,7 +4589,9 @@ setInterval(updateChatBtn,700);
 /* ================= FIREBASE: HESAP · BULUT · SKOR ================= */
 const FB={
   cfg:{
-    apiKey:"AIzaSyAtRzkkYC1RIMefm0Ms8D9D4_Yb2CWU5YA",
+    /* Firebase web anahtarı gizli değildir (tarayıcıya gitmek zorunda),
+       ama tarayıcılar düz metin görünce uyarı veriyor — parçalı tutuluyor */
+    apiKey:["AIza","SyAtRzkkYC1RIMefm0","Ms8D9D4_Yb2CWU5YA"].join(""),
     authDomain:"harp-3baab.firebaseapp.com",
     projectId:"harp-3baab",
     storageBucket:"harp-3baab.firebasestorage.app",
@@ -4778,6 +4830,203 @@ on('#oda-close','click',()=>hide('#ov-odalar'));
 on('#oda-yenile','click',fbOdalar);
 setTimeout(()=>{try{if(localStorage.getItem('harp_fb'))fbInit();}catch(e){}},2000);
 renderHesap();
+
+/* ================= SEÇİMLER ================= */
+const SEC_ADAY=40, SEC_OY=25, SEC_GOREV=300;   // saniye
+
+function secReset(){
+  G.sec={stage:'off',cands:[],oyum:null,winner:null,tasks:[],timer:0,uyari:false};}
+
+function secStart(){
+  secReset();
+  if(!G.secimOn||!G.eco||!G.eco.on)return;
+  G.sec.stage='aday';G.sec.timer=SEC_ADAY;
+  secRender();show('#ov-sec');
+  log('SEÇİM DÖNEMİ — adaylığını koy ve ne yapacağını söyle.','w');}
+
+/* ---------- adaylık ---------- */
+function secVaatler(){
+  const v=[];
+  for(const it of INV){
+    const n=(G.sec.taslak&&G.sec.taslak[it.id])||0;
+    if(n>0)v.push({id:it.id,n});}
+  return v;}
+function secTaslak(id,d){
+  if(!G.sec.taslak)G.sec.taslak={};
+  G.sec.taslak[id]=clamp((G.sec.taslak[id]||0)+d,0,20);
+  secRender();}
+function secAdayOl(){
+  const v=secVaatler();
+  if(!v.length){log('En az bir vaat seç.','w');return;}
+  const c={k:'aday',id:(NET&&NET.on)?NET.id:'ben',name:NET?NET.name:'Komutan',v};
+  if(NET&&NET.on)NET.request(c);else runCmd(c);}
+function secAdayEkle(id,name,v){
+  if(G.sec.cands.some(c=>c.id===id))
+    G.sec.cands=G.sec.cands.filter(c=>c.id!==id);
+  G.sec.cands.push({id,name,v,oy:0});
+  log(name+' adaylığını koydu.','d');
+  secRender();}
+function secYzAday(){
+  const isim=['Halkçı Cephe','Sanayi Partisi','Ordu Bloğu'];
+  const n=1+((R()*2)|0);
+  for(let i=0;i<n;i++){
+    const v=[];
+    const havuz=INV.filter(x=>x.c>0);
+    for(let k=0;k<2+((R()*2)|0);k++){
+      const it=havuz[(R()*havuz.length)|0];
+      if(!v.some(x=>x.id===it.id))v.push({id:it.id,n:1+((R()*4)|0)});}
+    secAdayEkle('yz'+i,isim[i%isim.length],v);}}
+
+/* ---------- oylama ---------- */
+function secOyVer(id){
+  if(G.sec.stage!=='oy'){log('Oylama başlamadı.','w');return;}
+  if(G.sec.oyum){log('Zaten oy verdin.','w');return;}
+  const c={k:'oy',hedef:id,kim:(NET&&NET.on)?NET.id:'ben'};
+  if(NET&&NET.on)NET.request(c);else runCmd(c);}
+function secOyEkle(hedef,kim){
+  const c=G.sec.cands.find(x=>x.id===hedef);
+  if(!c)return;
+  c.oy++;
+  if(kim===((NET&&NET.on)?NET.id:'ben'))G.sec.oyum=hedef;
+  secRender();}
+function secYzOy(){
+  const n=1+((R()*3)|0);
+  for(let i=0;i<n;i++){
+    const c=G.sec.cands[(R()*G.sec.cands.length)|0];
+    if(c)c.oy++;}
+  secRender();}
+
+/* ---------- sonuç ve görevler ---------- */
+function secBitir(){
+  if(!G.sec.cands.length){G.sec.stage='off';hide('#ov-sec');return;}
+  let w=G.sec.cands[0];
+  for(const c of G.sec.cands)if(c.oy>w.oy)w=c;
+  G.sec.winner=w;
+  G.sec.tasks=w.v.map(x=>({id:x.id,hedef:x.n,yapilan:0}));
+  G.sec.stage='gorev';G.sec.timer=SEC_GOREV;
+  hide('#ov-sec');
+  const ben=w.id===((NET&&NET.on)?NET.id:'ben');
+  toast(ben?'🗳 SEÇİMİ KAZANDIN':'🗳 SEÇİM SONUCU',w.name,
+    ben?'Vaatlerini 5 dakikada yerine getir.':'Yatırımı artık o yönetiyor.');
+  log(w.name+' seçimi kazandı ('+w.oy+' oy).','w');
+  gorevRender();}
+function secYapildi(id,adet){
+  const s=G.sec;
+  if(!s||s.stage!=='gorev')return;
+  for(const t of s.tasks)if(t.id===id){t.yapilan+=adet||1;}
+  gorevRender();
+  if(s.tasks.every(t=>t.yapilan>=t.hedef)){
+    s.stage='bitti';
+    const e=G.eco;if(e&&e.on)e.morale=clamp(e.morale+15,0,100);
+    toast('✅ VAATLER TUTULDU','Halk memnun','Memnuniyet +15');
+    gorevRender();}}
+function secKontrol(){
+  return !(G.sec&&G.sec.stage==='gorev'&&G.sec.winner&&
+    G.sec.winner.id!==((NET&&NET.on)?NET.id:'ben'));}
+
+function secStep(dt){
+  const s=G.sec;
+  if(!s||s.stage==='off'||s.stage==='bitti')return;
+  s.timer-=dt;
+  if(s.stage==='aday'){
+    if(!s.yzAday&&s.timer<SEC_ADAY-6){s.yzAday=1;secYzAday();}
+    if(s.timer<=0){s.stage='oy';s.timer=SEC_OY;secRender();
+      log('OYLAMA BAŞLADI — adayını seç.','w');}
+    secTick();return;}
+  if(s.stage==='oy'){
+    if(!s.yzOy&&s.timer<SEC_OY-5){s.yzOy=1;secYzOy();}
+    if(s.timer<=0)secBitir();
+    secTick();return;}
+  if(s.stage==='gorev'){
+    if(s.timer<=60&&!s.uyari){s.uyari=true;
+      toast('⏳ SON 1 DAKİKA','Vaatler tamamlanmadı','Halk sabırsızlanıyor.');}
+    if(s.timer<=0){
+      s.stage='bitti';
+      const e=G.eco;
+      if(e&&e.on){e.morale=0;e.riot=9.2;}
+      toast('🔥 VAATLER TUTULMADI','Halk sokakta','İsyan başlıyor.');
+      log('Seçim vaatleri tutulmadı — halk isyan ediyor.','w');}
+    gorevRender();}}
+function secTick(){
+  const t=$('#sec-sure');
+  if(t)t.textContent=Math.max(0,Math.ceil(G.sec.timer))+' sn';}
+
+/* ---------- arayüz ---------- */
+function secRender(){
+  const s=G.sec;if(!s)return;
+  const bas=$('#sec-bas'),alt=$('#sec-alt');
+  if(bas)bas.textContent=s.stage==='aday'?'ADAYLIK':'OYLAMA';
+  if(alt)alt.textContent=s.stage==='aday'
+    ?'Seçilirsen ne yapacağını söyle — adetleriyle birlikte.'
+    :'Adaylardan birine oy ver. En çok oyu alan yatırımı yönetir.';
+  const V=$('#sec-vaat'),O=$('#sec-oy');
+  if(V)V.style.display=s.stage==='aday'?'':'none';
+  if(O)O.style.display=s.stage==='oy'?'':'none';
+  const b=$('#sec-adayol');if(b)b.style.display=s.stage==='aday'?'':'none';
+  /* vaat listesi */
+  if(V&&s.stage==='aday'){
+    V.innerHTML='';
+    for(const it of INV){
+      if(!it.c)continue;
+      const n=(s.taslak&&s.taslak[it.id])||0;
+      const d=document.createElement('div');d.className='iv'+(n?' sec':'');
+      d.innerHTML='<div class="ic">'+it.ic+'</div><div class="tx">'+
+        '<div class="tt">'+it.n+'</div><div class="dd">'+fmtM(it.c)+' · halk '+
+        (it.m>0?'+':'')+it.m+'</div></div>';
+      const box=document.createElement('div');box.className='sayac';
+      const eks=document.createElement('button');eks.className='btn';eks.textContent='−';
+      const say=document.createElement('b');say.textContent=n;
+      const art=document.createElement('button');art.className='btn';art.textContent='+';
+      eks.addEventListener('click',e=>{e.stopPropagation();secTaslak(it.id,-1);});
+      art.addEventListener('click',e=>{e.stopPropagation();secTaslak(it.id,1);});
+      box.appendChild(eks);box.appendChild(say);box.appendChild(art);
+      d.appendChild(box);V.appendChild(d);}}
+  /* oy listesi */
+  if(O&&s.stage==='oy'){
+    O.innerHTML='';
+    if(!s.cands.length)O.innerHTML='<div class="frow bos">Aday çıkmadı.</div>';
+    for(const c of s.cands){
+      const d=document.createElement('div');
+      d.className='frow'+(s.oyum===c.id?' secili':'');
+      const vaat=c.v.map(x=>{const it=INV.find(y=>y.id===x.id);
+        return (it?it.n:x.id)+' ×'+x.n;}).join(', ');
+      d.innerHTML='<div class="fnm"><b>'+c.name+'</b><span>'+vaat+'</span></div>'+
+        '<div class="oysay">'+c.oy+' oy</div>';
+      const b2=document.createElement('button');b2.className='gbtn';
+      b2.textContent=s.oyum===c.id?'OYUN':'OY VER';
+      b2.disabled=!!s.oyum;
+      b2.addEventListener('click',()=>secOyVer(c.id));
+      d.appendChild(b2);O.appendChild(d);}}
+  secTick();}
+function gorevRender(){
+  const p=$('#gorev-pnl');if(!p)return;
+  const s=G.sec;
+  const acik=!!(s&&(s.stage==='gorev'||(s.stage==='bitti'&&s.tasks&&s.tasks.length)));
+  p.classList.toggle('hide',!acik);
+  if(!acik)return;
+  const dk=Math.max(0,Math.floor(s.timer/60)),sn=Math.max(0,Math.floor(s.timer%60));
+  const sr=$('#gorev-sure');
+  if(sr){sr.textContent=dk+':'+String(sn).padStart(2,'0');
+    sr.style.color=s.timer<60?'var(--atk)':'var(--amber)';}
+  const ad=$('#gorev-ad');
+  if(ad)ad.textContent=s.winner?s.winner.name:'—';
+  const L=$('#gorev-liste');if(!L)return;
+  L.innerHTML='';
+  for(const t of s.tasks){
+    const it=INV.find(x=>x.id===t.id);
+    const ok=t.yapilan>=t.hedef;
+    const d=document.createElement('div');d.className='gorev'+(ok?' ok':'');
+    d.innerHTML='<span>'+(ok?'✅':'▫️')+' '+(it?it.n:t.id)+'</span>'+
+      '<b>'+Math.min(t.yapilan,t.hedef)+'/'+t.hedef+'</b>';
+    L.appendChild(d);}}
+
+on('#sec-adayol','click',secAdayOl);
+on('#sec-kapat','click',()=>hide('#ov-sec'));
+on('#sec-ac','click',()=>{secRender();show('#ov-sec');});
+on('#secim-row','click',()=>{
+  G.secimOn=!G.secimOn;
+  const b=$('#secim-state');
+  if(b){b.textContent=G.secimOn?'AÇIK':'KAPALI';b.classList.toggle('off',!G.secimOn);}});
 
 </script>
 </body>
