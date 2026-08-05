@@ -708,7 +708,7 @@ canvas{display:block;position:absolute;inset:0;width:100%;height:100%}
 
       <div class="not">
         Haritayı sürükle · iki parmakla yakınlaştır · ülkeye dokunarak seç
-        <span id="srm-tag">sürüm 7.2 — seçimler</span>
+        <span id="srm-tag">sürüm 7.4</span>
       </div>
     </div>
   </section>
@@ -4653,10 +4653,13 @@ async function fbKayit(){
   try{
     const c=await FB.auth.createUserWithEmailAndPassword(em,pw);
     if(ad)saveName(ad);
-    try{await c.user.sendEmailVerification();}catch(e){}
+    let mailOk=true;
+    try{await c.user.sendEmailVerification();}catch(e){mailOk=false;}
     await fbPush();
     authMsg('');hide('#ov-auth');
-    toast('👤 HESAP AÇILDI',ad||em,'Doğrulama e-postası gönderildi (zorunlu değil).');
+    toast('👤 HESAP AÇILDI',ad||em,mailOk
+      ?'Doğrulama e-postası gönderildi (zorunlu değil).'
+      :'Doğrulama e-postası gönderilemedi — sicilden tekrar deneyebilirsin.');
     renderHesap();
   }catch(e){authMsg(fbHata(e),1);}
 }
@@ -4690,10 +4693,23 @@ async function fbSifirla(){
   }catch(e){authMsg(fbHata(e),1);}
 }
 async function fbDogrula(){
-  if(!FB.user)return;
-  try{await FB.user.sendEmailVerification();
-    toast('✉️ E-POSTA GÖNDERİLDİ',FB.user.email,'Gelen kutunu kontrol et.');}
-  catch(e){log(fbHata(e),'w');}
+  if(!FB.ready){
+    toast('⚠️ BAĞLANTI YOK','Firebase yüklenmedi','Oyunu https:// adresinden aç.');
+    await fbInit();}
+  if(!FB.user){
+    toast('⚠️ GİRİŞ GEREKLİ','Önce hesabına giriş yap');
+    authAc('giris');return;}
+  try{await FB.user.reload();}catch(e){}
+  if(FB.user.emailVerified){
+    toast('✅ ZATEN DOĞRULANMIŞ',FB.user.email);renderHesap();return;}
+  try{
+    await FB.user.sendEmailVerification();
+    toast('✉️ E-POSTA GÖNDERİLDİ',FB.user.email,'Gelen kutuna ve spam klasörüne bak.');
+  }catch(e){
+    const c=String((e&&e.code)||'');
+    if(c.indexOf('too-many')>=0)
+      toast('⏳ ÇOK SIK DENEDİN',FB.user.email,'Birkaç dakika sonra tekrar dene.');
+    else toast('❌ GÖNDERİLEMEDİ',fbHata(e));}
 }
 async function fbHesapSil(){
   if(!FB.user)return;
@@ -4803,10 +4819,13 @@ function renderHesap(){
   if(k)k.style.display=acik?'none':'';
   if(c)c.style.display=acik?'':'none';
   if(s)s.style.display=acik?'':'none';
-  if(v)v.style.display=(acik&&!FB.user.emailVerified)?'':'none';
+  if(v){v.style.display=acik?'':'none';
+    v.textContent=acik&&FB.user.emailVerified?'E-POSTA DOĞRULANDI ✅':'E-POSTAYI DOĞRULA';}
   if(d)d.textContent=acik
     ?(FB.user.email+(FB.user.emailVerified?' · doğrulandı':' · doğrulanmamış'))
-    :'Hesap yok — kayıtların sadece bu cihazda';}
+    :(FB.ready?'Hesap yok — kayıtların sadece bu cihazda'
+      :(window.isSecureContext?'Hesap yok — kayıtların sadece bu cihazda'
+        :'Hesap için oyunu https:// adresinden aç'));}
 function authAc(mod){
   $('#auth-bas').textContent=mod==='kayit'?'HESAP OLUŞTUR':'GİRİŞ YAP';
   $('#auth-ad').style.display=mod==='kayit'?'':'none';
