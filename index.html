@@ -662,6 +662,7 @@ canvas{display:block;position:absolute;inset:0;width:100%;height:100%}
     <div class="olcu">
       <div><span id="user-wins">0</span><em>GALİBİYET</em></div>
       <div><span id="user-ach">0</span><em>BAŞARIM</em></div>
+      <div><span id="user-gold">0</span><em>ALTIN</em></div>
     </div>
     <div class="ilerleme"><i id="user-prog" style="width:0%"></i></div>
     <div class="ilerleme-yazi" id="user-progtxt">0/35 başarım</div>
@@ -742,7 +743,7 @@ canvas{display:block;position:absolute;inset:0;width:100%;height:100%}
 
       <div class="not">
         Haritayı sürükle · iki parmakla yakınlaştır · ülkeye dokunarak seç
-        <span id="srm-tag">sürüm 8.2</span>
+        <span id="srm-tag">sürüm 8.4 — altın ve etiketler</span>
       </div>
     </div>
   </section>
@@ -953,7 +954,7 @@ canvas{display:block;position:absolute;inset:0;width:100%;height:100%}
 <div class="ov hide" id="ov-tags">
   <div class="card">
     <h1 class="cond" style="font-size:24px;letter-spacing:.12em">ETİKET DÜKKÂNI</h1>
-    <div class="sub">Galibiyetin: <b id="tag-wins">0</b> · Manuel modda kazandığın her savaş 1 galibiyet.</div>
+    <div class="sub">🪙 <b id="tag-gold">0</b> altın · 🏆 <b id="tag-wins">0</b> galibiyet · Manuel modda kazandığın her savaş 1 galibiyet.</div>
     <div id="tag-list"></div>
     <div style="margin-top:10px;text-align:right"><button class="btn" id="tag-close">KAPAT</button></div>
   </div>
@@ -1742,7 +1743,7 @@ function refreshTeamMarks(){
   for(const c of G.team.D)if(c)c.teamSide='D';}
 const _ws={fill:'',line:'',lw:1};
 function warState(c){
-  if(typeof RT!=='undefined'&&RT.on){
+  if(typeof RT!=='undefined'&&RT.on&&!RT.savas){
     if(c.rtOwner){
       const r=rtRenk(c.rtOwner),ben=rtBenim(c.rtOwner);
       _ws.fill=mix(r,'#16232b',ben?.28:.5);
@@ -2227,6 +2228,7 @@ function fire(side,type,tx,ty,n){
     G.units.push({t:'cpl',side,x:sx,y:sy,tx,ty,sp:30,cargo,seen:new Set()});
     log(`${lead.tr}: nakliye uçağı ${cargo} askerle havalandı.`,side==='A'?'a':'d');
   }
+  if(G.stat&&side===G.side)G.stat.silah=(G.stat.silah||0)+1;
   G.cd[side][type]=G.t+WEP[type].cd*(aiCtrl(side)?dif().cd:1);
   updateHUD();return true;
 }
@@ -2595,6 +2597,7 @@ function ozetKarti(w,dur){
     html+='<div class="ozet-ach">🏆 <b>'+G.stat.ach+'</b> · bu savaşta kazandın</div>';
   return html+'<div style="height:10px"></div>';}
 function endWar(w,reason,rside){
+  if(typeof RT!=='undefined'&&RT.savas&&typeof rtSonuc==='function')rtSonuc(w);
   G.phase='over';
   if(G.mode==='world'){
     const win=w==='A'?G.rulerA:G.rulerD, lose=w==='A'?G.rulerD:G.rulerA;
@@ -2613,7 +2616,12 @@ function endWar(w,reason,rside){
     return;
   }
   const wc={tr:teamName(w)},lc={tr:teamName(other(w))};
-  if(G.mode==='manual'&&G.side===w&&typeof addWin==='function'){addWin();winAch(w);}
+  if(G.mode==='manual'&&G.side===w&&typeof addWin==='function'){
+    addWin();winAch(w);
+    if(typeof savasAltini==='function'){
+      const r=savasAltini();
+      addGold(r.alt,r.k+' silah kullandın');
+      G.stat.altin=r.alt;}}
   const mine=G.side==='W'?null:G.side;
   const t=$('#res-title');
   if(mine===null){t.textContent='SAVAŞ BİTTİ';t.className='';}
@@ -3105,7 +3113,7 @@ function tap(sx,sy){
   const [wx,wy]=s2w(sx,sy);
   if(G.pickFor==='mp'){const c=countryAt(wx,wy);if(c)setMyCountry(c.name);return;}
   if(G.place&&G.phase==='war'){if(placeTap(wx,wy))return;}
-  if(typeof RT!=='undefined'&&RT.on){rtTap(wx,wy);return;}
+  if(typeof RT!=='undefined'&&RT.on&&!RT.savas){rtTap(wx,wy);return;}
   if(G.phase==='pickA'||G.phase==='pickD'){pickToggle(countryAt(wx,wy));return;}
   if(G.phase==='war'&&G.mode==='manual'&&G.side!=='W'&&G.tool){
     if(issueFire(G.side,G.tool,wx,wy)){
@@ -3232,6 +3240,7 @@ on('#m-mode','click',()=>{
   if(G.phase==='war'){buildTools();updateHUD();}
   log(G.mode==='manual'?'Manuel komutaya geçildi.':'Otomatiğe geçildi.','w');});
 on('#r-again','click',()=>{
+  if(typeof RT!=='undefined'&&RT.on&&typeof rtDon==='function'){rtDon();return;}
   if(typeof backToRoom==='function'&&backToRoom())return;
   $('#ov-res').classList.add('hide');reset();});
 on('#tslider','input',e=>{G.troopN=+e.target.value;$('#tval').textContent=G.troopN;});
@@ -4095,6 +4104,7 @@ function SS(k,v){try{localStorage.setItem(k,JSON.stringify(v));}catch(e){}}
 
 const PROF={
   wins:LS('harp_wins',0),
+  gold:LS('harp_gold',0),
   games:LS('harp_games',0),
   towers:LS('harp_towers',0),
   ach:LS('harp_ach',[]),
@@ -4107,7 +4117,7 @@ const PROF={
 };
 function saveProf(){
   if(typeof fbPush==='function'){try{const _p=fbPush();if(_p&&_p.catch)_p.catch(()=>{});}catch(e){}}
-  SS('harp_wins',PROF.wins);SS('harp_ach',PROF.ach);
+  SS('harp_gold',PROF.gold);SS('harp_wins',PROF.wins);SS('harp_ach',PROF.ach);
   SS('harp_games',PROF.games);SS('harp_towers',PROF.towers);
   SS('harp_tags',PROF.tags);SS('harp_tag',PROF.tag);SS('harp_admin',PROF.admin);
   SS('harp_used',PROF.used);
@@ -4171,6 +4181,17 @@ function unlockAch(id){
   if(PROF.ach.length>=ACH.length)toast('👑 UNVAN AÇILDI','Başarımlar Başkanı','Tüm başarımları topladın.');
   renderAch();renderUser();}
 function achDone(){return PROF.ach.length>=ACH.length;}
+function fmtGold(v){return (v||0).toLocaleString('tr-TR');}
+function addGold(n,neden){
+  if(!n)return;
+  PROF.gold=Math.max(0,(PROF.gold||0)+n);saveProf();
+  if(n>0)toast('🪙 ALTIN','+'+fmtGold(n),neden||'');
+  renderUser();renderTags();}
+/* savaşta ne kadar az silah kullanırsan o kadar çok altın */
+function savasAltini(){
+  const k=(G.stat&&G.stat.silah)||0;
+  const alt=Math.max(100,Math.round(3200*Math.pow(0.5,k/10)));
+  return {k,alt};}
 function addWin(){
   PROF.wins++;saveProf();
   for(const n of [10,20,30,40,50])if(PROF.wins>=n)unlockAch('w'+n);
@@ -4206,32 +4227,79 @@ function winAch(w){
      NET.players.filter(p=>p.side===w).length>=2)unlockAch('buddy');}
 
 /* ---------- etiketler ---------- */
+const NADIR={
+  sik:     {n:'SIK',      renk:'#8b98a2'},
+  orta:    {n:'ORTA',     renk:'#3d7fbf'},
+  nadir:   {n:'NADİR',    renk:'#9b59d0'},
+  efsane:  {n:'EFSANEVİ', renk:'#d9a441'},
+  ozel:    {n:'ÖZEL',     renk:'#c1332d'}
+};
 const TAGS=[
-  {id:'',       n:'Etiketsiz',      c:0},
-  {id:'acemi',  n:'Acemi',          c:1},
-  {id:'komutan',n:'Komutan',        c:5},
-  {id:'general',n:'General',        c:10},
-  {id:'maresal',n:'Mareşal',        c:20},
-  {id:'baron',  n:'Savaş Baronu',   c:30},
-  {id:'efsane', n:'Efsane',         c:50},
-  {id:'admin',  n:'Admin',          c:0, pw:'2349852123'},
-  {id:'tester', n:'Tester',         c:0, gift:1},
-  {id:'bug',    n:'Bug Bulucu',     c:0, gift:1},
-  {id:'beyin',  n:'Mr.Beyin',       c:0, gift:1},
-  {id:'knk',    n:'knk',            c:0, gift:1},
-  {id:'beta',   n:'Beta Tester',    c:0, gift:1},
-  {id:'hata',   n:'Hata Avcısı',    c:0, gift:1},
-  {id:'fikir',  n:'Fikir Babası',   c:0, gift:1},
-  {id:'harita', n:'Harita Ustası',  c:0, gift:1},
-  {id:'denge',  n:'Denge Uzmanı',   c:0, gift:1},
-  {id:'kidem',  n:'Kıdemli',        c:0, gift:1},
-  {id:'onur',   n:'Onursal Komutan',c:0, gift:1},
-  {id:'kayit',  n:'Kayıt Dışı',     c:0, gift:1},
-  {id:'sifir',  n:'Sıfır Numara',   c:0, gift:1},
-  {id:'hayalet',n:'Kod Adı: Hayalet',c:0,gift:1},
-  {id:'ekonomi',n:'Ekonomi Bakanı', c:0, gift:1},
-  {id:'baris',  n:'Barışsever',     c:0, gift:1},
-  {id:'nukleer',n:'Nükleer Meraklısı',c:0,gift:1}
+  {id:'',        n:'Etiketsiz',        g:0,    r:'sik'},
+  /* --- SIK --- */
+  {id:'acemi',   n:'Acemi',            g:100,  r:'sik'},
+  {id:'er',      n:'Er',               g:120,  r:'sik'},
+  {id:'onbasi',  n:'Onbaşı',           g:150,  r:'sik'},
+  {id:'nobetci', n:'Nöbetçi',          g:170,  r:'sik'},
+  {id:'izci',    n:'İzci',             g:190,  r:'sik'},
+  {id:'gozcu',   n:'Gözcü',            g:210,  r:'sik'},
+  {id:'taze',    n:'Tazelenmiş',       g:230,  r:'sik'},
+  {id:'merakli', n:'Meraklı',          g:250,  r:'sik'},
+  {id:'yolcu',   n:'Yolcu',            g:275,  r:'sik'},
+  {id:'caylak',  n:'Çaylak Komutan',   g:300,  r:'sik'},
+  /* --- ORTA --- */
+  {id:'cavus',   n:'Çavuş',            g:500,  r:'orta'},
+  {id:'yuzbasi', n:'Yüzbaşı',          g:560,  r:'orta'},
+  {id:'binbasi', n:'Binbaşı',          g:620,  r:'orta'},
+  {id:'albay',   n:'Albay',            g:700,  r:'orta'},
+  {id:'kurmay',  n:'Kurmay',           g:760,  r:'orta'},
+  {id:'sinir',   n:'Sınır Bekçisi',    g:800,  r:'orta'},
+  {id:'topcu',   n:'Topçu',            g:840,  r:'orta'},
+  {id:'pilot',   n:'Pilot',            g:880,  r:'orta'},
+  {id:'denizci', n:'Denizci',          g:920,  r:'orta'},
+  {id:'tankci',  n:'Tankçı',           g:950,  r:'orta'},
+  {id:'parasut', n:'Paraşütçü',        g:980,  r:'orta'},
+  {id:'istihkam',n:'İstihkâm',         g:1000, r:'orta'},
+  /* --- NADİR --- */
+  {id:'general', n:'General',          g:2000, r:'nadir'},
+  {id:'amiral',  n:'Amiral',           g:2200, r:'nadir'},
+  {id:'maresal', n:'Mareşal',          g:2500, r:'nadir'},
+  {id:'genkur',  n:'Genelkurmay',      g:2800, r:'nadir'},
+  {id:'kusatma', n:'Kuşatmacı',        g:3000, r:'nadir'},
+  {id:'fatih',   n:'Fatih',            g:3200, r:'nadir'},
+  {id:'strateji',n:'Stratejist',       g:3400, r:'nadir'},
+  {id:'sessiz',  n:'Sessiz Ölüm',      g:3600, r:'nadir'},
+  {id:'gece',    n:'Gece Nöbeti',      g:3800, r:'nadir'},
+  {id:'celik',   n:'Çelik Yumruk',     g:3900, r:'nadir'},
+  {id:'kanli',   n:'Kanlı Bayrak',     g:4000, r:'nadir'},
+  /* --- EFSANEVİ --- */
+  {id:'baron',   n:'Savaş Baronu',     g:8000, r:'efsane'},
+  {id:'kiyamet', n:'Kıyamet Süvarisi', g:9000, r:'efsane'},
+  {id:'dunya',   n:'Dünya Fatihi',     g:10000,r:'efsane'},
+  {id:'salgin',  n:'Salgın Avcısı',    g:11000,r:'efsane'},
+  {id:'olumsuz', n:'Ölümsüz',          g:12000,r:'efsane'},
+  {id:'golge',   n:'Gölge Komutan',    g:13000,r:'efsane'},
+  {id:'kartal',  n:'Kara Kartal',      g:14000,r:'efsane'},
+  {id:'imparator',n:'Son İmparator',   g:15000,r:'efsane'},
+  /* --- ÖZEL (hediye kodu ile) --- */
+  {id:'admin',   n:'Admin',            g:0, r:'ozel', pw:'2349852123'},
+  {id:'tester',  n:'Tester',           g:0, r:'ozel', gift:1},
+  {id:'bug',     n:'Bug Bulucu',       g:0, r:'ozel', gift:1},
+  {id:'beyin',   n:'Mr.Beyin',         g:0, r:'ozel', gift:1},
+  {id:'knk',     n:'knk',              g:0, r:'ozel', gift:1},
+  {id:'beta',    n:'Beta Tester',      g:0, r:'ozel', gift:1},
+  {id:'hata',    n:'Hata Avcısı',      g:0, r:'ozel', gift:1},
+  {id:'fikir',   n:'Fikir Babası',     g:0, r:'ozel', gift:1},
+  {id:'harita',  n:'Harita Ustası',    g:0, r:'ozel', gift:1},
+  {id:'denge',   n:'Denge Uzmanı',     g:0, r:'ozel', gift:1},
+  {id:'kidem',   n:'Kıdemli',          g:0, r:'ozel', gift:1},
+  {id:'onur',    n:'Onursal Komutan',  g:0, r:'ozel', gift:1},
+  {id:'kayit',   n:'Kayıt Dışı',       g:0, r:'ozel', gift:1},
+  {id:'sifir',   n:'Sıfır Numara',     g:0, r:'ozel', gift:1},
+  {id:'hayalet', n:'Kod Adı: Hayalet', g:0, r:'ozel', gift:1},
+  {id:'ekonomi', n:'Ekonomi Bakanı',   g:0, r:'ozel', gift:1},
+  {id:'baris',   n:'Barışsever',       g:0, r:'ozel', gift:1},
+  {id:'nukleer', n:'Nükleer Meraklısı',g:0, r:'ozel', gift:1}
 ];
 const GIFTS=TAGS.filter(t=>t.gift);
 function tagName(){
@@ -4244,14 +4312,16 @@ function fullName(base){
   return parts.join(' ');}
 function buyTag(t){
   if(t.gift&&PROF.tags.indexOf(t.id)<0){
-    log('Bu etiket satın alınamaz, yalnızca hediye edilir.','w');return;}
+    toast('🎁 HEDİYE ETİKETİ',t.n,'Satın alınamaz, kodla gelir.');return;}
   if(t.id==='admin'&&!PROF.admin){
     const pw=prompt('Admin parolası:');
     if(pw!==t.pw){log('Parola yanlış.','w');return;}
     PROF.admin=true;}
   if(PROF.tags.indexOf(t.id)<0){
-    if(PROF.wins<t.c){log('Yetersiz galibiyet: '+t.c+' gerekiyor.','w');return;}
-    PROF.tags.push(t.id);}
+    if((PROF.gold||0)<t.g){
+      toast('🪙 ALTIN YETMİYOR',t.n,fmtGold(t.g)+' altın gerekiyor · sende '+fmtGold(PROF.gold));return;}
+    PROF.gold-=t.g;PROF.tags.push(t.id);
+    toast('🏷 ETİKET ALINDI',t.n,'-'+fmtGold(t.g)+' altın');}
   PROF.tag=t.id;saveProf();
   if(TAGS.every(x=>!x.id||PROF.tags.indexOf(x.id)>=0))unlockAch('coll');
   renderTags();renderUser();
@@ -4358,6 +4428,7 @@ function renderUser(){
   const u=$('#user-unvan');
   if(u)u.textContent=achDone()?'👑 Başarımlar Başkanı':'Cephe kaydı açık';
   const w=$('#user-wins');if(w)w.textContent=PROF.wins;
+  const gd=$('#user-gold');if(gd)gd.textContent=fmtGold(PROF.gold);
   const a=$('#user-ach');if(a)a.textContent=PROF.ach.length;
   const pr=$('#user-prog');
   if(pr)pr.style.width=Math.round(PROF.ach.length/ACH.length*100)+'%';
@@ -4382,15 +4453,19 @@ function renderTags(){
   L.innerHTML='';
   for(const t of TAGS){
     const own=!t.id||PROF.tags.indexOf(t.id)>=0;
-    const can=own||t.id==='admin'||(!t.gift&&PROF.wins>=t.c);
+    const can=own||t.id==='admin'||(!t.gift&&(PROF.gold||0)>=t.g);
     const d=document.createElement('div');
     d.className='trow'+(PROF.tag===t.id?' on':'')+(can?'':' no')+(t.id==='admin'?' admin':'');
-    d.innerHTML='<div class="ttx"><b>'+(t.id?t.n:'Etiketsiz')+'</b>'+
-      '<span>'+(t.id==='admin'?'parola gerekir':(t.gift?(own?'hediye edildi':'özel · hediye ile gelir'):(own?'sahipsin':t.c+' galibiyet')))+'</span></div>'+
-      '<div class="tst">'+(PROF.tag===t.id?'SEÇİLİ':(own?'SEÇ':(t.id==='admin'?'🔑':'🔒')))+'</div>';
+    const nd=NADIR[t.r||'sik'];
+    d.style.borderLeft='3px solid '+nd.renk;
+    d.innerHTML='<div class="ttx"><b style="color:'+nd.renk+'">'+(t.id?t.n:'Etiketsiz')+'</b>'+
+      '<span>'+nd.n+' · '+(t.id==='admin'?'parola gerekir'
+        :(t.gift?(own?'hediye edildi':'hediye kodu ile'):(own?'sahipsin':fmtGold(t.g)+' altın')))+'</span></div>'+
+      '<div class="tst">'+(PROF.tag===t.id?'SEÇİLİ':(own?'SEÇ':(t.id==='admin'?'🔑':(t.gift?'🎁':'🪙'))))+'</div>';
     d.addEventListener('click',()=>buyTag(t));
     L.appendChild(d);}
-  const w=$('#tag-wins');if(w)w.textContent=PROF.wins;}
+  const w=$('#tag-wins');if(w)w.textContent=PROF.wins;
+  const gg=$('#tag-gold');if(gg)gg.textContent=fmtGold(PROF.gold);}
 function renderUpg(){
   const L=$('#upg-list');if(!L)return;
   L.innerHTML='';
@@ -5126,7 +5201,7 @@ on('#secim-row','click',()=>{
   if(b){b.textContent=G.secimOn?'AÇIK':'KAPALI';b.classList.toggle('off',!G.secimOn);}});
 
 /* ================= GERÇEK ZAMANLI DÜNYA ================= */
-const RT={on:false,doc:null,data:null,timer:0,busy:false,son:0,cd:0};
+const RT={on:false,doc:null,data:null,timer:0,busy:false,son:0,cd:0,savas:null};
 const RT_HP=100, RT_HASAR=[26,38], RT_BEKLE=25, RT_YENILE=6, RT_REJEN=0.6;
 
 function rtRenk(uid){
@@ -5236,8 +5311,81 @@ function rtTap(wx,wy){
   const o=rtUlkeler()[c.name];
   if(!o||!o.u){rtSahiplen(c.name);return true;}
   if(rtBenim(o.u)){
-    toast('🚩 SENİN ÜLKEN',c.tr,'Direnç %'+Math.round(rtCan(o)));return true;}
-  rtSaldir(c.name);return true;}
+    if(confirm(c.tr+' senin.\n\nTAMAM = ülkeyi bırak (başkaları alabilir)\nİPTAL = vazgeç'))
+      rtBirak(c.name);
+    return true;}
+  rtSavasBaslat(c.name);return true;}
+
+/* ---------- ülkeyi bırak ---------- */
+async function rtBirak(ad){
+  if(RT.busy)return;RT.busy=true;
+  try{
+    await FB.db.runTransaction(async tx=>{
+      const d=await tx.get(RT.doc);
+      const v=d.exists?(d.data()||{}):{};
+      const c=v.c||{};
+      if(!c[ad]||c[ad].u!==FB.user.uid)throw new Error('senin değil');
+      delete c[ad];
+      tx.set(RT.doc,{c,ts:Date.now()},{merge:true});
+    });
+    toast('🏳️ ÜLKE BIRAKILDI',COUNTRIES[ad].tr,'Artık boşta, başkaları alabilir.');
+    await rtCek();
+  }catch(e){toast('❌ BIRAKILAMADI',(e&&e.message)||'');}
+  RT.busy=false;}
+
+/* ---------- gerçek savaş ---------- */
+function rtSavasBaslat(ad){
+  if(RT.cd>Date.now()){
+    toast('⏳ BEKLE',Math.ceil((RT.cd-Date.now())/1000)+' sn','Saldırılar arası süre.');return;}
+  const benim=[];
+  const c=rtUlkeler();
+  for(const k in c)if(rtBenim(c[k].u)&&COUNTRIES[k])benim.push(COUNTRIES[k]);
+  if(!benim.length){toast('⚠️ ÜLKEN YOK','Önce boş bir ülke sahiplen');return;}
+  const hedef=COUNTRIES[ad];if(!hedef)return;
+  benim.sort((a,b)=>dist(a.cx,a.cy,hedef.cx,hedef.cy)-dist(b.cx,b.cy,hedef.cx,hedef.cy));
+  RT.savas={hedef:ad,sahip:(c[ad]&&c[ad].n)||'Komutan'};
+  const p=$('#rt-pnl');if(p)p.classList.add('hide');
+  G.team.A=benim.slice(0,3);G.team.D=[hedef];
+  G.a=G.team.A[0];G.d=hedef;
+  G.mode='manual';G.side='A';G.aiSides={A:false,D:true};
+  G.zomOn=false;G.secimOn=false;
+  G.speed=1;G.paused=false;G.seed=(Math.random()*2147483647)|0;
+  startWar();
+  log('SEFER: '+G.team.A.map(x=>x.tr).join(' + ')+' → '+hedef.tr,'w');
+  toast('⚔️ SEFER BAŞLADI',hedef.tr,'Kazanırsan ülke senin olur.');}
+
+async function rtSonuc(w){
+  const s=RT.savas;if(!s)return;
+  RT.savas=null;
+  RT.cd=Date.now()+RT_BEKLE*1000;
+  if(w!=='A'){
+    toast('🛡 SEFER BAŞARISIZ',COUNTRIES[s.hedef].tr,'Ülke sahibinde kaldı.');
+    return;}
+  if(RT.busy)return;RT.busy=true;
+  try{
+    await FB.db.runTransaction(async tx=>{
+      const d=await tx.get(RT.doc);
+      const v=d.exists?(d.data()||{}):{};
+      const c=v.c||{};
+      c[s.hedef]={u:FB.user.uid,n:NET.name,hp:Math.round(RT_HP*0.45),t:Date.now()};
+      tx.set(RT.doc,{c,ts:Date.now()},{merge:true});
+    });
+    toast('🏴 ÜLKE FETHEDİLDİ',COUNTRIES[s.hedef].tr,'Artık senin.');
+    await rtCek();
+  }catch(e){toast('❌ KAYIT EDİLEMEDİ',(e&&e.message)||'');}
+  RT.busy=false;}
+
+/* savaştan dünyaya dön */
+function rtDon(){
+  hide('#ov-res');
+  G.phase='rt';G.mode='rt';
+  G.team.A=[];G.team.D=[];G.a=G.d=null;
+  G.units.length=0;G.fxs.length=0;G.sol.A.length=0;G.sol.D.length=0;
+  G.cityList=[];G.bina=[];
+  const hud=$('#hud');if(hud)hud.classList.remove('show');
+  const eco=$('#eco');if(eco)eco.classList.remove('show');
+  const p=$('#rt-pnl');if(p)p.classList.remove('hide');
+  refreshTeamMarks();rtIsle();mapDirty=true;}
 
 /* ---------- panel ---------- */
 function rtPanel(){
