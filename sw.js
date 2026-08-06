@@ -1,44 +1,23 @@
-/* HARP servis çalışanı — sürüm her güncellemede artmalı */
-const VER='harp-v56';
-const FILES=['./','./index.html','./manifest.json','./icon-192.png','./icon-512.png','./icon-maskable-512.png'];
+# HARP — Dünya Savaş Simülatörü
 
-self.addEventListener('install',e=>{
-  self.skipWaiting();
-  e.waitUntil(caches.open(VER).then(c=>c.addAll(FILES)).catch(()=>{}));
-});
+Tarayıcıda çalışan, tek dosyalık dünya haritası savaş simülatörü.
+Kurulum yok: `index.html` yeterli.
 
-self.addEventListener('activate',e=>{
-  e.waitUntil(
-    caches.keys()
-      .then(k=>Promise.all(k.filter(x=>x!==VER).map(x=>caches.delete(x))))
-      .then(()=>self.clients.claim())
-  );
-});
+## Özellikler
+- 177 ülkelik gerçek dünya haritası (Robinson projeksiyonu), bayraktan türetilen ülke renkleri
+- Füze, savaş uçağı, savaş gemisi, çıkarma gemisi, nakliye uçağı ve asker
+- Kara sınırı yoksa deniz/hava yoluyla çıkarma; gemiler gerçek deniz rotasında ilerler
+- İşgal: düşen şehirler ve toprak, işgalcinin rengine geçer
+- Koalisyonlar: bir tarafta birden çok ülke
+- Dünya fethi modu: tek devlet kalana kadar otomatik savaşlar
+- Ekonomi: bütçe, vergi, halk memnuniyeti ve isyan
+- Zombi salgını: dalga dalga gelen salgına karşı savunma
+- Çok oyunculu: oda kodu ile 5 kişiye kadar (PeerJS / WebRTC)
+- 6 kademeli yapay zekâ zorluğu
 
-self.addEventListener('fetch',e=>{
-  const req=e.request;
-  if(req.method!=='GET')return;
-  const isDoc = req.mode==='navigate' || (req.destination==='document');
-  if(isDoc){
-    // ÖNCE AĞ: yeni sürüm varsa hemen gelir, internet yoksa önbellekten açılır
-    e.respondWith(
-      fetch(req).then(res=>{
-        const cp=res.clone();
-        caches.open(VER).then(c=>c.put('./index.html',cp)).catch(()=>{});
-        return res;
-      }).catch(()=>caches.match('./index.html').then(r=>r||caches.match('./')))
-    );
-    return;
-  }
-  // diğer dosyalar: önbellekten ver, arka planda tazele
-  e.respondWith(
-    caches.match(req).then(hit=>{
-      const net=fetch(req).then(res=>{
-        const cp=res.clone();
-        caches.open(VER).then(c=>c.put(req,cp)).catch(()=>{});
-        return res;
-      }).catch(()=>hit);
-      return hit||net;
-    })
-  );
-});
+## Çalıştırma
+Tek oyunculu: `index.html` dosyasını tarayıcıda aç.
+Çok oyunculu: dosyaları bir `https://` adresinde yayınla (GitHub Pages, Cloudflare Pages).
+
+## Üçüncü taraf bileşenler
+PeerJS (MIT) · world-atlas / Natural Earth (ISC + public domain) · Barlow Condensed, IBM Plex Sans (OFL 1.1)

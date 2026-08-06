@@ -1,23 +1,5545 @@
-# HARP — Dünya Savaş Simülatörü
+<!DOCTYPE html>
+<!--
+  HARP — Dünya Savaş Simülatörü
+  Üçüncü taraf bileşenler: PeerJS (MIT, Copyright (c) 2015 Michelle Bu, Eric Zhang) ·
+  world-atlas (ISC, Copyright (c) 2011-2020 Michael Bostock) / Natural Earth (public domain) ·
+  Barlow Condensed, IBM Plex Sans (SIL Open Font License 1.1)
+-->
 
-Tarayıcıda çalışan, tek dosyalık dünya haritası savaş simülatörü.
-Kurulum yok: `index.html` yeterli.
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<title>HARP — Dünya Savaş Simülatörü</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#060e13">
+<meta name="robots" content="noindex, nofollow">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="icon" href="icon-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --ocean:#0d2733; --ocean-deep:#081a23;
+  --land:#3b4a3e; --land-line:#5c6f5e;
+  --atk:#c1332d; --atk-soft:#7a201c;
+  --def:#2f6fb0; --def-soft:#1c4570;
+  --amber:#e8b23a; --bone:#f0ede4; --dim:#8ba0aa;
+  --panel:#0c1820; --panel-2:#111f29; --line:#223b49;
+  --ok:#5fbf7a;
+  --kagit:#e7e0d2;--kagit2:#cfc6b2;--murekkep:#11161b;--pirinc:#d9a441;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;height:100%;overflow:hidden;background:var(--ocean-deep);
+  font-family:"IBM Plex Sans",system-ui,sans-serif;color:var(--bone);
+  overscroll-behavior:none;touch-action:none}
+canvas{display:block;position:absolute;inset:0;width:100%;height:100%}
+#map{z-index:1}#fx{z-index:2}
+#stage{position:absolute;inset:0}
 
-## Özellikler
-- 177 ülkelik gerçek dünya haritası (Robinson projeksiyonu), bayraktan türetilen ülke renkleri
-- Füze, savaş uçağı, savaş gemisi, çıkarma gemisi, nakliye uçağı ve asker
-- Kara sınırı yoksa deniz/hava yoluyla çıkarma; gemiler gerçek deniz rotasında ilerler
-- İşgal: düşen şehirler ve toprak, işgalcinin rengine geçer
-- Koalisyonlar: bir tarafta birden çok ülke
-- Dünya fethi modu: tek devlet kalana kadar otomatik savaşlar
-- Ekonomi: bütçe, vergi, halk memnuniyeti ve isyan
-- Zombi salgını: dalga dalga gelen salgına karşı savunma
-- Çok oyunculu: oda kodu ile 5 kişiye kadar (PeerJS / WebRTC)
-- 6 kademeli yapay zekâ zorluğu
+.mono{font-variant-numeric:tabular-nums}
+.cond{font-family:"Barlow Condensed",sans-serif;letter-spacing:.04em}
 
-## Çalıştırma
-Tek oyunculu: `index.html` dosyasını tarayıcıda aç.
-Çok oyunculu: dosyaları bir `https://` adresinde yayınla (GitHub Pages, Cloudflare Pages).
+/* ---------- top bar ---------- */
+#top{position:absolute;top:0;left:0;right:0;z-index:10;display:flex;align-items:center;
+  gap:8px;padding:calc(env(safe-area-inset-top) + 8px) 10px 8px;
+  background:linear-gradient(180deg,rgba(8,26,35,.92),rgba(8,26,35,0));pointer-events:none}
+#top>*{pointer-events:auto}
+.brand{font-family:"Barlow Condensed",sans-serif;font-weight:700;font-size:20px;letter-spacing:.18em;
+  color:var(--bone);line-height:1}
+.brand{cursor:pointer;user-select:none}
+.brand:hover{color:var(--amber)}
+.brand:active{transform:translateY(1px)}
+.brand small{display:block;font-size:9px;letter-spacing:.28em;color:var(--dim);font-weight:500}
+#phase{flex:1;text-align:center;font-family:"Barlow Condensed",sans-serif;font-size:16px;
+  letter-spacing:.06em;color:var(--amber);text-shadow:0 1px 0 #000;min-width:0;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.btn{background:var(--panel-2);border:1px solid var(--line);color:var(--bone);
+  font-family:"Barlow Condensed",sans-serif;font-size:14px;letter-spacing:.06em;
+  padding:7px 11px;border-radius:3px;cursor:pointer;line-height:1;white-space:nowrap}
+.btn:hover{border-color:var(--amber)}
+.btn:active{transform:translateY(1px)}
+.btn.on{background:var(--amber);color:#101c24;border-color:var(--amber);font-weight:700}
+.btn:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
+.btn[disabled]{opacity:.35;cursor:not-allowed}
 
-## Üçüncü taraf bileşenler
-PeerJS (MIT) · world-atlas / Natural Earth (ISC + public domain) · Barlow Condensed, IBM Plex Sans (OFL 1.1)
+/* ---------- log ---------- */
+#log{position:absolute;right:8px;top:64px;width:min(46vw,270px);z-index:9;
+  display:flex;flex-direction:column;gap:3px;pointer-events:none}
+.lg{background:rgba(12,24,32,.82);border-left:2px solid var(--line);padding:4px 7px;
+  font-size:11px;line-height:1.32;color:#cfe0e6;animation:sl .25s ease}
+.lg.a{border-left-color:var(--atk)}.lg.d{border-left-color:var(--def)}
+.lg.w{border-left-color:var(--amber);color:var(--amber)}
+#log.off{display:none}
+@keyframes sl{from{opacity:0;transform:translateX(14px)}}
+
+/* ---------- bottom HUD ---------- */
+#hud{position:absolute;left:0;right:0;bottom:0;z-index:10;
+  padding:10px 10px calc(env(safe-area-inset-bottom) + 10px);
+  background:linear-gradient(0deg,rgba(8,26,35,.96) 55%,rgba(8,26,35,0));display:none}
+#hud.show{display:block}
+#scores{display:flex;gap:8px;align-items:stretch;margin-bottom:8px}
+.side{flex:1;background:var(--panel);border:1px solid var(--line);border-top-width:3px;
+  padding:6px 8px;min-width:0}
+.side.atk{border-top-color:var(--atk)}.side.def{border-top-color:var(--def)}
+.side.me{box-shadow:0 0 0 1px var(--amber) inset}
+.srow{display:flex;align-items:center;gap:6px}
+.fl{width:26px;height:17px;flex:0 0 auto;image-rendering:pixelated;border:1px solid rgba(0,0,0,.5)}
+.nm{font-family:"Barlow Condensed",sans-serif;font-size:16px;letter-spacing:.03em;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1}
+.tag{font-size:9px;letter-spacing:.14em;color:var(--dim)}
+.bar{height:5px;background:#0a1319;margin-top:5px;overflow:hidden}
+.bar i{display:block;height:100%;transition:width .3s}
+.atk .bar i{background:var(--atk)}.def .bar i{background:var(--def)}
+.stats{display:flex;gap:9px;margin-top:4px;font-size:10px;color:var(--dim)}
+.stats b{color:var(--bone);font-weight:600}
+
+#tools{display:flex;gap:6px;overflow-x:auto;padding-bottom:2px;scrollbar-width:none}
+#tools::-webkit-scrollbar{display:none}
+.tool{flex:0 0 auto;background:var(--panel-2);border:1px solid var(--line);border-radius:3px;
+  padding:7px 9px;text-align:center;cursor:pointer;min-width:62px;position:relative}
+.tool .ic{font-size:19px;line-height:1}
+.tool .lb{font-family:"Barlow Condensed",sans-serif;font-size:11px;letter-spacing:.05em;color:#c8d8de;margin-top:2px}
+.tool .ct{font-size:9px;color:var(--dim);font-variant-numeric:tabular-nums}
+.tool.sel{border-color:var(--amber);background:#20303a}
+.tool.sel:after{content:"";position:absolute;inset:0;border:1px solid var(--amber);opacity:.5;animation:pl 1.2s infinite}
+@keyframes pl{50%{opacity:.05}}
+.tool.dis{opacity:.35;pointer-events:none}
+.cd{position:absolute;left:0;bottom:0;height:2px;background:var(--amber);width:0}
+
+#troop{display:none;align-items:center;gap:8px;margin-top:7px;background:var(--panel);
+  border:1px solid var(--line);padding:7px 10px}
+#troop.show{display:flex}
+#troop label{font-family:"Barlow Condensed",sans-serif;font-size:13px;letter-spacing:.05em;color:var(--dim)}
+#troop input{flex:1;accent-color:var(--amber);min-width:60px}
+#tval{font-family:"Barlow Condensed",sans-serif;font-size:19px;color:var(--amber);min-width:38px;text-align:right}
+/* ekonomi */
+#eco{display:none;align-items:center;gap:8px;margin-top:7px;background:var(--panel);
+  border:1px solid var(--line);padding:6px 9px}
+#eco.show{display:flex}
+#money{font-family:"Barlow Condensed",sans-serif;font-size:17px;color:var(--amber);
+  letter-spacing:.03em;white-space:nowrap;font-variant-numeric:tabular-nums}
+#mor{flex:1;display:flex;align-items:center;gap:5px;min-width:0}
+#mor .fc{font-size:13px;line-height:1}
+.mbar{flex:1;height:7px;background:#0a1319;overflow:hidden;position:relative;min-width:30px}
+.mbar i{display:block;height:100%;transition:width .3s,background .3s}
+#b-inv{background:var(--amber);color:#101c24;border:none;font-weight:700;
+  font-family:"Barlow Condensed",sans-serif;font-size:13px;letter-spacing:.05em;
+  padding:6px 10px;border-radius:3px;cursor:pointer;white-space:nowrap}
+#inv-adet{display:flex;gap:6px;align-items:center;margin-bottom:8px;flex-wrap:wrap}
+#inv-adet span{font-family:"Barlow Condensed",sans-serif;font-size:11px;letter-spacing:.16em;color:var(--dim)}
+#inv-adet .btn{flex:1;padding:6px 4px;font-size:12px;min-width:34px}
+#inv-list{max-height:44vh;overflow-y:auto;border:1px solid var(--line)}
+.iv{display:flex;align-items:center;gap:9px;padding:8px 10px;border-bottom:1px solid #16262f;cursor:pointer}
+.iv:hover{background:#182a34}
+.iv.no{opacity:.4;cursor:not-allowed}
+.iv .ic{font-size:19px;width:24px;text-align:center;flex:0 0 auto}
+.iv .tx{flex:1;min-width:0}
+.iv .tt{font-family:"Barlow Condensed",sans-serif;font-size:15px;letter-spacing:.03em}
+.iv .dd{font-size:10.5px;color:var(--dim);line-height:1.3}
+.iv .pr{font-family:"Barlow Condensed",sans-serif;font-size:14px;text-align:right;white-space:nowrap}
+.iv .mm{font-size:10px;display:block}
+.up{color:var(--ok)}.dn{color:var(--atk)}
+#diff-row{display:flex;align-items:center;justify-content:space-between;gap:10px;
+  background:var(--panel-2);border:1px solid var(--line);border-left:3px solid var(--def);
+  padding:12px 14px;margin-bottom:10px;cursor:pointer}
+#diff-row strong{font-family:"Barlow Condensed",sans-serif;font-size:19px;letter-spacing:.06em;display:block}
+#diff-row em{font-style:normal;font-size:11.5px;color:var(--dim);display:block;margin-top:2px}
+#diff-state{font-family:"Barlow Condensed",sans-serif;font-size:16px;color:var(--def);
+  border:1px solid var(--def);padding:4px 10px;border-radius:3px;white-space:nowrap}
+#eco-row{display:flex;align-items:center;justify-content:space-between;gap:10px;
+  background:var(--panel-2);border:1px solid var(--line);border-left:3px solid var(--amber);
+  padding:12px 14px;margin-bottom:14px;cursor:pointer}
+#eco-row strong{font-family:"Barlow Condensed",sans-serif;font-size:19px;letter-spacing:.06em;display:block}
+#eco-row em{font-style:normal;font-size:11.5px;color:var(--dim);display:block;margin-top:2px}
+#eco-state{font-family:"Barlow Condensed",sans-serif;font-size:16px;color:var(--amber);
+  border:1px solid var(--amber);padding:4px 10px;border-radius:3px;white-space:nowrap}
+#eco-state.off{color:var(--dim);border-color:var(--line)}
+/* multiplayer */
+#code-box{font-family:"Barlow Condensed",sans-serif;font-size:34px;letter-spacing:.42em;
+  color:var(--amber);text-align:center;background:#0a151c;border:1px dashed var(--amber);
+  padding:12px 6px 12px 18px;margin-bottom:12px}
+#plist{max-height:34vh;overflow-y:auto;border:1px solid var(--line);margin-bottom:10px}
+.pl{display:flex;align-items:center;gap:8px;padding:7px 10px;border-bottom:1px solid #16262f;font-size:12.5px}
+.pl .dot{width:8px;height:8px;border-radius:50%;flex:0 0 auto}
+.pl .pn{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pl .pc{color:var(--dim);font-size:11px}
+.pl.me{background:#182a34}
+.row2{display:flex;gap:7px;margin-bottom:9px}
+.row2 .btn{flex:1;text-align:center;padding:10px}
+#mp-msg{font-size:11.5px;color:var(--amber);min-height:15px;margin-bottom:8px}
+
+/* ===== ANA MENÜ: HAREKÂT MASASI ===== */
+#ov-start{align-items:flex-start;padding:0;overflow-y:auto;
+  background:radial-gradient(120% 90% at 50% -10%,#2b333d 0%,#1b2027 55%,#0e1216 100%)}
+#ov-start .masa{width:100%;max-width:1180px;margin:0 auto;padding:24px 18px 40px;
+  display:grid;grid-template-columns:250px 1fr;gap:24px;align-items:start}
+#ov-start .sicil{background:linear-gradient(180deg,#232a33,#1a2027);border:1px solid #333d47;
+  border-top:3px solid var(--atk);padding:16px 15px 14px}
+.sicil-et{font-family:"Barlow Condensed",sans-serif;font-size:11px;letter-spacing:.26em;
+  color:#8b98a2;margin-bottom:12px}
+.sicil-ad{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap}
+.sicil-ad h2{font-family:"Barlow Condensed",sans-serif;font-weight:700;font-size:26px;
+  letter-spacing:.03em;margin:0;line-height:1;word-break:break-word}
+.rutbe{font-family:"Barlow Condensed",sans-serif;font-size:12px;letter-spacing:.12em;
+  color:#11161b;background:#d9a441;padding:2px 7px}
+.unvan{font-size:11px;color:#d9a441;letter-spacing:.05em;margin:4px 0 14px}
+.olcu{display:flex;gap:12px;margin-bottom:12px}
+.olcu div{flex:1}
+.olcu span{display:block;font-family:"Barlow Condensed",sans-serif;font-size:26px;line-height:1}
+.olcu em{font-style:normal;font-size:10px;letter-spacing:.14em;color:#8b98a2}
+.ilerleme{height:4px;background:#0e1318}
+.ilerleme i{display:block;height:100%;background:#d9a441;transition:width .4s}
+.ilerleme-yazi{font-size:10.5px;color:#8b98a2;margin:6px 0 14px}
+.sicil-btn{display:block;width:100%;text-align:left;background:transparent;
+  border:1px solid #333d47;color:var(--bone);font-family:"Barlow Condensed",sans-serif;
+  font-size:14px;letter-spacing:.08em;padding:9px 11px;margin-bottom:7px;cursor:pointer;
+  transition:border-color .15s,background .15s}
+.sicil-btn:hover{border-color:#d9a441;background:#20272f}
+.sicil-btn:active{transform:translateY(1px)}
+#ov-start .ayar{display:flex;justify-content:space-between;align-items:center;
+  border-top:1px solid #333d47;padding-top:11px;margin-top:6px;cursor:pointer}
+#ov-start .ayar span{font-size:11.5px;color:#8b98a2}
+#ov-start .ayar b{font-family:"Barlow Condensed",sans-serif;font-size:12px;letter-spacing:.1em;
+  border:1px solid #d9a441;color:#d9a441;padding:3px 9px;font-weight:500}
+#ov-start .ayar b.off{border-color:#333d47;color:#8b98a2}
+#ov-start .bas{margin-bottom:20px}
+.marka{font-family:"Archivo Black","Barlow Condensed",sans-serif;
+  font-size:clamp(50px,9vw,98px);line-height:.82;letter-spacing:-.03em;margin:0;
+  display:flex;align-items:flex-end;gap:.08em;color:var(--bone)}
+.pip{position:relative;width:.19em;height:.19em;flex:0 0 auto;margin-bottom:.06em}
+.pip i{position:absolute;inset:0;border-radius:50%;background:var(--atk)}
+.pip::after,.pip::before{content:"";position:absolute;left:50%;top:50%;
+  border:1px solid var(--atk);border-radius:50%;transform:translate(-50%,-50%);opacity:0;
+  animation:nisan 3.4s ease-out infinite}
+.pip::after{width:230%;height:230%}
+.pip::before{width:230%;height:230%;animation-delay:1.7s}
+@keyframes nisan{0%{opacity:.75;width:60%;height:60%}70%{opacity:0}100%{opacity:0;width:300%;height:300%}}
+.altbas{font-family:"Barlow Condensed",sans-serif;letter-spacing:.34em;font-size:13px;
+  color:#8b98a2;margin-top:10px}
+.dosyalar{display:grid;grid-template-columns:repeat(2,1fr);gap:16px}
+.dosya{position:relative;background:#e7e0d2;color:#11161b;border:none;text-align:left;
+  padding:20px 18px 18px;cursor:pointer;box-shadow:0 10px 22px rgba(0,0,0,.42);
+  transform-origin:12% 0;animation:dagit .5s cubic-bezier(.2,.8,.3,1) backwards;
+  transition:transform .16s ease,box-shadow .16s ease;font-family:inherit}
+.dosya:nth-child(1){animation-delay:.05s}.dosya:nth-child(2){animation-delay:.12s}
+.dosya:nth-child(3){animation-delay:.19s}.dosya:nth-child(4){animation-delay:.26s}
+.dosya:nth-child(5){animation-delay:.33s}
+@keyframes dagit{from{opacity:0;transform:translateY(-16px) rotate(-2.5deg)}}
+.dosya::before{content:attr(data-sekme);position:absolute;top:-15px;left:16px;
+  background:#cfc6b2;color:#3a3428;font-family:"Barlow Condensed",sans-serif;
+  font-size:11px;letter-spacing:.18em;padding:3px 11px}
+.dosya::after{content:"";position:absolute;inset:0;pointer-events:none;
+  background:repeating-linear-gradient(0deg,transparent 0 21px,rgba(17,22,27,.05) 21px 22px)}
+.dosya:hover{transform:translateY(-4px) rotate(-.6deg);box-shadow:0 16px 30px rgba(0,0,0,.5)}
+.dosya .no{font-family:"Barlow Condensed",sans-serif;font-size:11px;letter-spacing:.2em;
+  color:#7a7161;position:absolute;top:14px;right:16px}
+.dosya h3{font-family:"Barlow Condensed",sans-serif;font-weight:700;font-size:24px;
+  letter-spacing:.02em;margin:0 0 6px;line-height:1.05}
+.dosya p{font-size:12.5px;line-height:1.5;color:#4a4437;margin:0 0 14px;max-width:34ch}
+.kunye{display:flex;gap:7px;flex-wrap:wrap}
+.kunye span{font-family:"Barlow Condensed",sans-serif;font-size:11px;letter-spacing:.1em;
+  border:1px solid #b9af99;color:#5c5445;padding:2px 8px}
+.damga{position:absolute;right:14px;bottom:12px;font-family:"Barlow Condensed",sans-serif;
+  font-weight:700;font-size:20px;letter-spacing:.16em;color:var(--atk);
+  border:3px solid var(--atk);padding:3px 10px;transform:rotate(-11deg) scale(2.4);opacity:0;
+  transition:transform .18s cubic-bezier(.2,1.5,.4,1),opacity .12s;pointer-events:none}
+.dosya.secili .damga{opacity:.88;transform:rotate(-11deg) scale(1)}
+.dosya.genis{grid-column:1/-1;background:linear-gradient(100deg,#e7e0d2 0%,#dcd4c3 100%);cursor:default}
+.dosya.genis:hover{transform:none;box-shadow:0 10px 22px rgba(0,0,0,.42)}
+.dosya.genis.tikla{cursor:pointer}
+.dosya.genis.tikla:hover{transform:translateY(-4px) rotate(-.4deg);box-shadow:0 16px 30px rgba(0,0,0,.5)}
+.dosya.genis.tikla p{max-width:56ch}
+.mp2{display:flex;gap:9px;flex-wrap:wrap}
+.mpbtn{font-family:"Barlow Condensed",sans-serif;font-size:16px;letter-spacing:.08em;
+  background:#11161b;color:#e7e0d2;border:none;padding:10px 18px;cursor:pointer;
+  transition:background .15s}
+.mpbtn:hover{background:var(--atk)}
+.mpbtn.ikinci{background:transparent;color:#11161b;border:1px solid #11161b}
+.mpbtn.ikinci:hover{background:#11161b;color:#e7e0d2}
+#ov-start .not{grid-column:1/-1;margin-top:18px;border-top:1px solid #333d47;padding-top:12px;
+  font-size:11.5px;color:#8b98a2;display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap}
+#srm-tag{opacity:.6}
+@media(max-width:820px){
+  #ov-start .masa{grid-template-columns:1fr;gap:16px;padding:16px 12px 34px}
+  .dosyalar{grid-template-columns:1fr}
+  .marka{font-size:clamp(46px,16vw,80px)}
+}
+
+#ov-start .ayar b.adm{border-color:var(--atk);color:var(--atk)}
+#gift-list{border:1px solid var(--line);max-height:44vh;overflow-y:auto}
+.grow{display:flex;align-items:center;gap:8px;padding:8px 10px;border-bottom:1px solid #16262f}
+.gnm{width:96px;flex:0 0 auto}
+.gnm b{display:block;font-size:13px}
+.gnm span{font-size:10px;color:var(--dim)}
+.gkod{flex:1;min-width:0;text-align:center;font-family:"Barlow Condensed",sans-serif;
+  font-size:19px;letter-spacing:.16em;color:var(--dim);background:#0a151c;
+  border:1px dashed var(--line);padding:7px 6px;user-select:all}
+.gkod.dolu{color:var(--amber);border-color:var(--amber);border-style:solid}
+.kodkutu{display:flex;gap:8px;margin-bottom:10px}
+.kodkutu .searchbox{flex:1;margin:0;letter-spacing:.14em;text-align:center}
+.gbtn{font-family:"Barlow Condensed",sans-serif;font-size:13px;letter-spacing:.1em;
+  background:var(--atk);color:#fff;border:none;padding:8px 14px;cursor:pointer;flex:0 0 auto}
+.gbtn:hover{background:#d94a42}
+#fr-mykod{font-family:"Barlow Condensed",sans-serif;font-size:34px;letter-spacing:.3em;
+  color:var(--amber);text-align:center;background:#0a151c;border:1px dashed var(--line);
+  padding:8px 0 8px .3em;margin-bottom:6px;user-select:all}
+#fr-list{border:1px solid var(--line);max-height:38vh;overflow-y:auto;margin-top:4px}
+.frow{display:flex;align-items:center;gap:8px;padding:8px 10px;border-bottom:1px solid #16262f}
+.frow.bos{display:block;color:var(--dim);font-size:11.5px;line-height:1.5}
+.fnm{flex:1;min-width:0}
+.fnm b{display:block;font-size:13px}
+.fnm span{font-size:10.5px;color:var(--dim);letter-spacing:.14em}
+.fdel{background:transparent;border:1px solid var(--line);color:var(--dim);
+  padding:6px 9px;cursor:pointer;font-size:12px}
+.fdel:hover{border-color:var(--atk);color:var(--atk)}
+.gbtn.red{background:transparent;border:1px solid var(--atk);color:var(--atk)}
+.gbtn.red:hover{background:var(--atk);color:#fff}
+#chat-list,#chat-list2{border:1px solid var(--line);background:#0a151c;
+  height:150px;overflow-y:auto;padding:6px 8px}
+#chat-list2{height:44vh}
+.cmsg{font-size:12px;line-height:1.45;margin-bottom:3px;word-break:break-word}
+.cmsg b{color:var(--def);margin-right:5px;font-weight:600}
+.cmsg.me b{color:var(--amber)}
+.cmsg.bos{color:var(--dim);font-size:11px}
+.sohbet{margin-bottom:10px}
+.lbside.w{color:var(--amber);border-color:var(--amber)}
+/* davet penceresi */
+#inv-pop{position:fixed;left:10px;bottom:calc(env(safe-area-inset-bottom) + 10px);z-index:90;
+  width:min(84vw,290px);background:linear-gradient(180deg,#232a33,#151b21);
+  border:1px solid var(--line);border-left:3px solid var(--amber);padding:11px 13px 12px;
+  box-shadow:0 10px 26px rgba(0,0,0,.55);animation:invIn .3s cubic-bezier(.2,.9,.3,1)}
+#inv-pop.hide{display:none}
+@keyframes invIn{from{opacity:0;transform:translateX(-30px)}}
+.inv-ust{font-family:"Barlow Condensed",sans-serif;font-size:11px;letter-spacing:.18em;color:var(--amber)}
+.inv-ad{font-family:"Barlow Condensed",sans-serif;font-weight:700;font-size:20px;margin-top:2px}
+.inv-oda{font-size:10.5px;color:var(--dim);margin-bottom:7px}
+.inv-cizgi{height:3px;background:#0a1319;margin-bottom:9px;overflow:hidden}
+.inv-cizgi i{display:block;height:100%;width:100%;background:var(--amber)}
+.inv-btn{display:flex;gap:7px}
+.inv-btn .gbtn{flex:1;text-align:center}
+.hesap{border-top:1px solid #333d47;padding-top:11px;margin-top:6px;margin-bottom:8px}
+.hesap-et{font-family:"Barlow Condensed",sans-serif;font-size:11px;letter-spacing:.2em;color:var(--dim);margin-bottom:5px}
+#hesap-durum{font-size:10.5px;color:var(--amber);margin-bottom:8px;line-height:1.4;word-break:break-word}
+.sicil-btn.tehlike{border-color:#5a2420;color:#e05b52}
+.sicil-btn.tehlike:hover{border-color:var(--atk);background:#2a1614}
+#ov-auth .searchbox{margin-bottom:8px}
+#lb-liste,#oda-liste{border-top:1px solid #333d47;max-height:52vh;overflow-y:auto}
+.devlet.ben{background:#1e2731;box-shadow:inset 3px 0 0 var(--amber)}
+#sec-vaat,#sec-oy{max-height:38vh;overflow-y:auto;border:1px solid var(--line)}
+#sec-adaylar{max-height:18vh;overflow-y:auto;border:1px solid var(--line)}
+#test-liste{max-height:56vh;overflow-y:auto;border-top:1px solid var(--line)}
+#test-liste .iv{cursor:pointer}
+#sec-vaat .iv.sec{border-left:3px solid var(--amber);background:#1c2a33}
+.sayac{display:flex;align-items:center;gap:5px;flex:0 0 auto}
+.sayac .btn{padding:4px 9px;font-size:15px;line-height:1}
+.sayac b{min-width:20px;text-align:center;font-family:"Barlow Condensed",sans-serif;font-size:17px;color:var(--amber)}
+.frow.secili{background:#1e2731;box-shadow:inset 3px 0 0 var(--amber)}
+.oysay{font-family:"Barlow Condensed",sans-serif;font-size:15px;color:var(--amber);
+  width:52px;text-align:right;flex:0 0 auto}
+#rt-pnl{position:absolute;left:10px;top:56px;z-index:13;width:min(84vw,290px);
+  background:linear-gradient(180deg,#232a33,#181e25);border:1px solid var(--line);
+  box-shadow:0 10px 26px rgba(0,0,0,.5);max-height:72vh;overflow-y:auto}
+#rt-pnl.hide{display:none}
+#rt-liste{border-top:1px solid var(--line)}
+#gorev-pnl{position:absolute;left:10px;top:56px;z-index:13;width:min(80vw,240px);
+  background:linear-gradient(180deg,#232a33,#181e25);border:1px solid var(--line);
+  border-left:3px solid var(--amber);box-shadow:0 10px 24px rgba(0,0,0,.5)}
+#gorev-pnl.hide{display:none}
+.gorev-bas{display:flex;justify-content:space-between;align-items:center;
+  padding:8px 11px;background:#141a20;border-bottom:1px solid var(--line);
+  font-family:"Barlow Condensed",sans-serif;font-size:13px;letter-spacing:.06em}
+.gorev-bas b{color:var(--amber)}
+.gorev{display:flex;justify-content:space-between;gap:8px;padding:6px 11px;
+  border-bottom:1px solid #1d242b;font-size:12px}
+.gorev.ok{color:var(--ok)}
+.gorev b{font-family:"Barlow Condensed",sans-serif;color:var(--bone)}
+/* ===== YENİ PANO EKRANLARI ===== */
+.pano{width:100%;max-width:440px;background:linear-gradient(180deg,#232a33,#181e25);
+  border:1px solid #333d47;overflow:hidden;box-shadow:0 12px 26px rgba(0,0,0,.45)}
+.pano-bas{display:flex;align-items:center;justify-content:space-between;gap:10px;
+  background:#141a20;border-bottom:1px solid #333d47;padding:11px 14px}
+.pano-bas h3{font-family:"Barlow Condensed",sans-serif;font-size:17px;letter-spacing:.14em;margin:0}
+.rozet{font-family:"Barlow Condensed",sans-serif;font-size:11px;letter-spacing:.14em;
+  border:1px solid #333d47;color:var(--dim);padding:3px 8px;white-space:nowrap}
+.pano-ic{padding:14px}
+.kodkart{background:var(--kagit);color:var(--murekkep);padding:15px 14px;text-align:center;position:relative}
+.kodkart::after{content:"";position:absolute;inset:0;pointer-events:none;
+  background:repeating-linear-gradient(0deg,transparent 0 19px,rgba(17,22,27,.05) 19px 20px)}
+.kodkart .et{font-family:"Barlow Condensed",sans-serif;font-size:11px;letter-spacing:.24em;color:#7a7161}
+.kodkart .kod{font-family:"Archivo Black","Barlow Condensed",sans-serif;font-size:38px;
+  letter-spacing:.14em;margin:4px 0 6px;line-height:1;user-select:all;word-break:break-all}
+.kodkart .alt{font-size:11px;color:#5c5445}
+.kopya{margin-top:10px;background:var(--murekkep);color:var(--kagit);border:none;
+  font-family:"Barlow Condensed",sans-serif;font-size:13px;letter-spacing:.12em;padding:8px 16px;cursor:pointer}
+.kopya:hover{background:var(--atk)}
+.oyuncu{display:flex;align-items:center;gap:10px;padding:9px 12px;border-bottom:1px solid #1d242b}
+.oyuncu.ben{background:#1e2731;box-shadow:inset 3px 0 0 var(--amber)}
+.oy-ad{flex:1;min-width:0}
+.oy-ad b{display:block;font-size:13.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.oy-ad span{font-size:10.5px;color:var(--dim)}
+.etiketcik{font-family:"Barlow Condensed",sans-serif;font-size:10px;letter-spacing:.1em;
+  background:var(--pirinc);color:var(--murekkep);padding:1px 5px;margin-left:5px}
+.taraf{font-family:"Barlow Condensed",sans-serif;font-size:11px;letter-spacing:.1em;
+  padding:3px 9px;border:1px solid;cursor:pointer;white-space:nowrap}
+.taraf.a{color:var(--atk);border-color:var(--atk)}
+.taraf.d{color:var(--def);border-color:var(--def)}
+.taraf.w{color:var(--pirinc);border-color:var(--pirinc)}
+.grup{font-family:"Barlow Condensed",sans-serif;font-size:11px;letter-spacing:.16em;
+  color:var(--dim);background:#151b21;padding:5px 12px;border-bottom:1px solid #1d242b}
+.grup.a{box-shadow:inset 3px 0 0 var(--atk)}
+.grup.d{box-shadow:inset 3px 0 0 var(--def)}
+.grup.w{box-shadow:inset 3px 0 0 var(--pirinc)}
+.satir{display:flex;gap:7px;margin-top:8px}
+.satir input{flex:1;background:#0a151c;border:1px solid #333d47;color:var(--bone);
+  padding:9px 10px;font-family:inherit;font-size:13px;min-width:0}
+.satir input:focus{outline:none;border-color:var(--pirinc)}
+.gonder{background:var(--atk);color:#fff;border:none;font-family:"Barlow Condensed",sans-serif;
+  font-size:13px;letter-spacing:.1em;padding:9px 15px;cursor:pointer}
+.dugmeler{display:flex;gap:8px;padding:12px 14px;border-top:1px solid #333d47;background:#141a20}
+.ana{flex:1;background:var(--kagit);color:var(--murekkep);border:none;
+  font-family:"Barlow Condensed",sans-serif;font-weight:700;font-size:16px;letter-spacing:.1em;
+  padding:11px 14px;cursor:pointer}
+.ana:hover{background:#fff}
+.ana.pas{opacity:.4;cursor:not-allowed}
+.ikinci{background:transparent;color:var(--bone);border:1px solid #333d47;
+  font-family:"Barlow Condensed",sans-serif;font-size:14px;letter-spacing:.08em;padding:11px 14px;cursor:pointer}
+.ikinci:hover{border-color:var(--pirinc);color:var(--pirinc)}
+.hane{display:flex;gap:7px;justify-content:center}
+.hane i{width:44px;height:56px;border:1px solid #333d47;background:#0a151c;
+  display:flex;align-items:center;justify-content:center;font-style:normal;
+  font-family:"Archivo Black","Barlow Condensed",sans-serif;font-size:24px;color:var(--bone)}
+.hane i.bos{color:#39424b}
+.hane i.aktif{border-color:var(--pirinc);box-shadow:0 0 0 1px var(--pirinc) inset}
+.cubuk{height:6px;background:#0a1319;overflow:hidden}
+.cubuk i{display:block;height:100%;background:linear-gradient(90deg,var(--atk),var(--pirinc));transition:width .4s}
+/* dünya paneli */
+#dunya-pnl{position:absolute;left:10px;top:56px;z-index:12;width:min(88vw,340px);
+  background:linear-gradient(180deg,#232a33,#181e25);border:1px solid #333d47;
+  box-shadow:0 12px 26px rgba(0,0,0,.5);max-height:70vh;overflow-y:auto}
+#dunya-pnl.hide{display:none}
+.dunya-ust{display:flex;gap:12px;align-items:center;padding:11px 13px;background:#141a20;
+  border-bottom:1px solid #333d47}
+.buyuk{font-family:"Archivo Black","Barlow Condensed",sans-serif;font-size:28px;line-height:1}
+.buyuk small{display:block;font-family:"Barlow Condensed",sans-serif;font-size:10px;
+  letter-spacing:.18em;color:var(--dim);font-weight:500}
+.devlet{display:flex;align-items:center;gap:9px;padding:7px 13px;border-bottom:1px solid #1d242b}
+.devlet .sira{font-family:"Barlow Condensed",sans-serif;font-size:12px;color:var(--dim);width:18px}
+.devlet .ad{flex:1;font-size:12.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.devlet .mini{height:6px;background:#2a323a;width:90px;flex:0 0 auto}
+.devlet .mini i{display:block;height:100%;background:var(--atk)}
+.devlet .say{font-family:"Barlow Condensed",sans-serif;font-size:15px;color:var(--pirinc);width:26px;text-align:right}
+.cephe{padding:9px 13px;font-size:11.5px;color:var(--dim);border-bottom:1px solid #1d242b}
+.cephe b{color:var(--bone)}
+.cephe .vs{color:var(--atk);font-family:"Barlow Condensed",sans-serif;letter-spacing:.1em}
+/* savaş özeti */
+.ozet{display:flex;gap:12px;margin-bottom:12px}
+.ozet div{flex:1}
+.ozet .sy{font-family:"Archivo Black","Barlow Condensed",sans-serif;font-size:24px;line-height:1}
+.ozet .lb{font-size:9.5px;letter-spacing:.12em;color:var(--dim);margin-top:3px}
+.ozet-ach{background:#141a20;border-left:3px solid var(--pirinc);padding:8px 10px;font-size:12px;margin-top:10px}
+/* ===== BAŞARIM BİLDİRİMİ ===== */
+#toast{position:fixed;top:calc(env(safe-area-inset-top) + 52px);right:10px;z-index:80;
+  display:flex;flex-direction:column;gap:8px;pointer-events:none;max-width:min(78vw,300px)}
+.tst{background:linear-gradient(180deg,#232a33,#161c23);border:1px solid #333d47;
+  border-left:3px solid #d9a441;padding:9px 12px 10px;
+  box-shadow:0 8px 20px rgba(0,0,0,.5);animation:tstIn .35s cubic-bezier(.2,.9,.3,1)}
+.tst.out{animation:tstOut .4s ease forwards}
+.tst .ust{display:flex;align-items:center;gap:6px;font-family:"Barlow Condensed",sans-serif;
+  font-size:11px;letter-spacing:.2em;color:#d9a441}
+.tst .adi{font-family:"Barlow Condensed",sans-serif;font-weight:700;font-size:19px;
+  letter-spacing:.03em;color:var(--bone);margin-top:2px;line-height:1.1}
+.tst .aciklama{font-size:10.5px;color:#8b98a2;margin-top:3px;line-height:1.35}
+@keyframes tstIn{from{opacity:0;transform:translateX(40px)}}
+@keyframes tstOut{to{opacity:0;transform:translateX(40px)}}
+
+/* profil / başarım / etiket */
+#user-row2{display:flex;gap:7px;margin-bottom:10px}
+#user-row2 .btn{flex:1;font-size:11px;padding:7px 6px}
+#user-row2 b{color:var(--amber)}
+#b-upg{background:var(--panel-2);color:var(--bone);border:1px solid var(--line);
+  font-family:"Barlow Condensed",sans-serif;font-size:13px;letter-spacing:.05em;
+  padding:6px 10px;border-radius:3px;cursor:pointer;white-space:nowrap}
+#ach-list,#tag-list,#upg-list{border:1px solid var(--line);max-height:46vh;overflow-y:auto}
+.arow{display:flex;gap:9px;align-items:center;padding:8px 10px;border-bottom:1px solid #16262f;opacity:.45}
+.arow.got{opacity:1;background:#16262f}
+.arow .aic{font-size:18px;width:24px;text-align:center}
+.atx b{display:block;font-size:13px}
+.atx span{font-size:10.5px;color:var(--dim)}
+.trow{display:flex;align-items:center;gap:9px;padding:9px 10px;border-bottom:1px solid #16262f;cursor:pointer}
+.trow:hover{background:#182a34}
+.trow.on{background:#20303a;border-left:3px solid var(--amber)}
+.trow.no{opacity:.45}
+.trow.admin{border-left:3px solid var(--atk)}
+.ttx{flex:1;min-width:0}
+.ttx b{display:block;font-size:14px}
+.ttx span{font-size:10.5px;color:var(--dim)}
+.tst{font-family:"Barlow Condensed",sans-serif;font-size:12px;letter-spacing:.06em;color:var(--amber)}
+/* çok oyunculu */
+#user-row{display:flex;align-items:center;justify-content:space-between;gap:8px;
+  background:var(--panel-2);border:1px solid var(--line);padding:8px 10px;margin-bottom:10px;font-size:13px}
+#user-row b{color:var(--amber)}
+#user-row .btn{font-size:12px;padding:5px 8px}
+#room-code{font-family:"Barlow Condensed",sans-serif;font-size:42px;letter-spacing:.35em;
+  color:var(--amber);text-align:center;background:#0a151c;border:1px dashed var(--line);
+  padding:10px 0 10px .35em;margin-bottom:6px;user-select:all}
+#room-list,#pick-list{border:1px solid var(--line);margin-bottom:10px;max-height:32vh;overflow-y:auto}
+.prow{display:flex;align-items:center;gap:9px;padding:8px 10px;border-bottom:1px solid #16262f}
+.prow .pn{flex:1;min-width:0;font-size:13px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.prow .ps{font-size:10.5px;color:var(--dim)}
+.prow .tick{font-size:14px}
+.prow.me{background:#16262f}
+.teamhdr{font-family:"Barlow Condensed",sans-serif;font-size:12px;letter-spacing:.1em;
+  padding:5px 10px;background:#0c1820;border-bottom:1px solid var(--line);color:var(--dim)}
+.teamhdr.a{border-left:3px solid var(--atk)}
+.teamhdr.d{border-left:3px solid var(--def)}
+.lbrow{display:flex;align-items:center;gap:9px;padding:7px 9px;border-bottom:1px solid #16262f}
+.lbnm{flex:1;min-width:0}
+.lbnm b{display:block;font-size:13px;font-weight:600}
+.lbnm span{font-size:10.5px;color:var(--dim)}
+.lbside{font-family:"Barlow Condensed",sans-serif;font-size:11px;letter-spacing:.06em;
+  padding:3px 7px;border:1px solid var(--line);white-space:nowrap}
+.lbside.a{color:var(--atk);border-color:var(--atk)}
+.lbside.d{color:var(--def);border-color:var(--def)}
+#lb-list{max-height:34vh;overflow-y:auto;border:1px solid var(--line);margin-bottom:10px}
+#lb-code{font-family:"Barlow Condensed",sans-serif;font-size:38px;letter-spacing:.3em;
+  color:var(--amber);text-align:center;background:#0a151c;border:1px dashed var(--line);
+  padding:10px;margin-bottom:6px;user-select:all}
+.mprow{display:flex;gap:7px;margin-bottom:8px}
+.mprow .searchbox{margin-bottom:0}
+#mp-status{font-size:11.5px;color:var(--amber);min-height:15px;margin-top:4px}
+#hint{font-size:11px;color:var(--dim);margin-top:6px;text-align:center;min-height:14px}
+
+/* ---------- overlays ---------- */
+.ov{position:absolute;inset:0;z-index:30;background:rgba(6,17,23,.93);
+  display:flex;align-items:center;justify-content:center;padding:20px;
+  backdrop-filter:blur(3px);overflow-y:auto}
+.ov.hide{display:none}
+.card{width:100%;max-width:430px;background:var(--panel);border:1px solid var(--line);padding:22px}
+.card h1{font-family:"Barlow Condensed",sans-serif;font-size:38px;letter-spacing:.2em;margin:0;line-height:1}
+.card h1 span{color:var(--atk)}
+.card .sub{font-size:12px;color:var(--dim);margin:6px 0 20px;line-height:1.5}
+.big{display:block;width:100%;text-align:left;background:var(--panel-2);border:1px solid var(--line);
+  padding:14px 16px;margin-bottom:9px;cursor:pointer;color:var(--bone)}
+.big:hover{border-color:var(--amber);background:#182a34}
+.big strong{display:block;font-family:"Barlow Condensed",sans-serif;font-size:21px;letter-spacing:.06em;font-weight:600}
+.big em{font-style:normal;font-size:11.5px;color:var(--dim);line-height:1.4;display:block;margin-top:3px}
+.big.a{border-left:3px solid var(--atk)}.big.d{border-left:3px solid var(--def)}
+.big.n{border-left:3px solid var(--amber)}
+.rule{height:1px;background:var(--line);margin:16px 0}
+#res-title{font-family:"Barlow Condensed",sans-serif;font-size:44px;letter-spacing:.14em;margin:0 0 4px}
+.win{color:var(--ok)}.lose{color:var(--atk)}
+#res-body{font-size:13px;color:#c3d3d9;line-height:1.6}
+#res-body b{color:var(--bone)}
+.searchbox{width:100%;background:#0a151c;border:1px solid var(--line);color:var(--bone);
+  padding:10px 12px;font-family:inherit;font-size:14px;margin-bottom:8px}
+.searchbox:focus{outline:none;border-color:var(--amber)}
+#clist{max-height:38vh;overflow-y:auto;border:1px solid var(--line)}
+.crow{display:flex;align-items:center;gap:9px;padding:7px 10px;cursor:pointer;border-bottom:1px solid #16262f}
+.crow:hover{background:#182a34}
+.crow span{font-size:13px}
+@media(max-width:420px){.card{padding:16px}.card h1{font-size:30px}#res-title{font-size:34px}}
+@media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+<div id="stage">
+  <canvas id="map"></canvas>
+  <canvas id="fx"></canvas>
+</div>
+
+<div id="top">
+  <div class="brand" id="b-home" title="Ana menü">HARP<small>DÜNYA SAVAŞ SİM.</small></div>
+  <div id="phase">Saldıran ülkeyi seç</div>
+  <button class="btn on" id="b-next" style="display:none">DEVAM ›</button>
+  <button class="btn" id="b-diff" style="display:none">YZ: NORMAL</button>
+  <button class="btn" id="b-all" style="display:none">TÜM DÜNYA</button>
+  <button class="btn" id="b-zom" style="display:none">ZOMBİ: KAPALI</button>
+  <button class="btn" id="b-wave" style="display:none">WAVE: 50</button>
+  <button class="btn" id="b-chat" title="Sohbet" style="display:none">💬</button>
+  <button class="btn" id="b-log" title="Bildirimler">🔔</button>
+  <button class="btn" id="b-find" title="Ülke ara">ARA</button>
+  <button class="btn" id="b-speed">1x</button>
+  <button class="btn" id="b-pause">II</button>
+  <button class="btn" id="b-menu">☰</button>
+</div>
+
+<div id="errbar" style="display:none;position:absolute;left:8px;right:8px;bottom:8px;z-index:60;
+  background:#3a1512;border:1px solid #c1332d;color:#ffd9d4;font-size:12px;padding:8px 10px;
+  border-radius:3px;word-break:break-word"></div>
+<div id="inv-pop" class="hide">
+  <div class="pano-bas" style="background:#1a2129;padding:9px 12px">
+    <h3 style="color:var(--pirinc);font-size:14px">👥 OYUN DAVETİ</h3>
+    <div class="rozet" style="border-color:var(--pirinc);color:var(--pirinc)"><span id="inv-sn">10</span> sn</div>
+  </div>
+  <div class="pano-ic" style="padding:12px">
+    <div class="inv-ad" id="inv-ad">Oyuncu</div>
+    <div class="inv-oda" id="inv-oda">Oda kodu: —</div>
+    <div class="cubuk" style="margin-bottom:11px"><i id="inv-bar"></i></div>
+    <div style="display:flex;gap:7px">
+      <button class="ana" style="flex:1" id="inv-kabul">KABUL</button>
+      <button class="ikinci" style="flex:1;border-color:var(--atk);color:var(--atk)" id="inv-red">REDDET</button>
+    </div>
+  </div>
+</div>
+<div id="dunya-pnl" class="hide">
+  <div class="dunya-ust">
+    <div class="buyuk"><span id="dn-kalan">177</span><small>DEVLET KALDI</small></div>
+    <div style="flex:1;min-width:0">
+      <div style="font-size:11px;color:var(--dim);margin-bottom:5px" id="dn-ilerleme">177 → 177 · 1. savaş</div>
+      <div class="cubuk"><i id="dn-bar" style="width:0%"></i></div>
+    </div>
+    <button class="ikinci" id="dn-kapat" style="padding:6px 10px">✕</button>
+  </div>
+  <div class="cephe" id="dn-cephe"><span class="vs">AÇIK CEPHE</span> · —</div>
+  <div id="dn-liste"></div>
+</div>
+<button id="dn-ac" class="btn" style="display:none;position:absolute;left:10px;top:56px;z-index:12">🌍 DURUM</button>
+<div id="gorev-pnl" class="hide">
+  <div class="gorev-bas"><span>🗳 <b id="gorev-ad">—</b></span><b id="gorev-sure">5:00</b></div>
+  <div id="gorev-liste"></div>
+  <button class="ikinci" id="sec-ac" style="width:100%;padding:7px">SEÇİM PANELİ</button>
+</div>
+<div id="rt-pnl" class="hide">
+  <div class="dunya-ust">
+    <div class="buyuk"><span id="rt-benim">0</span><small>ÜLKEN</small></div>
+    <div style="flex:1;min-width:0">
+      <div style="font-size:11px;color:var(--dim)"><span id="rt-bos">0</span> boş ülke ·
+        <span id="rt-oyuncu">0</span> oyuncu</div>
+      <div style="font-size:11px;color:var(--amber)" id="rt-cd">saldırıya hazır</div>
+    </div>
+  </div>
+  <div id="rt-liste"></div>
+  <div class="dugmeler">
+    <button class="ikinci" id="rt-yenile" style="flex:1">YENİLE</button>
+    <button class="ikinci" id="rt-cik" style="flex:1">ÇIK</button>
+  </div>
+</div>
+<div id="toast"></div>
+<div id="log"></div>
+
+<div id="hud">
+  <div id="scores">
+    <div class="side atk" id="card-a">
+      <div class="srow"><canvas class="fl" id="fl-a"></canvas>
+        <div style="flex:1;min-width:0"><div class="nm" id="nm-a">—</div><div class="tag">SALDIRAN</div></div></div>
+      <div class="bar"><i id="hp-a" style="width:100%"></i></div>
+      <div class="stats"><span>🚀<b id="s-a-m">0</b></span><span>✈️<b id="s-a-j">0</b></span>
+        <span>🚢<b id="s-a-s">0</b></span><span>🪖<b id="s-a-t">0</b></span><span>🏙<b id="s-a-c">0</b></span></div>
+    </div>
+    <div class="side def" id="card-d">
+      <div class="srow"><canvas class="fl" id="fl-d"></canvas>
+        <div style="flex:1;min-width:0"><div class="nm" id="nm-d">—</div><div class="tag">SAVUNAN</div></div></div>
+      <div class="bar"><i id="hp-d" style="width:100%"></i></div>
+      <div class="stats"><span>🚀<b id="s-d-m">0</b></span><span>✈️<b id="s-d-j">0</b></span>
+        <span>🚢<b id="s-d-s">0</b></span><span>🪖<b id="s-d-t">0</b></span><span>🏙<b id="s-d-c">0</b></span></div>
+    </div>
+  </div>
+  <div id="tools"></div>
+  <div id="eco">
+    <div id="money">1,00 Mlr</div>
+    <div id="mor"><span class="fc">😟</span><div class="mbar"><i id="mbar-i" style="width:60%"></i></div><span class="fc">😀</span></div>
+    <button id="b-inv">💰 YATIRIM</button>
+    <button id="b-upg">⚙️ YÜKSELT</button>
+  </div>
+  <div id="troop"><label>ASKER</label><input type="range" id="tslider" min="5" max="120" step="5" value="30"><div id="tval">30</div></div>
+  <div id="hint"></div>
+</div>
+
+<div class="ov" id="ov-start">
+ <div class="masa">
+  <aside class="sicil">
+    <div class="sicil-et">SİCİL KAYDI</div>
+    <div class="sicil-ad">
+      <h2 id="user-name">Komutan</h2>
+      <div class="rutbe" id="user-rank" style="display:none">—</div>
+    </div>
+    <div class="unvan" id="user-unvan">Cephe kaydı açık</div>
+    <div class="olcu">
+      <div><span id="user-wins">0</span><em>GALİBİYET</em></div>
+      <div><span id="user-ach">0</span><em>BAŞARIM</em></div>
+      <div><span id="user-gold">0</span><em>ALTIN</em></div>
+    </div>
+    <div class="ilerleme"><i id="user-prog" style="width:0%"></i></div>
+    <div class="ilerleme-yazi" id="user-progtxt">0/35 başarım</div>
+    <button class="sicil-btn" id="user-edit">ADI DEĞİŞTİR</button>
+    <button class="sicil-btn" id="user-ach-btn">BAŞARIMLAR</button>
+    <button class="sicil-btn" id="user-tag-btn">ETİKET DÜKKÂNI</button>
+    <button class="sicil-btn" id="fr-btn">ARKADAŞLAR</button>
+    <div class="hesap">
+      <div class="hesap-et">HESAP</div>
+      <div id="hesap-durum">Hesap yok — kayıtların sadece bu cihazda</div>
+      <div class="hesap-btn">
+        <button class="sicil-btn" id="hesap-giris">GİRİŞ YAP</button>
+        <button class="sicil-btn" id="hesap-kayit">HESAP OLUŞTUR</button>
+        <button class="sicil-btn" id="hesap-dogrula" style="display:none">E-POSTAYI DOĞRULA</button>
+        <button class="sicil-btn" id="hesap-cikis" style="display:none">ÇIKIŞ YAP</button>
+        <button class="sicil-btn tehlike" id="hesap-sil" style="display:none">HESABI SİL</button>
+      </div>
+    </div>
+    <button class="sicil-btn" id="lb-btn">🏅 SKOR TABLOSU</button>
+    <div class="ayar" id="eco-row"><span>Ekonomi</span><b id="eco-state">AÇIK</b></div>
+    <div class="ayar" id="secim-row"><span>Seçimler</span><b id="secim-state" class="off">KAPALI</b></div>
+    <div class="ayar" id="adm-row" style="display:none"><span>Özel etiketler</span><b class="adm">HEDİYE VER</b></div>
+  </aside>
+
+  <section class="sag">
+    <header class="bas">
+      <h1 class="marka">HARP<span class="pip"><i></i></span></h1>
+      <div class="altbas">DÜNYA SAVAŞ SİMÜLATÖRÜ</div>
+    </header>
+
+    <div class="dosyalar">
+      <button class="dosya" data-sekme="H-01" data-mode="manual">
+        <div class="no">TEK OYUNCU</div>
+        <h3>MANUEL KOMUTA</h3>
+        <p>Füzeyi sen atarsın, çıkarmayı sen yaparsın. Saldıran ya da savunan tarafı seç.</p>
+        <div class="kunye"><span>KOALİSYON</span><span>EKONOMİ</span><span>YÜKSELTME</span></div>
+        <div class="damga">SEÇİLDİ</div>
+      </button>
+
+      <button class="dosya" data-sekme="H-02" data-mode="auto">
+        <div class="no">İZLEME</div>
+        <h3>OTOMATİK SAVAŞ</h3>
+        <p>Ülkeleri sen seçersin, savaşı yapay zekâ yönetir. Altı zorluk kademesi.</p>
+        <div class="kunye"><span>1x – 8x HIZ</span><span>6 KADEME</span></div>
+        <div class="damga">SEÇİLDİ</div>
+      </button>
+
+      <button class="dosya" data-sekme="H-03" data-mode="world">
+        <div class="no">UZUN OYUN</div>
+        <h3>DÜNYA FETHİ</h3>
+        <p>Rastgele cepheler açılır, kazanan kaybedeni yutar. Tek devlet kalana kadar sürer.</p>
+        <div class="kunye"><span>~47 SAVAŞ</span><span>MÜTTEFİKLER</span></div>
+        <div class="damga">SEÇİLDİ</div>
+      </button>
+
+      <button class="dosya" data-sekme="H-04" data-mode="manual" data-zom="1">
+        <div class="no">HAYATTA KALMA</div>
+        <h3>ZOMBİ SALGINI</h3>
+        <p>Salgın orta ölçekli bir ülkeden başlar. Kuleleri 20 saniye içinde yık, yoksa ülke düşer.</p>
+        <div class="kunye"><span>50 DALGA</span><span>SONSUZ MOD</span><span>KULELER</span></div>
+        <div class="damga">SEÇİLDİ</div>
+      </button>
+
+      <button class="dosya genis tikla" data-sekme="H-06" id="mod-rt">
+        <div class="no">KALICI DÜNYA</div>
+        <h3>GERÇEK ZAMANLI DÜNYA</h3>
+        <p>Herkes aynı dünyada. Boş ülkeyi sahiplen, başkasınınkine saldır. Çıksan da ülken korunmaz.</p>
+        <div class="kunye"><span>HESAP GEREKİR</span><span>177 ÜLKE</span><span>KALICI</span></div>
+        <div class="damga">SEÇİLDİ</div>
+      </button>
+
+      <div class="dosya genis" data-sekme="H-05">
+        <div class="no">5 KİŞİYE KADAR</div>
+        <h3>ÇOK OYUNCULU</h3>
+        <p>Oda kodu üret ya da arkadaşının kodunu gir. Herkes kendi ülkesini seçer, takımlar serbesttir.</p>
+        <div class="mp2"><button class="mpbtn" id="mp-create">KOD OLUŞTUR</button><button class="mpbtn ikinci" id="mp-enter">KOD GİR</button></div>
+      </div>
+
+      <div class="not">
+        Haritayı sürükle · iki parmakla yakınlaştır · ülkeye dokunarak seç
+        <span id="srm-tag">sürüm 8.4 — altın ve etiketler</span>
+      </div>
+    </div>
+  </section>
+ </div>
+</div>
+
+<div class="ov hide" id="ov-side">
+  <div class="card">
+    <h1 class="cond" style="font-size:26px;letter-spacing:.12em">CEPHE SEÇ</h1>
+    <div class="sub" id="side-sub">Hangi tarafı komuta edeceksin?</div>
+    <button class="big a" data-side="A"><strong id="side-a">Saldıran</strong><em>Taarruzu sen başlatırsın.</em></button>
+    <button class="big d" data-side="D"><strong id="side-d">Savunan</strong><em>Ülkeni savun, karşı saldırıya geç.</em></button>
+    <button class="big" data-side="W"><strong>SADECE İZLE</strong><em>İki tarafı da yapay zekâ yönetsin.</em></button>
+  </div>
+</div>
+
+<div class="ov hide" id="ov-find">
+  <div class="card">
+    <h1 class="cond" style="font-size:26px;letter-spacing:.12em">ÜLKE ARA</h1>
+    <div class="sub" id="find-sub">Listeden seç.</div>
+    <input class="searchbox" id="q" placeholder="Ülke adı yaz…" autocomplete="off">
+    <div id="clist"></div>
+    <div style="margin-top:10px;text-align:right"><button class="btn" id="find-close">KAPAT</button></div>
+  </div>
+</div>
+
+<div class="ov hide" id="ov-name">
+  <div class="card">
+    <h1 class="cond" style="font-size:24px;letter-spacing:.12em">KULLANICI ADI</h1>
+    <div class="sub">Diğer oyuncular seni bu adla görecek.</div>
+    <input class="searchbox" id="name-input" maxlength="14" placeholder="Kullanıcı adın" autocomplete="off">
+    <div class="mprow" style="margin-top:4px">
+      <button class="big n" id="name-ok" style="flex:1;margin:0"><strong>TAMAM</strong></button>
+      <button class="btn" id="name-cancel" style="padding:12px 16px">VAZGEÇ</button>
+    </div>
+  </div>
+</div>
+
+<div class="ov hide" id="ov-join">
+  <div class="pano" style="max-width:400px;width:100%">
+    <div class="pano-bas"><h3>ODAYA KATIL</h3><div class="rozet">5 HANE</div></div>
+    <div class="pano-ic">
+      <div class="hane" id="join-hane">
+        <i class="bos">·</i><i class="bos">·</i><i class="bos">·</i><i class="bos">·</i><i class="bos">·</i>
+      </div>
+      <input id="join-code" maxlength="5" autocomplete="off" inputmode="text"
+        style="position:absolute;opacity:0;width:1px;height:1px;pointer-events:none">
+      <div style="text-align:center;font-size:11.5px;color:var(--dim);margin-top:10px" id="join-msg">
+        Arkadaşındaki kodu yaz</div>
+    </div>
+    <div class="dugmeler">
+      <button class="ana" id="join-go">KATIL</button>
+      <button class="ikinci" id="oda-btn">AÇIK ODALAR</button>
+      <button class="ikinci" id="join-back">GERİ</button>
+    </div>
+  </div>
+</div>
+
+<div class="ov hide" id="ov-room">
+  <div class="pano">
+    <div class="pano-bas"><h3>ODA</h3><div class="rozet"><span id="room-count">1/5</span> OYUNCU</div></div>
+    <div class="kodkart">
+      <div class="et">OYUN KODU</div>
+      <div class="kod" id="room-code">…</div>
+      <div class="alt" id="room-msg">Arkadaşlarına bu kodu gönder</div>
+      <button class="kopya" id="room-copy">KOPYALA</button>
+    </div>
+    <div id="room-list"></div>
+    <div class="pano-ic">
+      <div id="chat-list"></div>
+      <div class="satir">
+        <input id="chat-in" placeholder="Mesaj yaz…" maxlength="120" autocomplete="off">
+        <button class="gonder" id="chat-gonder">GÖNDER</button>
+      </div>
+    </div>
+    <div class="dugmeler">
+      <button class="ana" id="room-start">BAŞLA</button>
+      <button class="ikinci" id="room-invite">👥 DAVET</button>
+      <button class="ikinci" id="room-leave">ÇIK</button>
+    </div>
+  </div>
+</div>
+
+<div class="ov hide" id="ov-pick">
+  <div class="card">
+    <h1 class="cond" style="font-size:22px;letter-spacing:.12em">ÜLKENİ SEÇ</h1>
+    <div class="sub" id="pick-sub">Yöneteceğin ülkeyi seç. Herkes seçince savaş başlar.</div>
+    <button class="big n" id="pick-open"><strong id="pick-lbl">ÜLKE SEÇ</strong><em>Listeden ara ya da haritadan dokun.</em></button>
+    <div id="pick-list"></div>
+    <div style="text-align:right;margin-top:8px"><button class="btn" id="pick-leave">ODADAN ÇIK</button></div>
+  </div>
+</div>
+
+<div class="ov hide" id="ov-chat">
+  <div class="card">
+    <h1 class="cond" style="font-size:24px;letter-spacing:.12em">SOHBET</h1>
+    <div id="chat-list2"></div>
+    <div class="kodkutu" style="margin-top:8px">
+      <input class="searchbox" id="chat-in2" placeholder="Mesaj yaz…" maxlength="120" autocomplete="off">
+      <button class="gbtn" id="chat-gonder2">GÖNDER</button>
+    </div>
+    <div style="margin-top:10px;text-align:right"><button class="btn" id="chat-close">KAPAT</button></div>
+  </div>
+</div>
+
+<div class="ov hide" id="ov-test">
+  <div class="pano">
+    <div class="pano-bas"><h3>TEST PANELİ</h3><div class="rozet">TEK OYUNCULU</div></div>
+    <div class="pano-ic" style="padding-bottom:0">
+      <div class="sub">Geliştirici kısayolları. Çok oyunculuda kapalıdır.</div>
+    </div>
+    <div id="test-liste"></div>
+    <div class="dugmeler"><button class="ikinci" id="test-close" style="flex:1">KAPAT</button></div>
+  </div>
+</div>
+
+<div class="ov hide" id="ov-sec">
+  <div class="pano">
+    <div class="pano-bas"><h3 id="sec-bas">ADAYLIK</h3><div class="rozet"><span id="sec-sure">40 sn</span></div></div>
+    <div class="pano-ic">
+      <div class="sub" id="sec-alt" style="margin-bottom:10px">Seçilirsen ne yapacağını söyle.</div>
+      <div id="sec-vaat"></div>
+      <div style="font-size:11px;color:var(--dim);margin:8px 0 4px">ADAYLAR</div>
+      <div id="sec-adaylar"></div>
+      <div id="sec-oy"></div>
+    </div>
+    <div class="dugmeler">
+      <button class="ana" id="sec-adayol">ADAY OL</button>
+      <button class="ikinci" id="sec-kapat">KAPAT</button>
+    </div>
+  </div>
+</div>
+
+<div class="ov hide" id="ov-auth">
+  <div class="pano" style="max-width:400px">
+    <div class="pano-bas"><h3 id="auth-bas">GİRİŞ YAP</h3><div class="rozet">FIREBASE</div></div>
+    <div class="pano-ic">
+      <input class="searchbox" id="auth-ad" placeholder="Kullanıcı adın" maxlength="14" autocomplete="off">
+      <input class="searchbox" id="auth-mail" placeholder="E-posta" autocomplete="off" inputmode="email">
+      <input class="searchbox" id="auth-pw" placeholder="Parola (en az 6 karakter)" type="password" autocomplete="off">
+      <div id="auth-msg" class="sub" style="min-height:16px;margin:4px 0 0"></div>
+      <div style="text-align:right"><button class="btn" id="auth-unut" style="font-size:11px">PAROLAMI UNUTTUM</button></div>
+    </div>
+    <div class="dugmeler">
+      <button class="ana" id="auth-yap" data-mod="giris">GİRİŞ</button>
+      <button class="ikinci" id="auth-close">KAPAT</button>
+    </div>
+  </div>
+</div>
+
+<div class="ov hide" id="ov-lb">
+  <div class="pano">
+    <div class="pano-bas"><h3>SKOR TABLOSU</h3><div class="rozet">EN ÇOK GALİBİYET</div></div>
+    <div id="lb-liste"></div>
+    <div class="dugmeler"><button class="ikinci" id="lb-close" style="flex:1">KAPAT</button></div>
+  </div>
+</div>
+
+<div class="ov hide" id="ov-odalar">
+  <div class="pano">
+    <div class="pano-bas"><h3>AÇIK ODALAR</h3><div class="rozet">SON 20 DK</div></div>
+    <div id="oda-liste"></div>
+    <div class="dugmeler">
+      <button class="ikinci" id="oda-yenile" style="flex:1">YENİLE</button>
+      <button class="ikinci" id="oda-close" style="flex:1">KAPAT</button>
+    </div>
+  </div>
+</div>
+
+<div class="ov hide" id="ov-friends">
+  <div class="card">
+    <h1 class="cond" style="font-size:24px;letter-spacing:.12em">ARKADAŞLAR</h1>
+    <div class="sub">Senin kodun — arkadaşına bunu ver:</div>
+    <div id="fr-mykod">------</div>
+    <div class="sub" id="fr-durum">Bağlanıyor…</div>
+    <div class="kodkutu">
+      <input class="searchbox" id="fr-add" placeholder="Arkadaş kodu" maxlength="6" autocomplete="off" style="text-transform:uppercase">
+      <button class="gbtn" id="fr-ekle">EKLE</button>
+    </div>
+    <div id="fr-list"></div>
+    <div style="margin-top:10px;text-align:right"><button class="btn" id="fr-close">KAPAT</button></div>
+  </div>
+</div>
+
+<div class="ov hide" id="ov-gift">
+  <div class="card">
+    <h1 class="cond" style="font-size:24px;letter-spacing:.12em">ÖZEL ETİKETLER</h1>
+    <div class="sub">Kullanıcı adını yaz, VER'e bas. Kişi aynı odada olmalı.</div>
+    <div id="gift-msg" class="sub" style="color:var(--amber)"></div>
+    <div id="gift-list"></div>
+    <div style="margin-top:10px;text-align:right"><button class="btn" id="gift-close">KAPAT</button></div>
+  </div>
+</div>
+
+<div class="ov hide" id="ov-ach">
+  <div class="card">
+    <h1 class="cond" style="font-size:24px;letter-spacing:.12em">BAŞARIMLAR</h1>
+    <div class="sub" id="ach-sum">0/35 başarım</div>
+    <div class="kodkutu">
+      <input class="searchbox" id="ach-code" placeholder="Hediye kodu (örn. AB2-K7QF9)" maxlength="9" autocomplete="off" style="text-transform:uppercase">
+      <button class="gbtn" id="ach-al">AL</button>
+    </div>
+    <div id="ach-list"></div>
+    <div style="margin-top:10px;text-align:right"><button class="btn" id="ach-close">KAPAT</button></div>
+  </div>
+</div>
+
+<div class="ov hide" id="ov-tags">
+  <div class="card">
+    <h1 class="cond" style="font-size:24px;letter-spacing:.12em">ETİKET DÜKKÂNI</h1>
+    <div class="sub">🪙 <b id="tag-gold">0</b> altın · 🏆 <b id="tag-wins">0</b> galibiyet · Manuel modda kazandığın her savaş 1 galibiyet.</div>
+    <div id="tag-list"></div>
+    <div style="margin-top:10px;text-align:right"><button class="btn" id="tag-close">KAPAT</button></div>
+  </div>
+</div>
+
+<div class="ov hide" id="ov-upg">
+  <div class="card">
+    <h1 class="cond" style="font-size:24px;letter-spacing:.12em">YÜKSELTME</h1>
+    <div class="sub" id="upg-top">Bütçe: —</div>
+    <div id="upg-list"></div>
+    <div style="margin-top:10px;text-align:right"><button class="btn" id="upg-close">KAPAT</button></div>
+  </div>
+</div>
+
+<div class="ov hide" id="ov-eco">
+  <div class="card">
+    <h1 class="cond" style="font-size:26px;letter-spacing:.12em">YATIRIM</h1>
+    <div class="sub" id="inv-top">Bütçe: — · Halk: —</div>
+    <div id="inv-adet">
+      <span>ADET</span>
+      <button class="btn on" data-n="1">1</button>
+      <button class="btn" data-n="3">3</button>
+      <button class="btn" data-n="5">5</button>
+      <button class="btn" data-n="10">10</button>
+      <button class="btn on" id="inv-harita" style="flex:2">HARİTAYA YERLEŞTİR: AÇIK</button>
+    </div>
+    <div id="inv-list"></div>
+    <div style="margin-top:10px;text-align:right"><button class="btn" id="inv-close">KAPAT</button></div>
+  </div>
+</div>
+
+<div class="ov hide" id="ov-menu">
+  <div class="card">
+    <h1 class="cond" style="font-size:26px;letter-spacing:.12em">KOMUTA MENÜSÜ</h1>
+    <div class="sub">Savaş sürüyor mu, yeni cephe mi açacaksın?</div>
+    <button class="big n" id="m-resume"><strong>DEVAM ET</strong><em>Menüyü kapat.</em></button>
+    <button class="big" id="m-new"><strong>YENİ SAVAŞ</strong><em>Haritaya dön, yeni ülkeler seç.</em></button>
+    <button class="big" id="m-qual"><strong id="m-qual-t">GRAFİK: YÜKSEK</strong><em>Oyun kasıyorsa düşüğe al: gölgeler kapanır, çizim sadeleşir.</em></button>
+    <button class="big" id="m-mode"><strong id="m-mode-t">OTOMATİĞE GEÇ</strong><em>Komuta biçimini değiştir.</em></button>
+    <div class="rule"></div>
+    <div class="sub" style="margin:0;line-height:1.6">
+      <b>Nasıl oynanır:</b><br>
+      • Alttaki silahtan birini seç, sonra haritada hedefe dokun.<br>
+      • Asker göndermek için önce sayıyı ayarla. Kara sınırı yoksa asker ancak <b>çıkarma gemisi</b> veya <b>nakliye uçağı</b> ile gider.<br>
+      • Bütün şehirleri düşen ülke teslim olur.
+    </div>
+  </div>
+</div>
+
+<div class="ov hide" id="ov-res">
+  <div class="card">
+    <h1 id="res-title">ZAFER</h1>
+    <div id="res-body"></div>
+    <div class="rule"></div>
+    <button class="big n" id="r-again"><strong>YENİ SAVAŞ</strong><em>Haritaya dön.</em></button>
+  </div>
+</div>
+
+<script>
+(()=>{function e(e,t,n,r){Object.defineProperty(e,t,{get:n,set:r,enumerable:!0,configurable:!0})}function t(e){return e&&e.__esModule?e.default:e}class n{constructor(){this.chunkedMTU=16300,this._dataCount=1,this.chunk=e=>{let t=[],n=e.byteLength,r=Math.ceil(n/this.chunkedMTU),i=0,o=0;for(;o<n;){let s=Math.min(n,o+this.chunkedMTU),a=e.slice(o,s),c={__peerData:this._dataCount,n:i,data:a,total:r};t.push(c),o=s,i++}return this._dataCount++,t}}}class r{append_buffer(e){this.flush(),this._parts.push(e)}append(e){this._pieces.push(e)}flush(){if(this._pieces.length>0){let e=new Uint8Array(this._pieces);this._parts.push(e),this._pieces=[]}}toArrayBuffer(){let e=[];for(let t of this._parts)e.push(t);return function(e){let t=0;for(let n of e)t+=n.byteLength;let n=new Uint8Array(t),r=0;for(let t of e){let e=new Uint8Array(t.buffer,t.byteOffset,t.byteLength);n.set(e,r),r+=t.byteLength}return n}(e).buffer}constructor(){this.encoder=new TextEncoder,this._pieces=[],this._parts=[]}}function i(e){return new s(e).unpack()}function o(e){let t=new a,n=t.pack(e);return n instanceof Promise?n.then(()=>t.getBuffer()):t.getBuffer()}class s{unpack(){let e;let t=this.unpack_uint8();if(t<128)return t;if((224^t)<32)return(224^t)-32;if((e=160^t)<=15)return this.unpack_raw(e);if((e=176^t)<=15)return this.unpack_string(e);if((e=144^t)<=15)return this.unpack_array(e);if((e=128^t)<=15)return this.unpack_map(e);switch(t){case 192:return null;case 193:case 212:case 213:case 214:case 215:return;case 194:return!1;case 195:return!0;case 202:return this.unpack_float();case 203:return this.unpack_double();case 204:return this.unpack_uint8();case 205:return this.unpack_uint16();case 206:return this.unpack_uint32();case 207:return this.unpack_uint64();case 208:return this.unpack_int8();case 209:return this.unpack_int16();case 210:return this.unpack_int32();case 211:return this.unpack_int64();case 216:return e=this.unpack_uint16(),this.unpack_string(e);case 217:return e=this.unpack_uint32(),this.unpack_string(e);case 218:return e=this.unpack_uint16(),this.unpack_raw(e);case 219:return e=this.unpack_uint32(),this.unpack_raw(e);case 220:return e=this.unpack_uint16(),this.unpack_array(e);case 221:return e=this.unpack_uint32(),this.unpack_array(e);case 222:return e=this.unpack_uint16(),this.unpack_map(e);case 223:return e=this.unpack_uint32(),this.unpack_map(e)}}unpack_uint8(){let e=255&this.dataView[this.index];return this.index++,e}unpack_uint16(){let e=this.read(2),t=(255&e[0])*256+(255&e[1]);return this.index+=2,t}unpack_uint32(){let e=this.read(4),t=((256*e[0]+e[1])*256+e[2])*256+e[3];return this.index+=4,t}unpack_uint64(){let e=this.read(8),t=((((((256*e[0]+e[1])*256+e[2])*256+e[3])*256+e[4])*256+e[5])*256+e[6])*256+e[7];return this.index+=8,t}unpack_int8(){let e=this.unpack_uint8();return e<128?e:e-256}unpack_int16(){let e=this.unpack_uint16();return e<32768?e:e-65536}unpack_int32(){let e=this.unpack_uint32();return e<2147483648?e:e-4294967296}unpack_int64(){let e=this.unpack_uint64();return e<0x7fffffffffffffff?e:e-18446744073709552e3}unpack_raw(e){if(this.length<this.index+e)throw Error(`BinaryPackFailure: index is out of range ${this.index} ${e} ${this.length}`);let t=this.dataBuffer.slice(this.index,this.index+e);return this.index+=e,t}unpack_string(e){let t,n;let r=this.read(e),i=0,o="";for(;i<e;)(t=r[i])<160?(n=t,i++):(192^t)<32?(n=(31&t)<<6|63&r[i+1],i+=2):(224^t)<16?(n=(15&t)<<12|(63&r[i+1])<<6|63&r[i+2],i+=3):(n=(7&t)<<18|(63&r[i+1])<<12|(63&r[i+2])<<6|63&r[i+3],i+=4),o+=String.fromCodePoint(n);return this.index+=e,o}unpack_array(e){let t=Array(e);for(let n=0;n<e;n++)t[n]=this.unpack();return t}unpack_map(e){let t={};for(let n=0;n<e;n++)t[this.unpack()]=this.unpack();return t}unpack_float(){let e=this.unpack_uint32();return(0==e>>31?1:-1)*(8388607&e|8388608)*2**((e>>23&255)-127-23)}unpack_double(){let e=this.unpack_uint32(),t=this.unpack_uint32(),n=(e>>20&2047)-1023;return(0==e>>31?1:-1)*((1048575&e|1048576)*2**(n-20)+t*2**(n-52))}read(e){let t=this.index;if(t+e<=this.length)return this.dataView.subarray(t,t+e);throw Error("BinaryPackFailure: read index out of range")}constructor(e){this.index=0,this.dataBuffer=e,this.dataView=new Uint8Array(this.dataBuffer),this.length=this.dataBuffer.byteLength}}class a{getBuffer(){return this._bufferBuilder.toArrayBuffer()}pack(e){if("string"==typeof e)this.pack_string(e);else if("number"==typeof e)Math.floor(e)===e?this.pack_integer(e):this.pack_double(e);else if("boolean"==typeof e)!0===e?this._bufferBuilder.append(195):!1===e&&this._bufferBuilder.append(194);else if(void 0===e)this._bufferBuilder.append(192);else if("object"==typeof e){if(null===e)this._bufferBuilder.append(192);else{let t=e.constructor;if(e instanceof Array){let t=this.pack_array(e);if(t instanceof Promise)return t.then(()=>this._bufferBuilder.flush())}else if(e instanceof ArrayBuffer)this.pack_bin(new Uint8Array(e));else if("BYTES_PER_ELEMENT"in e)this.pack_bin(new Uint8Array(e.buffer,e.byteOffset,e.byteLength));else if(e instanceof Date)this.pack_string(e.toString());else if(e instanceof Blob)return e.arrayBuffer().then(e=>{this.pack_bin(new Uint8Array(e)),this._bufferBuilder.flush()});else if(t==Object||t.toString().startsWith("class")){let t=this.pack_object(e);if(t instanceof Promise)return t.then(()=>this._bufferBuilder.flush())}else throw Error(`Type "${t.toString()}" not yet supported`)}}else throw Error(`Type "${typeof e}" not yet supported`);this._bufferBuilder.flush()}pack_bin(e){let t=e.length;if(t<=15)this.pack_uint8(160+t);else if(t<=65535)this._bufferBuilder.append(218),this.pack_uint16(t);else if(t<=4294967295)this._bufferBuilder.append(219),this.pack_uint32(t);else throw Error("Invalid length");this._bufferBuilder.append_buffer(e)}pack_string(e){let t=this._textEncoder.encode(e),n=t.length;if(n<=15)this.pack_uint8(176+n);else if(n<=65535)this._bufferBuilder.append(216),this.pack_uint16(n);else if(n<=4294967295)this._bufferBuilder.append(217),this.pack_uint32(n);else throw Error("Invalid length");this._bufferBuilder.append_buffer(t)}pack_array(e){let t=e.length;if(t<=15)this.pack_uint8(144+t);else if(t<=65535)this._bufferBuilder.append(220),this.pack_uint16(t);else if(t<=4294967295)this._bufferBuilder.append(221),this.pack_uint32(t);else throw Error("Invalid length");let n=r=>{if(r<t){let t=this.pack(e[r]);return t instanceof Promise?t.then(()=>n(r+1)):n(r+1)}};return n(0)}pack_integer(e){if(e>=-32&&e<=127)this._bufferBuilder.append(255&e);else if(e>=0&&e<=255)this._bufferBuilder.append(204),this.pack_uint8(e);else if(e>=-128&&e<=127)this._bufferBuilder.append(208),this.pack_int8(e);else if(e>=0&&e<=65535)this._bufferBuilder.append(205),this.pack_uint16(e);else if(e>=-32768&&e<=32767)this._bufferBuilder.append(209),this.pack_int16(e);else if(e>=0&&e<=4294967295)this._bufferBuilder.append(206),this.pack_uint32(e);else if(e>=-2147483648&&e<=2147483647)this._bufferBuilder.append(210),this.pack_int32(e);else if(e>=-0x8000000000000000&&e<=0x7fffffffffffffff)this._bufferBuilder.append(211),this.pack_int64(e);else if(e>=0&&e<=18446744073709552e3)this._bufferBuilder.append(207),this.pack_uint64(e);else throw Error("Invalid integer")}pack_double(e){let t=0;e<0&&(t=1,e=-e);let n=Math.floor(Math.log(e)/Math.LN2),r=Math.floor((e/2**n-1)*4503599627370496),i=t<<31|n+1023<<20|r/4294967296&1048575;this._bufferBuilder.append(203),this.pack_int32(i),this.pack_int32(r%4294967296)}pack_object(e){let t=Object.keys(e),n=t.length;if(n<=15)this.pack_uint8(128+n);else if(n<=65535)this._bufferBuilder.append(222),this.pack_uint16(n);else if(n<=4294967295)this._bufferBuilder.append(223),this.pack_uint32(n);else throw Error("Invalid length");let r=n=>{if(n<t.length){let i=t[n];if(e.hasOwnProperty(i)){this.pack(i);let t=this.pack(e[i]);if(t instanceof Promise)return t.then(()=>r(n+1))}return r(n+1)}};return r(0)}pack_uint8(e){this._bufferBuilder.append(e)}pack_uint16(e){this._bufferBuilder.append(e>>8),this._bufferBuilder.append(255&e)}pack_uint32(e){let t=4294967295&e;this._bufferBuilder.append((4278190080&t)>>>24),this._bufferBuilder.append((16711680&t)>>>16),this._bufferBuilder.append((65280&t)>>>8),this._bufferBuilder.append(255&t)}pack_uint64(e){let t=e/4294967296,n=e%4294967296;this._bufferBuilder.append((4278190080&t)>>>24),this._bufferBuilder.append((16711680&t)>>>16),this._bufferBuilder.append((65280&t)>>>8),this._bufferBuilder.append(255&t),this._bufferBuilder.append((4278190080&n)>>>24),this._bufferBuilder.append((16711680&n)>>>16),this._bufferBuilder.append((65280&n)>>>8),this._bufferBuilder.append(255&n)}pack_int8(e){this._bufferBuilder.append(255&e)}pack_int16(e){this._bufferBuilder.append((65280&e)>>8),this._bufferBuilder.append(255&e)}pack_int32(e){this._bufferBuilder.append(e>>>24&255),this._bufferBuilder.append((16711680&e)>>>16),this._bufferBuilder.append((65280&e)>>>8),this._bufferBuilder.append(255&e)}pack_int64(e){let t=Math.floor(e/4294967296),n=e%4294967296;this._bufferBuilder.append((4278190080&t)>>>24),this._bufferBuilder.append((16711680&t)>>>16),this._bufferBuilder.append((65280&t)>>>8),this._bufferBuilder.append(255&t),this._bufferBuilder.append((4278190080&n)>>>24),this._bufferBuilder.append((16711680&n)>>>16),this._bufferBuilder.append((65280&n)>>>8),this._bufferBuilder.append(255&n)}constructor(){this._bufferBuilder=new r,this._textEncoder=new TextEncoder}}let c=!0,l=!0;function p(e,t,n){let r=e.match(t);return r&&r.length>=n&&parseInt(r[n],10)}function d(e,t,n){if(!e.RTCPeerConnection)return;let r=e.RTCPeerConnection.prototype,i=r.addEventListener;r.addEventListener=function(e,r){if(e!==t)return i.apply(this,arguments);let o=e=>{let t=n(e);t&&(r.handleEvent?r.handleEvent(t):r(t))};return this._eventMap=this._eventMap||{},this._eventMap[t]||(this._eventMap[t]=new Map),this._eventMap[t].set(r,o),i.apply(this,[e,o])};let o=r.removeEventListener;r.removeEventListener=function(e,n){if(e!==t||!this._eventMap||!this._eventMap[t]||!this._eventMap[t].has(n))return o.apply(this,arguments);let r=this._eventMap[t].get(n);return this._eventMap[t].delete(n),0===this._eventMap[t].size&&delete this._eventMap[t],0===Object.keys(this._eventMap).length&&delete this._eventMap,o.apply(this,[e,r])},Object.defineProperty(r,"on"+t,{get(){return this["_on"+t]},set(e){this["_on"+t]&&(this.removeEventListener(t,this["_on"+t]),delete this["_on"+t]),e&&this.addEventListener(t,this["_on"+t]=e)},enumerable:!0,configurable:!0})}function h(e){return"boolean"!=typeof e?Error("Argument type: "+typeof e+". Please use a boolean."):(c=e,e?"adapter.js logging disabled":"adapter.js logging enabled")}function u(e){return"boolean"!=typeof e?Error("Argument type: "+typeof e+". Please use a boolean."):(l=!e,"adapter.js deprecation warnings "+(e?"disabled":"enabled"))}function f(){"object"!=typeof window||c||"undefined"==typeof console||"function"!=typeof console.log||console.log.apply(console,arguments)}function m(e,t){l&&console.warn(e+" is deprecated, please use "+t+" instead.")}function g(e){return"[object Object]"===Object.prototype.toString.call(e)}function y(e,t,n){let r=n?"outbound-rtp":"inbound-rtp",i=new Map;if(null===t)return i;let o=[];return e.forEach(e=>{"track"===e.type&&e.trackIdentifier===t.id&&o.push(e)}),o.forEach(t=>{e.forEach(n=>{n.type===r&&n.trackId===t.id&&function e(t,n,r){!n||r.has(n.id)||(r.set(n.id,n),Object.keys(n).forEach(i=>{i.endsWith("Id")?e(t,t.get(n[i]),r):i.endsWith("Ids")&&n[i].forEach(n=>{e(t,t.get(n),r)})}))}(e,n,i)})}),i}var _,C,b,v,k,T,S,R,P,w,E,D,x,I,M,O,j={};function L(e,t){let n=e&&e.navigator;if(!n.mediaDevices)return;let r=function(e){if("object"!=typeof e||e.mandatory||e.optional)return e;let t={};return Object.keys(e).forEach(n=>{if("require"===n||"advanced"===n||"mediaSource"===n)return;let r="object"==typeof e[n]?e[n]:{ideal:e[n]};void 0!==r.exact&&"number"==typeof r.exact&&(r.min=r.max=r.exact);let i=function(e,t){return e?e+t.charAt(0).toUpperCase()+t.slice(1):"deviceId"===t?"sourceId":t};if(void 0!==r.ideal){t.optional=t.optional||[];let e={};"number"==typeof r.ideal?(e[i("min",n)]=r.ideal,t.optional.push(e),(e={})[i("max",n)]=r.ideal):e[i("",n)]=r.ideal,t.optional.push(e)}void 0!==r.exact&&"number"!=typeof r.exact?(t.mandatory=t.mandatory||{},t.mandatory[i("",n)]=r.exact):["min","max"].forEach(e=>{void 0!==r[e]&&(t.mandatory=t.mandatory||{},t.mandatory[i(e,n)]=r[e])})}),e.advanced&&(t.optional=(t.optional||[]).concat(e.advanced)),t},i=function(e,i){if(t.version>=61)return i(e);if((e=JSON.parse(JSON.stringify(e)))&&"object"==typeof e.audio){let t=function(e,t,n){t in e&&!(n in e)&&(e[n]=e[t],delete e[t])};t((e=JSON.parse(JSON.stringify(e))).audio,"autoGainControl","googAutoGainControl"),t(e.audio,"noiseSuppression","googNoiseSuppression"),e.audio=r(e.audio)}if(e&&"object"==typeof e.video){let o=e.video.facingMode;o=o&&("object"==typeof o?o:{ideal:o});let s=t.version<66;if(o&&("user"===o.exact||"environment"===o.exact||"user"===o.ideal||"environment"===o.ideal)&&!(n.mediaDevices.getSupportedConstraints&&n.mediaDevices.getSupportedConstraints().facingMode&&!s)){let t;if(delete e.video.facingMode,"environment"===o.exact||"environment"===o.ideal?t=["back","rear"]:("user"===o.exact||"user"===o.ideal)&&(t=["front"]),t)return n.mediaDevices.enumerateDevices().then(n=>{let s=(n=n.filter(e=>"videoinput"===e.kind)).find(e=>t.some(t=>e.label.toLowerCase().includes(t)));return!s&&n.length&&t.includes("back")&&(s=n[n.length-1]),s&&(e.video.deviceId=o.exact?{exact:s.deviceId}:{ideal:s.deviceId}),e.video=r(e.video),f("chrome: "+JSON.stringify(e)),i(e)})}e.video=r(e.video)}return f("chrome: "+JSON.stringify(e)),i(e)},o=function(e){return t.version>=64?e:{name:({PermissionDeniedError:"NotAllowedError",PermissionDismissedError:"NotAllowedError",InvalidStateError:"NotAllowedError",DevicesNotFoundError:"NotFoundError",ConstraintNotSatisfiedError:"OverconstrainedError",TrackStartError:"NotReadableError",MediaDeviceFailedDueToShutdown:"NotAllowedError",MediaDeviceKillSwitchOn:"NotAllowedError",TabCaptureError:"AbortError",ScreenCaptureError:"AbortError",DeviceCaptureError:"AbortError"})[e.name]||e.name,message:e.message,constraint:e.constraint||e.constraintName,toString(){return this.name+(this.message&&": ")+this.message}}};if(n.getUserMedia=(function(e,t,r){i(e,e=>{n.webkitGetUserMedia(e,t,e=>{r&&r(o(e))})})}).bind(n),n.mediaDevices.getUserMedia){let e=n.mediaDevices.getUserMedia.bind(n.mediaDevices);n.mediaDevices.getUserMedia=function(t){return i(t,t=>e(t).then(e=>{if(t.audio&&!e.getAudioTracks().length||t.video&&!e.getVideoTracks().length)throw e.getTracks().forEach(e=>{e.stop()}),new DOMException("","NotFoundError");return e},e=>Promise.reject(o(e))))}}}function A(e){e.MediaStream=e.MediaStream||e.webkitMediaStream}function B(e){if("object"!=typeof e||!e.RTCPeerConnection||"ontrack"in e.RTCPeerConnection.prototype)d(e,"track",e=>(e.transceiver||Object.defineProperty(e,"transceiver",{value:{receiver:e.receiver}}),e));else{Object.defineProperty(e.RTCPeerConnection.prototype,"ontrack",{get(){return this._ontrack},set(e){this._ontrack&&this.removeEventListener("track",this._ontrack),this.addEventListener("track",this._ontrack=e)},enumerable:!0,configurable:!0});let t=e.RTCPeerConnection.prototype.setRemoteDescription;e.RTCPeerConnection.prototype.setRemoteDescription=function(){return this._ontrackpoly||(this._ontrackpoly=t=>{t.stream.addEventListener("addtrack",n=>{let r;r=e.RTCPeerConnection.prototype.getReceivers?this.getReceivers().find(e=>e.track&&e.track.id===n.track.id):{track:n.track};let i=new Event("track");i.track=n.track,i.receiver=r,i.transceiver={receiver:r},i.streams=[t.stream],this.dispatchEvent(i)}),t.stream.getTracks().forEach(n=>{let r;r=e.RTCPeerConnection.prototype.getReceivers?this.getReceivers().find(e=>e.track&&e.track.id===n.id):{track:n};let i=new Event("track");i.track=n,i.receiver=r,i.transceiver={receiver:r},i.streams=[t.stream],this.dispatchEvent(i)})},this.addEventListener("addstream",this._ontrackpoly)),t.apply(this,arguments)}}}function F(e){if("object"==typeof e&&e.RTCPeerConnection&&!("getSenders"in e.RTCPeerConnection.prototype)&&"createDTMFSender"in e.RTCPeerConnection.prototype){let t=function(e,t){return{track:t,get dtmf(){return void 0===this._dtmf&&("audio"===t.kind?this._dtmf=e.createDTMFSender(t):this._dtmf=null),this._dtmf},_pc:e}};if(!e.RTCPeerConnection.prototype.getSenders){e.RTCPeerConnection.prototype.getSenders=function(){return this._senders=this._senders||[],this._senders.slice()};let n=e.RTCPeerConnection.prototype.addTrack;e.RTCPeerConnection.prototype.addTrack=function(e,r){let i=n.apply(this,arguments);return i||(i=t(this,e),this._senders.push(i)),i};let r=e.RTCPeerConnection.prototype.removeTrack;e.RTCPeerConnection.prototype.removeTrack=function(e){r.apply(this,arguments);let t=this._senders.indexOf(e);-1!==t&&this._senders.splice(t,1)}}let n=e.RTCPeerConnection.prototype.addStream;e.RTCPeerConnection.prototype.addStream=function(e){this._senders=this._senders||[],n.apply(this,[e]),e.getTracks().forEach(e=>{this._senders.push(t(this,e))})};let r=e.RTCPeerConnection.prototype.removeStream;e.RTCPeerConnection.prototype.removeStream=function(e){this._senders=this._senders||[],r.apply(this,[e]),e.getTracks().forEach(e=>{let t=this._senders.find(t=>t.track===e);t&&this._senders.splice(this._senders.indexOf(t),1)})}}else if("object"==typeof e&&e.RTCPeerConnection&&"getSenders"in e.RTCPeerConnection.prototype&&"createDTMFSender"in e.RTCPeerConnection.prototype&&e.RTCRtpSender&&!("dtmf"in e.RTCRtpSender.prototype)){let t=e.RTCPeerConnection.prototype.getSenders;e.RTCPeerConnection.prototype.getSenders=function(){let e=t.apply(this,[]);return e.forEach(e=>e._pc=this),e},Object.defineProperty(e.RTCRtpSender.prototype,"dtmf",{get(){return void 0===this._dtmf&&("audio"===this.track.kind?this._dtmf=this._pc.createDTMFSender(this.track):this._dtmf=null),this._dtmf}})}}function U(e){if(!("object"==typeof e&&e.RTCPeerConnection&&e.RTCRtpSender&&e.RTCRtpReceiver))return;if(!("getStats"in e.RTCRtpSender.prototype)){let t=e.RTCPeerConnection.prototype.getSenders;t&&(e.RTCPeerConnection.prototype.getSenders=function(){let e=t.apply(this,[]);return e.forEach(e=>e._pc=this),e});let n=e.RTCPeerConnection.prototype.addTrack;n&&(e.RTCPeerConnection.prototype.addTrack=function(){let e=n.apply(this,arguments);return e._pc=this,e}),e.RTCRtpSender.prototype.getStats=function(){let e=this;return this._pc.getStats().then(t=>y(t,e.track,!0))}}if(!("getStats"in e.RTCRtpReceiver.prototype)){let t=e.RTCPeerConnection.prototype.getReceivers;t&&(e.RTCPeerConnection.prototype.getReceivers=function(){let e=t.apply(this,[]);return e.forEach(e=>e._pc=this),e}),d(e,"track",e=>(e.receiver._pc=e.srcElement,e)),e.RTCRtpReceiver.prototype.getStats=function(){let e=this;return this._pc.getStats().then(t=>y(t,e.track,!1))}}if(!("getStats"in e.RTCRtpSender.prototype&&"getStats"in e.RTCRtpReceiver.prototype))return;let t=e.RTCPeerConnection.prototype.getStats;e.RTCPeerConnection.prototype.getStats=function(){if(arguments.length>0&&arguments[0]instanceof e.MediaStreamTrack){let e,t,n;let r=arguments[0];return(this.getSenders().forEach(t=>{t.track===r&&(e?n=!0:e=t)}),this.getReceivers().forEach(e=>(e.track===r&&(t?n=!0:t=e),e.track===r)),n||e&&t)?Promise.reject(new DOMException("There are more than one sender or receiver for the track.","InvalidAccessError")):e?e.getStats():t?t.getStats():Promise.reject(new DOMException("There is no sender or receiver for the track.","InvalidAccessError"))}return t.apply(this,arguments)}}function z(e){e.RTCPeerConnection.prototype.getLocalStreams=function(){return this._shimmedLocalStreams=this._shimmedLocalStreams||{},Object.keys(this._shimmedLocalStreams).map(e=>this._shimmedLocalStreams[e][0])};let t=e.RTCPeerConnection.prototype.addTrack;e.RTCPeerConnection.prototype.addTrack=function(e,n){if(!n)return t.apply(this,arguments);this._shimmedLocalStreams=this._shimmedLocalStreams||{};let r=t.apply(this,arguments);return this._shimmedLocalStreams[n.id]?-1===this._shimmedLocalStreams[n.id].indexOf(r)&&this._shimmedLocalStreams[n.id].push(r):this._shimmedLocalStreams[n.id]=[n,r],r};let n=e.RTCPeerConnection.prototype.addStream;e.RTCPeerConnection.prototype.addStream=function(e){this._shimmedLocalStreams=this._shimmedLocalStreams||{},e.getTracks().forEach(e=>{if(this.getSenders().find(t=>t.track===e))throw new DOMException("Track already exists.","InvalidAccessError")});let t=this.getSenders();n.apply(this,arguments);let r=this.getSenders().filter(e=>-1===t.indexOf(e));this._shimmedLocalStreams[e.id]=[e].concat(r)};let r=e.RTCPeerConnection.prototype.removeStream;e.RTCPeerConnection.prototype.removeStream=function(e){return this._shimmedLocalStreams=this._shimmedLocalStreams||{},delete this._shimmedLocalStreams[e.id],r.apply(this,arguments)};let i=e.RTCPeerConnection.prototype.removeTrack;e.RTCPeerConnection.prototype.removeTrack=function(e){return this._shimmedLocalStreams=this._shimmedLocalStreams||{},e&&Object.keys(this._shimmedLocalStreams).forEach(t=>{let n=this._shimmedLocalStreams[t].indexOf(e);-1!==n&&this._shimmedLocalStreams[t].splice(n,1),1===this._shimmedLocalStreams[t].length&&delete this._shimmedLocalStreams[t]}),i.apply(this,arguments)}}function N(e,t){if(!e.RTCPeerConnection)return;if(e.RTCPeerConnection.prototype.addTrack&&t.version>=65)return z(e);let n=e.RTCPeerConnection.prototype.getLocalStreams;e.RTCPeerConnection.prototype.getLocalStreams=function(){let e=n.apply(this);return this._reverseStreams=this._reverseStreams||{},e.map(e=>this._reverseStreams[e.id])};let r=e.RTCPeerConnection.prototype.addStream;e.RTCPeerConnection.prototype.addStream=function(t){if(this._streams=this._streams||{},this._reverseStreams=this._reverseStreams||{},t.getTracks().forEach(e=>{if(this.getSenders().find(t=>t.track===e))throw new DOMException("Track already exists.","InvalidAccessError")}),!this._reverseStreams[t.id]){let n=new e.MediaStream(t.getTracks());this._streams[t.id]=n,this._reverseStreams[n.id]=t,t=n}r.apply(this,[t])};let i=e.RTCPeerConnection.prototype.removeStream;function o(e,t){let n=t.sdp;return Object.keys(e._reverseStreams||[]).forEach(t=>{let r=e._reverseStreams[t],i=e._streams[r.id];n=n.replace(RegExp(i.id,"g"),r.id)}),new RTCSessionDescription({type:t.type,sdp:n})}e.RTCPeerConnection.prototype.removeStream=function(e){this._streams=this._streams||{},this._reverseStreams=this._reverseStreams||{},i.apply(this,[this._streams[e.id]||e]),delete this._reverseStreams[this._streams[e.id]?this._streams[e.id].id:e.id],delete this._streams[e.id]},e.RTCPeerConnection.prototype.addTrack=function(t,n){if("closed"===this.signalingState)throw new DOMException("The RTCPeerConnection's signalingState is 'closed'.","InvalidStateError");let r=[].slice.call(arguments,1);if(1!==r.length||!r[0].getTracks().find(e=>e===t))throw new DOMException("The adapter.js addTrack polyfill only supports a single  stream which is associated with the specified track.","NotSupportedError");if(this.getSenders().find(e=>e.track===t))throw new DOMException("Track already exists.","InvalidAccessError");this._streams=this._streams||{},this._reverseStreams=this._reverseStreams||{};let i=this._streams[n.id];if(i)i.addTrack(t),Promise.resolve().then(()=>{this.dispatchEvent(new Event("negotiationneeded"))});else{let r=new e.MediaStream([t]);this._streams[n.id]=r,this._reverseStreams[r.id]=n,this.addStream(r)}return this.getSenders().find(e=>e.track===t)},["createOffer","createAnswer"].forEach(function(t){let n=e.RTCPeerConnection.prototype[t];e.RTCPeerConnection.prototype[t]=({[t](){let e=arguments,t=arguments.length&&"function"==typeof arguments[0];return t?n.apply(this,[t=>{let n=o(this,t);e[0].apply(null,[n])},t=>{e[1]&&e[1].apply(null,t)},arguments[2]]):n.apply(this,arguments).then(e=>o(this,e))}})[t]});let s=e.RTCPeerConnection.prototype.setLocalDescription;e.RTCPeerConnection.prototype.setLocalDescription=function(){var e,t;let n;return arguments.length&&arguments[0].type&&(arguments[0]=(e=this,t=arguments[0],n=t.sdp,Object.keys(e._reverseStreams||[]).forEach(t=>{let r=e._reverseStreams[t],i=e._streams[r.id];n=n.replace(RegExp(r.id,"g"),i.id)}),new RTCSessionDescription({type:t.type,sdp:n}))),s.apply(this,arguments)};let a=Object.getOwnPropertyDescriptor(e.RTCPeerConnection.prototype,"localDescription");Object.defineProperty(e.RTCPeerConnection.prototype,"localDescription",{get(){let e=a.get.apply(this);return""===e.type?e:o(this,e)}}),e.RTCPeerConnection.prototype.removeTrack=function(e){let t;if("closed"===this.signalingState)throw new DOMException("The RTCPeerConnection's signalingState is 'closed'.","InvalidStateError");if(!e._pc)throw new DOMException("Argument 1 of RTCPeerConnection.removeTrack does not implement interface RTCRtpSender.","TypeError");if(e._pc!==this)throw new DOMException("Sender was not created by this connection.","InvalidAccessError");this._streams=this._streams||{},Object.keys(this._streams).forEach(n=>{this._streams[n].getTracks().find(t=>e.track===t)&&(t=this._streams[n])}),t&&(1===t.getTracks().length?this.removeStream(this._reverseStreams[t.id]):t.removeTrack(e.track),this.dispatchEvent(new Event("negotiationneeded")))}}function $(e,t){!e.RTCPeerConnection&&e.webkitRTCPeerConnection&&(e.RTCPeerConnection=e.webkitRTCPeerConnection),e.RTCPeerConnection&&t.version<53&&["setLocalDescription","setRemoteDescription","addIceCandidate"].forEach(function(t){let n=e.RTCPeerConnection.prototype[t];e.RTCPeerConnection.prototype[t]=({[t](){return arguments[0]=new("addIceCandidate"===t?e.RTCIceCandidate:e.RTCSessionDescription)(arguments[0]),n.apply(this,arguments)}})[t]})}function J(e,t){d(e,"negotiationneeded",e=>{let n=e.target;if(!(t.version<72)&&(!n.getConfiguration||"plan-b"!==n.getConfiguration().sdpSemantics)||"stable"===n.signalingState)return e})}e(j,"shimMediaStream",()=>A),e(j,"shimOnTrack",()=>B),e(j,"shimGetSendersWithDtmf",()=>F),e(j,"shimSenderReceiverGetStats",()=>U),e(j,"shimAddTrackRemoveTrackWithNative",()=>z),e(j,"shimAddTrackRemoveTrack",()=>N),e(j,"shimPeerConnection",()=>$),e(j,"fixNegotiationNeeded",()=>J),e(j,"shimGetUserMedia",()=>L);var V={};function G(e,t){let n=e&&e.navigator,r=e&&e.MediaStreamTrack;if(n.getUserMedia=function(e,t,r){m("navigator.getUserMedia","navigator.mediaDevices.getUserMedia"),n.mediaDevices.getUserMedia(e).then(t,r)},!(t.version>55&&"autoGainControl"in n.mediaDevices.getSupportedConstraints())){let e=function(e,t,n){t in e&&!(n in e)&&(e[n]=e[t],delete e[t])},t=n.mediaDevices.getUserMedia.bind(n.mediaDevices);if(n.mediaDevices.getUserMedia=function(n){return"object"==typeof n&&"object"==typeof n.audio&&(e((n=JSON.parse(JSON.stringify(n))).audio,"autoGainControl","mozAutoGainControl"),e(n.audio,"noiseSuppression","mozNoiseSuppression")),t(n)},r&&r.prototype.getSettings){let t=r.prototype.getSettings;r.prototype.getSettings=function(){let n=t.apply(this,arguments);return e(n,"mozAutoGainControl","autoGainControl"),e(n,"mozNoiseSuppression","noiseSuppression"),n}}if(r&&r.prototype.applyConstraints){let t=r.prototype.applyConstraints;r.prototype.applyConstraints=function(n){return"audio"===this.kind&&"object"==typeof n&&(e(n=JSON.parse(JSON.stringify(n)),"autoGainControl","mozAutoGainControl"),e(n,"noiseSuppression","mozNoiseSuppression")),t.apply(this,[n])}}}}function W(e,t){e.navigator.mediaDevices&&"getDisplayMedia"in e.navigator.mediaDevices||!e.navigator.mediaDevices||(e.navigator.mediaDevices.getDisplayMedia=function(n){if(!(n&&n.video)){let e=new DOMException("getDisplayMedia without video constraints is undefined");return e.name="NotFoundError",e.code=8,Promise.reject(e)}return!0===n.video?n.video={mediaSource:t}:n.video.mediaSource=t,e.navigator.mediaDevices.getUserMedia(n)})}function H(e){"object"==typeof e&&e.RTCTrackEvent&&"receiver"in e.RTCTrackEvent.prototype&&!("transceiver"in e.RTCTrackEvent.prototype)&&Object.defineProperty(e.RTCTrackEvent.prototype,"transceiver",{get(){return{receiver:this.receiver}}})}function Y(e,t){if("object"!=typeof e||!(e.RTCPeerConnection||e.mozRTCPeerConnection))return;!e.RTCPeerConnection&&e.mozRTCPeerConnection&&(e.RTCPeerConnection=e.mozRTCPeerConnection),t.version<53&&["setLocalDescription","setRemoteDescription","addIceCandidate"].forEach(function(t){let n=e.RTCPeerConnection.prototype[t];e.RTCPeerConnection.prototype[t]=({[t](){return arguments[0]=new("addIceCandidate"===t?e.RTCIceCandidate:e.RTCSessionDescription)(arguments[0]),n.apply(this,arguments)}})[t]});let n={inboundrtp:"inbound-rtp",outboundrtp:"outbound-rtp",candidatepair:"candidate-pair",localcandidate:"local-candidate",remotecandidate:"remote-candidate"},r=e.RTCPeerConnection.prototype.getStats;e.RTCPeerConnection.prototype.getStats=function(){let[e,i,o]=arguments;return r.apply(this,[e||null]).then(e=>{if(t.version<53&&!i)try{e.forEach(e=>{e.type=n[e.type]||e.type})}catch(t){if("TypeError"!==t.name)throw t;e.forEach((t,r)=>{e.set(r,Object.assign({},t,{type:n[t.type]||t.type}))})}return e}).then(i,o)}}function K(e){if(!("object"==typeof e&&e.RTCPeerConnection&&e.RTCRtpSender)||e.RTCRtpSender&&"getStats"in e.RTCRtpSender.prototype)return;let t=e.RTCPeerConnection.prototype.getSenders;t&&(e.RTCPeerConnection.prototype.getSenders=function(){let e=t.apply(this,[]);return e.forEach(e=>e._pc=this),e});let n=e.RTCPeerConnection.prototype.addTrack;n&&(e.RTCPeerConnection.prototype.addTrack=function(){let e=n.apply(this,arguments);return e._pc=this,e}),e.RTCRtpSender.prototype.getStats=function(){return this.track?this._pc.getStats(this.track):Promise.resolve(new Map)}}function X(e){if(!("object"==typeof e&&e.RTCPeerConnection&&e.RTCRtpSender)||e.RTCRtpSender&&"getStats"in e.RTCRtpReceiver.prototype)return;let t=e.RTCPeerConnection.prototype.getReceivers;t&&(e.RTCPeerConnection.prototype.getReceivers=function(){let e=t.apply(this,[]);return e.forEach(e=>e._pc=this),e}),d(e,"track",e=>(e.receiver._pc=e.srcElement,e)),e.RTCRtpReceiver.prototype.getStats=function(){return this._pc.getStats(this.track)}}function q(e){!e.RTCPeerConnection||"removeStream"in e.RTCPeerConnection.prototype||(e.RTCPeerConnection.prototype.removeStream=function(e){m("removeStream","removeTrack"),this.getSenders().forEach(t=>{t.track&&e.getTracks().includes(t.track)&&this.removeTrack(t)})})}function Q(e){e.DataChannel&&!e.RTCDataChannel&&(e.RTCDataChannel=e.DataChannel)}function Z(e){if(!("object"==typeof e&&e.RTCPeerConnection))return;let t=e.RTCPeerConnection.prototype.addTransceiver;t&&(e.RTCPeerConnection.prototype.addTransceiver=function(){this.setParametersPromises=[];let e=arguments[1]&&arguments[1].sendEncodings;void 0===e&&(e=[]);let n=(e=[...e]).length>0;n&&e.forEach(e=>{if("rid"in e&&!/^[a-z0-9]{0,16}$/i.test(e.rid))throw TypeError("Invalid RID value provided.");if("scaleResolutionDownBy"in e&&!(parseFloat(e.scaleResolutionDownBy)>=1))throw RangeError("scale_resolution_down_by must be >= 1.0");if("maxFramerate"in e&&!(parseFloat(e.maxFramerate)>=0))throw RangeError("max_framerate must be >= 0.0")});let r=t.apply(this,arguments);if(n){let{sender:t}=r,n=t.getParameters();"encodings"in n&&(1!==n.encodings.length||0!==Object.keys(n.encodings[0]).length)||(n.encodings=e,t.sendEncodings=e,this.setParametersPromises.push(t.setParameters(n).then(()=>{delete t.sendEncodings}).catch(()=>{delete t.sendEncodings})))}return r})}function ee(e){if(!("object"==typeof e&&e.RTCRtpSender))return;let t=e.RTCRtpSender.prototype.getParameters;t&&(e.RTCRtpSender.prototype.getParameters=function(){let e=t.apply(this,arguments);return"encodings"in e||(e.encodings=[].concat(this.sendEncodings||[{}])),e})}function et(e){if(!("object"==typeof e&&e.RTCPeerConnection))return;let t=e.RTCPeerConnection.prototype.createOffer;e.RTCPeerConnection.prototype.createOffer=function(){return this.setParametersPromises&&this.setParametersPromises.length?Promise.all(this.setParametersPromises).then(()=>t.apply(this,arguments)).finally(()=>{this.setParametersPromises=[]}):t.apply(this,arguments)}}function en(e){if(!("object"==typeof e&&e.RTCPeerConnection))return;let t=e.RTCPeerConnection.prototype.createAnswer;e.RTCPeerConnection.prototype.createAnswer=function(){return this.setParametersPromises&&this.setParametersPromises.length?Promise.all(this.setParametersPromises).then(()=>t.apply(this,arguments)).finally(()=>{this.setParametersPromises=[]}):t.apply(this,arguments)}}e(V,"shimOnTrack",()=>H),e(V,"shimPeerConnection",()=>Y),e(V,"shimSenderGetStats",()=>K),e(V,"shimReceiverGetStats",()=>X),e(V,"shimRemoveStream",()=>q),e(V,"shimRTCDataChannel",()=>Q),e(V,"shimAddTransceiver",()=>Z),e(V,"shimGetParameters",()=>ee),e(V,"shimCreateOffer",()=>et),e(V,"shimCreateAnswer",()=>en),e(V,"shimGetUserMedia",()=>G),e(V,"shimGetDisplayMedia",()=>W);var er={};function ei(e){if("object"==typeof e&&e.RTCPeerConnection){if("getLocalStreams"in e.RTCPeerConnection.prototype||(e.RTCPeerConnection.prototype.getLocalStreams=function(){return this._localStreams||(this._localStreams=[]),this._localStreams}),!("addStream"in e.RTCPeerConnection.prototype)){let t=e.RTCPeerConnection.prototype.addTrack;e.RTCPeerConnection.prototype.addStream=function(e){this._localStreams||(this._localStreams=[]),this._localStreams.includes(e)||this._localStreams.push(e),e.getAudioTracks().forEach(n=>t.call(this,n,e)),e.getVideoTracks().forEach(n=>t.call(this,n,e))},e.RTCPeerConnection.prototype.addTrack=function(e,...n){return n&&n.forEach(e=>{this._localStreams?this._localStreams.includes(e)||this._localStreams.push(e):this._localStreams=[e]}),t.apply(this,arguments)}}"removeStream"in e.RTCPeerConnection.prototype||(e.RTCPeerConnection.prototype.removeStream=function(e){this._localStreams||(this._localStreams=[]);let t=this._localStreams.indexOf(e);if(-1===t)return;this._localStreams.splice(t,1);let n=e.getTracks();this.getSenders().forEach(e=>{n.includes(e.track)&&this.removeTrack(e)})})}}function eo(e){if("object"==typeof e&&e.RTCPeerConnection&&("getRemoteStreams"in e.RTCPeerConnection.prototype||(e.RTCPeerConnection.prototype.getRemoteStreams=function(){return this._remoteStreams?this._remoteStreams:[]}),!("onaddstream"in e.RTCPeerConnection.prototype))){Object.defineProperty(e.RTCPeerConnection.prototype,"onaddstream",{get(){return this._onaddstream},set(e){this._onaddstream&&(this.removeEventListener("addstream",this._onaddstream),this.removeEventListener("track",this._onaddstreampoly)),this.addEventListener("addstream",this._onaddstream=e),this.addEventListener("track",this._onaddstreampoly=e=>{e.streams.forEach(e=>{if(this._remoteStreams||(this._remoteStreams=[]),this._remoteStreams.includes(e))return;this._remoteStreams.push(e);let t=new Event("addstream");t.stream=e,this.dispatchEvent(t)})})}});let t=e.RTCPeerConnection.prototype.setRemoteDescription;e.RTCPeerConnection.prototype.setRemoteDescription=function(){let e=this;return this._onaddstreampoly||this.addEventListener("track",this._onaddstreampoly=function(t){t.streams.forEach(t=>{if(e._remoteStreams||(e._remoteStreams=[]),e._remoteStreams.indexOf(t)>=0)return;e._remoteStreams.push(t);let n=new Event("addstream");n.stream=t,e.dispatchEvent(n)})}),t.apply(e,arguments)}}}function es(e){if("object"!=typeof e||!e.RTCPeerConnection)return;let t=e.RTCPeerConnection.prototype,n=t.createOffer,r=t.createAnswer,i=t.setLocalDescription,o=t.setRemoteDescription,s=t.addIceCandidate;t.createOffer=function(e,t){let r=arguments.length>=2?arguments[2]:arguments[0],i=n.apply(this,[r]);return t?(i.then(e,t),Promise.resolve()):i},t.createAnswer=function(e,t){let n=arguments.length>=2?arguments[2]:arguments[0],i=r.apply(this,[n]);return t?(i.then(e,t),Promise.resolve()):i};let a=function(e,t,n){let r=i.apply(this,[e]);return n?(r.then(t,n),Promise.resolve()):r};t.setLocalDescription=a,a=function(e,t,n){let r=o.apply(this,[e]);return n?(r.then(t,n),Promise.resolve()):r},t.setRemoteDescription=a,a=function(e,t,n){let r=s.apply(this,[e]);return n?(r.then(t,n),Promise.resolve()):r},t.addIceCandidate=a}function ea(e){let t=e&&e.navigator;if(t.mediaDevices&&t.mediaDevices.getUserMedia){let e=t.mediaDevices,n=e.getUserMedia.bind(e);t.mediaDevices.getUserMedia=e=>n(ec(e))}!t.getUserMedia&&t.mediaDevices&&t.mediaDevices.getUserMedia&&(t.getUserMedia=(function(e,n,r){t.mediaDevices.getUserMedia(e).then(n,r)}).bind(t))}function ec(e){return e&&void 0!==e.video?Object.assign({},e,{video:function e(t){return g(t)?Object.keys(t).reduce(function(n,r){let i=g(t[r]),o=i?e(t[r]):t[r],s=i&&!Object.keys(o).length;return void 0===o||s?n:Object.assign(n,{[r]:o})},{}):t}(e.video)}):e}function el(e){if(!e.RTCPeerConnection)return;let t=e.RTCPeerConnection;e.RTCPeerConnection=function(e,n){if(e&&e.iceServers){let t=[];for(let n=0;n<e.iceServers.length;n++){let r=e.iceServers[n];void 0===r.urls&&r.url?(m("RTCIceServer.url","RTCIceServer.urls"),(r=JSON.parse(JSON.stringify(r))).urls=r.url,delete r.url,t.push(r)):t.push(e.iceServers[n])}e.iceServers=t}return new t(e,n)},e.RTCPeerConnection.prototype=t.prototype,"generateCertificate"in t&&Object.defineProperty(e.RTCPeerConnection,"generateCertificate",{get:()=>t.generateCertificate})}function ep(e){"object"==typeof e&&e.RTCTrackEvent&&"receiver"in e.RTCTrackEvent.prototype&&!("transceiver"in e.RTCTrackEvent.prototype)&&Object.defineProperty(e.RTCTrackEvent.prototype,"transceiver",{get(){return{receiver:this.receiver}}})}function ed(e){let t=e.RTCPeerConnection.prototype.createOffer;e.RTCPeerConnection.prototype.createOffer=function(e){if(e){void 0!==e.offerToReceiveAudio&&(e.offerToReceiveAudio=!!e.offerToReceiveAudio);let t=this.getTransceivers().find(e=>"audio"===e.receiver.track.kind);!1===e.offerToReceiveAudio&&t?"sendrecv"===t.direction?t.setDirection?t.setDirection("sendonly"):t.direction="sendonly":"recvonly"===t.direction&&(t.setDirection?t.setDirection("inactive"):t.direction="inactive"):!0!==e.offerToReceiveAudio||t||this.addTransceiver("audio",{direction:"recvonly"}),void 0!==e.offerToReceiveVideo&&(e.offerToReceiveVideo=!!e.offerToReceiveVideo);let n=this.getTransceivers().find(e=>"video"===e.receiver.track.kind);!1===e.offerToReceiveVideo&&n?"sendrecv"===n.direction?n.setDirection?n.setDirection("sendonly"):n.direction="sendonly":"recvonly"===n.direction&&(n.setDirection?n.setDirection("inactive"):n.direction="inactive"):!0!==e.offerToReceiveVideo||n||this.addTransceiver("video",{direction:"recvonly"})}return t.apply(this,arguments)}}function eh(e){"object"!=typeof e||e.AudioContext||(e.AudioContext=e.webkitAudioContext)}e(er,"shimLocalStreamsAPI",()=>ei),e(er,"shimRemoteStreamsAPI",()=>eo),e(er,"shimCallbacksAPI",()=>es),e(er,"shimGetUserMedia",()=>ea),e(er,"shimConstraints",()=>ec),e(er,"shimRTCIceServerUrls",()=>el),e(er,"shimTrackEventTransceiver",()=>ep),e(er,"shimCreateOfferLegacy",()=>ed),e(er,"shimAudioContext",()=>eh);var eu={};e(eu,"shimRTCIceCandidate",()=>eg),e(eu,"shimRTCIceCandidateRelayProtocol",()=>ey),e(eu,"shimMaxMessageSize",()=>e_),e(eu,"shimSendThrowTypeError",()=>eC),e(eu,"shimConnectionState",()=>eb),e(eu,"removeExtmapAllowMixed",()=>ev),e(eu,"shimAddIceCandidateNullOrEmpty",()=>ek),e(eu,"shimParameterlessSetLocalDescription",()=>eT);var ef={};let em={};function eg(e){if(!e.RTCIceCandidate||e.RTCIceCandidate&&"foundation"in e.RTCIceCandidate.prototype)return;let n=e.RTCIceCandidate;e.RTCIceCandidate=function(e){if("object"==typeof e&&e.candidate&&0===e.candidate.indexOf("a=")&&((e=JSON.parse(JSON.stringify(e))).candidate=e.candidate.substring(2)),e.candidate&&e.candidate.length){let r=new n(e),i=t(ef).parseCandidate(e.candidate);for(let e in i)e in r||Object.defineProperty(r,e,{value:i[e]});return r.toJSON=function(){return{candidate:r.candidate,sdpMid:r.sdpMid,sdpMLineIndex:r.sdpMLineIndex,usernameFragment:r.usernameFragment}},r}return new n(e)},e.RTCIceCandidate.prototype=n.prototype,d(e,"icecandidate",t=>(t.candidate&&Object.defineProperty(t,"candidate",{value:new e.RTCIceCandidate(t.candidate),writable:"false"}),t))}function ey(e){!e.RTCIceCandidate||e.RTCIceCandidate&&"relayProtocol"in e.RTCIceCandidate.prototype||d(e,"icecandidate",e=>{if(e.candidate){let n=t(ef).parseCandidate(e.candidate.candidate);"relay"===n.type&&(e.candidate.relayProtocol=({0:"tls",1:"tcp",2:"udp"})[n.priority>>24])}return e})}function e_(e,n){if(!e.RTCPeerConnection)return;"sctp"in e.RTCPeerConnection.prototype||Object.defineProperty(e.RTCPeerConnection.prototype,"sctp",{get(){return void 0===this._sctp?null:this._sctp}});let r=function(e){if(!e||!e.sdp)return!1;let n=t(ef).splitSections(e.sdp);return n.shift(),n.some(e=>{let n=t(ef).parseMLine(e);return n&&"application"===n.kind&&-1!==n.protocol.indexOf("SCTP")})},i=function(e){let t=e.sdp.match(/mozilla...THIS_IS_SDPARTA-(\d+)/);if(null===t||t.length<2)return -1;let n=parseInt(t[1],10);return n!=n?-1:n},o=function(e){let t=65536;return"firefox"===n.browser&&(t=n.version<57?-1===e?16384:2147483637:n.version<60?57===n.version?65535:65536:2147483637),t},s=function(e,r){let i=65536;"firefox"===n.browser&&57===n.version&&(i=65535);let o=t(ef).matchPrefix(e.sdp,"a=max-message-size:");return o.length>0?i=parseInt(o[0].substring(19),10):"firefox"===n.browser&&-1!==r&&(i=2147483637),i},a=e.RTCPeerConnection.prototype.setRemoteDescription;e.RTCPeerConnection.prototype.setRemoteDescription=function(){if(this._sctp=null,"chrome"===n.browser&&n.version>=76){let{sdpSemantics:e}=this.getConfiguration();"plan-b"===e&&Object.defineProperty(this,"sctp",{get(){return void 0===this._sctp?null:this._sctp},enumerable:!0,configurable:!0})}if(r(arguments[0])){let e;let t=i(arguments[0]),n=o(t),r=s(arguments[0],t);e=0===n&&0===r?Number.POSITIVE_INFINITY:0===n||0===r?Math.max(n,r):Math.min(n,r);let a={};Object.defineProperty(a,"maxMessageSize",{get:()=>e}),this._sctp=a}return a.apply(this,arguments)}}function eC(e){if(!(e.RTCPeerConnection&&"createDataChannel"in e.RTCPeerConnection.prototype))return;function t(e,t){let n=e.send;e.send=function(){let r=arguments[0],i=r.length||r.size||r.byteLength;if("open"===e.readyState&&t.sctp&&i>t.sctp.maxMessageSize)throw TypeError("Message too large (can send a maximum of "+t.sctp.maxMessageSize+" bytes)");return n.apply(e,arguments)}}let n=e.RTCPeerConnection.prototype.createDataChannel;e.RTCPeerConnection.prototype.createDataChannel=function(){let e=n.apply(this,arguments);return t(e,this),e},d(e,"datachannel",e=>(t(e.channel,e.target),e))}function eb(e){if(!e.RTCPeerConnection||"connectionState"in e.RTCPeerConnection.prototype)return;let t=e.RTCPeerConnection.prototype;Object.defineProperty(t,"connectionState",{get(){return({completed:"connected",checking:"connecting"})[this.iceConnectionState]||this.iceConnectionState},enumerable:!0,configurable:!0}),Object.defineProperty(t,"onconnectionstatechange",{get(){return this._onconnectionstatechange||null},set(e){this._onconnectionstatechange&&(this.removeEventListener("connectionstatechange",this._onconnectionstatechange),delete this._onconnectionstatechange),e&&this.addEventListener("connectionstatechange",this._onconnectionstatechange=e)},enumerable:!0,configurable:!0}),["setLocalDescription","setRemoteDescription"].forEach(e=>{let n=t[e];t[e]=function(){return this._connectionstatechangepoly||(this._connectionstatechangepoly=e=>{let t=e.target;if(t._lastConnectionState!==t.connectionState){t._lastConnectionState=t.connectionState;let n=new Event("connectionstatechange",e);t.dispatchEvent(n)}return e},this.addEventListener("iceconnectionstatechange",this._connectionstatechangepoly)),n.apply(this,arguments)}})}function ev(e,t){if(!e.RTCPeerConnection||"chrome"===t.browser&&t.version>=71||"safari"===t.browser&&t.version>=605)return;let n=e.RTCPeerConnection.prototype.setRemoteDescription;e.RTCPeerConnection.prototype.setRemoteDescription=function(t){if(t&&t.sdp&&-1!==t.sdp.indexOf("\na=extmap-allow-mixed")){let n=t.sdp.split("\n").filter(e=>"a=extmap-allow-mixed"!==e.trim()).join("\n");e.RTCSessionDescription&&t instanceof e.RTCSessionDescription?arguments[0]=new e.RTCSessionDescription({type:t.type,sdp:n}):t.sdp=n}return n.apply(this,arguments)}}function ek(e,t){if(!(e.RTCPeerConnection&&e.RTCPeerConnection.prototype))return;let n=e.RTCPeerConnection.prototype.addIceCandidate;n&&0!==n.length&&(e.RTCPeerConnection.prototype.addIceCandidate=function(){return arguments[0]?("chrome"===t.browser&&t.version<78||"firefox"===t.browser&&t.version<68||"safari"===t.browser)&&arguments[0]&&""===arguments[0].candidate?Promise.resolve():n.apply(this,arguments):(arguments[1]&&arguments[1].apply(null),Promise.resolve())})}function eT(e,t){if(!(e.RTCPeerConnection&&e.RTCPeerConnection.prototype))return;let n=e.RTCPeerConnection.prototype.setLocalDescription;n&&0!==n.length&&(e.RTCPeerConnection.prototype.setLocalDescription=function(){let e=arguments[0]||{};if("object"!=typeof e||e.type&&e.sdp)return n.apply(this,arguments);if(!(e={type:e.type,sdp:e.sdp}).type)switch(this.signalingState){case"stable":case"have-local-offer":case"have-remote-pranswer":e.type="offer";break;default:e.type="answer"}return e.sdp||"offer"!==e.type&&"answer"!==e.type?n.apply(this,[e]):("offer"===e.type?this.createOffer:this.createAnswer).apply(this).then(e=>n.apply(this,[e]))})}em.generateIdentifier=function(){return Math.random().toString(36).substring(2,12)},em.localCName=em.generateIdentifier(),em.splitLines=function(e){return e.trim().split("\n").map(e=>e.trim())},em.splitSections=function(e){return e.split("\nm=").map((e,t)=>(t>0?"m="+e:e).trim()+"\r\n")},em.getDescription=function(e){let t=em.splitSections(e);return t&&t[0]},em.getMediaSections=function(e){let t=em.splitSections(e);return t.shift(),t},em.matchPrefix=function(e,t){return em.splitLines(e).filter(e=>0===e.indexOf(t))},em.parseCandidate=function(e){let t;let n={foundation:(t=0===e.indexOf("a=candidate:")?e.substring(12).split(" "):e.substring(10).split(" "))[0],component:{1:"rtp",2:"rtcp"}[t[1]]||t[1],protocol:t[2].toLowerCase(),priority:parseInt(t[3],10),ip:t[4],address:t[4],port:parseInt(t[5],10),type:t[7]};for(let e=8;e<t.length;e+=2)switch(t[e]){case"raddr":n.relatedAddress=t[e+1];break;case"rport":n.relatedPort=parseInt(t[e+1],10);break;case"tcptype":n.tcpType=t[e+1];break;case"ufrag":n.ufrag=t[e+1],n.usernameFragment=t[e+1];break;default:void 0===n[t[e]]&&(n[t[e]]=t[e+1])}return n},em.writeCandidate=function(e){let t=[];t.push(e.foundation);let n=e.component;"rtp"===n?t.push(1):"rtcp"===n?t.push(2):t.push(n),t.push(e.protocol.toUpperCase()),t.push(e.priority),t.push(e.address||e.ip),t.push(e.port);let r=e.type;return t.push("typ"),t.push(r),"host"!==r&&e.relatedAddress&&e.relatedPort&&(t.push("raddr"),t.push(e.relatedAddress),t.push("rport"),t.push(e.relatedPort)),e.tcpType&&"tcp"===e.protocol.toLowerCase()&&(t.push("tcptype"),t.push(e.tcpType)),(e.usernameFragment||e.ufrag)&&(t.push("ufrag"),t.push(e.usernameFragment||e.ufrag)),"candidate:"+t.join(" ")},em.parseIceOptions=function(e){return e.substring(14).split(" ")},em.parseRtpMap=function(e){let t=e.substring(9).split(" "),n={payloadType:parseInt(t.shift(),10)};return t=t[0].split("/"),n.name=t[0],n.clockRate=parseInt(t[1],10),n.channels=3===t.length?parseInt(t[2],10):1,n.numChannels=n.channels,n},em.writeRtpMap=function(e){let t=e.payloadType;void 0!==e.preferredPayloadType&&(t=e.preferredPayloadType);let n=e.channels||e.numChannels||1;return"a=rtpmap:"+t+" "+e.name+"/"+e.clockRate+(1!==n?"/"+n:"")+"\r\n"},em.parseExtmap=function(e){let t=e.substring(9).split(" ");return{id:parseInt(t[0],10),direction:t[0].indexOf("/")>0?t[0].split("/")[1]:"sendrecv",uri:t[1],attributes:t.slice(2).join(" ")}},em.writeExtmap=function(e){return"a=extmap:"+(e.id||e.preferredId)+(e.direction&&"sendrecv"!==e.direction?"/"+e.direction:"")+" "+e.uri+(e.attributes?" "+e.attributes:"")+"\r\n"},em.parseFmtp=function(e){let t;let n={},r=e.substring(e.indexOf(" ")+1).split(";");for(let e=0;e<r.length;e++)n[(t=r[e].trim().split("="))[0].trim()]=t[1];return n},em.writeFmtp=function(e){let t="",n=e.payloadType;if(void 0!==e.preferredPayloadType&&(n=e.preferredPayloadType),e.parameters&&Object.keys(e.parameters).length){let r=[];Object.keys(e.parameters).forEach(t=>{void 0!==e.parameters[t]?r.push(t+"="+e.parameters[t]):r.push(t)}),t+="a=fmtp:"+n+" "+r.join(";")+"\r\n"}return t},em.parseRtcpFb=function(e){let t=e.substring(e.indexOf(" ")+1).split(" ");return{type:t.shift(),parameter:t.join(" ")}},em.writeRtcpFb=function(e){let t="",n=e.payloadType;return void 0!==e.preferredPayloadType&&(n=e.preferredPayloadType),e.rtcpFeedback&&e.rtcpFeedback.length&&e.rtcpFeedback.forEach(e=>{t+="a=rtcp-fb:"+n+" "+e.type+(e.parameter&&e.parameter.length?" "+e.parameter:"")+"\r\n"}),t},em.parseSsrcMedia=function(e){let t=e.indexOf(" "),n={ssrc:parseInt(e.substring(7,t),10)},r=e.indexOf(":",t);return r>-1?(n.attribute=e.substring(t+1,r),n.value=e.substring(r+1)):n.attribute=e.substring(t+1),n},em.parseSsrcGroup=function(e){let t=e.substring(13).split(" ");return{semantics:t.shift(),ssrcs:t.map(e=>parseInt(e,10))}},em.getMid=function(e){let t=em.matchPrefix(e,"a=mid:")[0];if(t)return t.substring(6)},em.parseFingerprint=function(e){let t=e.substring(14).split(" ");return{algorithm:t[0].toLowerCase(),value:t[1].toUpperCase()}},em.getDtlsParameters=function(e,t){return{role:"auto",fingerprints:em.matchPrefix(e+t,"a=fingerprint:").map(em.parseFingerprint)}},em.writeDtlsParameters=function(e,t){let n="a=setup:"+t+"\r\n";return e.fingerprints.forEach(e=>{n+="a=fingerprint:"+e.algorithm+" "+e.value+"\r\n"}),n},em.parseCryptoLine=function(e){let t=e.substring(9).split(" ");return{tag:parseInt(t[0],10),cryptoSuite:t[1],keyParams:t[2],sessionParams:t.slice(3)}},em.writeCryptoLine=function(e){return"a=crypto:"+e.tag+" "+e.cryptoSuite+" "+("object"==typeof e.keyParams?em.writeCryptoKeyParams(e.keyParams):e.keyParams)+(e.sessionParams?" "+e.sessionParams.join(" "):"")+"\r\n"},em.parseCryptoKeyParams=function(e){if(0!==e.indexOf("inline:"))return null;let t=e.substring(7).split("|");return{keyMethod:"inline",keySalt:t[0],lifeTime:t[1],mkiValue:t[2]?t[2].split(":")[0]:void 0,mkiLength:t[2]?t[2].split(":")[1]:void 0}},em.writeCryptoKeyParams=function(e){return e.keyMethod+":"+e.keySalt+(e.lifeTime?"|"+e.lifeTime:"")+(e.mkiValue&&e.mkiLength?"|"+e.mkiValue+":"+e.mkiLength:"")},em.getCryptoParameters=function(e,t){return em.matchPrefix(e+t,"a=crypto:").map(em.parseCryptoLine)},em.getIceParameters=function(e,t){let n=em.matchPrefix(e+t,"a=ice-ufrag:")[0],r=em.matchPrefix(e+t,"a=ice-pwd:")[0];return n&&r?{usernameFragment:n.substring(12),password:r.substring(10)}:null},em.writeIceParameters=function(e){let t="a=ice-ufrag:"+e.usernameFragment+"\r\na=ice-pwd:"+e.password+"\r\n";return e.iceLite&&(t+="a=ice-lite\r\n"),t},em.parseRtpParameters=function(e){let t={codecs:[],headerExtensions:[],fecMechanisms:[],rtcp:[]},n=em.splitLines(e)[0].split(" ");t.profile=n[2];for(let r=3;r<n.length;r++){let i=n[r],o=em.matchPrefix(e,"a=rtpmap:"+i+" ")[0];if(o){let n=em.parseRtpMap(o),r=em.matchPrefix(e,"a=fmtp:"+i+" ");switch(n.parameters=r.length?em.parseFmtp(r[0]):{},n.rtcpFeedback=em.matchPrefix(e,"a=rtcp-fb:"+i+" ").map(em.parseRtcpFb),t.codecs.push(n),n.name.toUpperCase()){case"RED":case"ULPFEC":t.fecMechanisms.push(n.name.toUpperCase())}}}em.matchPrefix(e,"a=extmap:").forEach(e=>{t.headerExtensions.push(em.parseExtmap(e))});let r=em.matchPrefix(e,"a=rtcp-fb:* ").map(em.parseRtcpFb);return t.codecs.forEach(e=>{r.forEach(t=>{e.rtcpFeedback.find(e=>e.type===t.type&&e.parameter===t.parameter)||e.rtcpFeedback.push(t)})}),t},em.writeRtpDescription=function(e,t){let n="";n+="m="+e+" "+(t.codecs.length>0?"9":"0")+" "+(t.profile||"UDP/TLS/RTP/SAVPF")+" "+t.codecs.map(e=>void 0!==e.preferredPayloadType?e.preferredPayloadType:e.payloadType).join(" ")+"\r\nc=IN IP4 0.0.0.0\r\na=rtcp:9 IN IP4 0.0.0.0\r\n",t.codecs.forEach(e=>{n+=em.writeRtpMap(e)+em.writeFmtp(e)+em.writeRtcpFb(e)});let r=0;return t.codecs.forEach(e=>{e.maxptime>r&&(r=e.maxptime)}),r>0&&(n+="a=maxptime:"+r+"\r\n"),t.headerExtensions&&t.headerExtensions.forEach(e=>{n+=em.writeExtmap(e)}),n},em.parseRtpEncodingParameters=function(e){let t;let n=[],r=em.parseRtpParameters(e),i=-1!==r.fecMechanisms.indexOf("RED"),o=-1!==r.fecMechanisms.indexOf("ULPFEC"),s=em.matchPrefix(e,"a=ssrc:").map(e=>em.parseSsrcMedia(e)).filter(e=>"cname"===e.attribute),a=s.length>0&&s[0].ssrc,c=em.matchPrefix(e,"a=ssrc-group:FID").map(e=>e.substring(17).split(" ").map(e=>parseInt(e,10)));c.length>0&&c[0].length>1&&c[0][0]===a&&(t=c[0][1]),r.codecs.forEach(e=>{if("RTX"===e.name.toUpperCase()&&e.parameters.apt){let r={ssrc:a,codecPayloadType:parseInt(e.parameters.apt,10)};a&&t&&(r.rtx={ssrc:t}),n.push(r),i&&((r=JSON.parse(JSON.stringify(r))).fec={ssrc:a,mechanism:o?"red+ulpfec":"red"},n.push(r))}}),0===n.length&&a&&n.push({ssrc:a});let l=em.matchPrefix(e,"b=");return l.length&&(l=0===l[0].indexOf("b=TIAS:")?parseInt(l[0].substring(7),10):0===l[0].indexOf("b=AS:")?950*parseInt(l[0].substring(5),10)-16e3:void 0,n.forEach(e=>{e.maxBitrate=l})),n},em.parseRtcpParameters=function(e){let t={},n=em.matchPrefix(e,"a=ssrc:").map(e=>em.parseSsrcMedia(e)).filter(e=>"cname"===e.attribute)[0];n&&(t.cname=n.value,t.ssrc=n.ssrc);let r=em.matchPrefix(e,"a=rtcp-rsize");t.reducedSize=r.length>0,t.compound=0===r.length;let i=em.matchPrefix(e,"a=rtcp-mux");return t.mux=i.length>0,t},em.writeRtcpParameters=function(e){let t="";return e.reducedSize&&(t+="a=rtcp-rsize\r\n"),e.mux&&(t+="a=rtcp-mux\r\n"),void 0!==e.ssrc&&e.cname&&(t+="a=ssrc:"+e.ssrc+" cname:"+e.cname+"\r\n"),t},em.parseMsid=function(e){let t;let n=em.matchPrefix(e,"a=msid:");if(1===n.length)return{stream:(t=n[0].substring(7).split(" "))[0],track:t[1]};let r=em.matchPrefix(e,"a=ssrc:").map(e=>em.parseSsrcMedia(e)).filter(e=>"msid"===e.attribute);if(r.length>0)return{stream:(t=r[0].value.split(" "))[0],track:t[1]}},em.parseSctpDescription=function(e){let t;let n=em.parseMLine(e),r=em.matchPrefix(e,"a=max-message-size:");r.length>0&&(t=parseInt(r[0].substring(19),10)),isNaN(t)&&(t=65536);let i=em.matchPrefix(e,"a=sctp-port:");if(i.length>0)return{port:parseInt(i[0].substring(12),10),protocol:n.fmt,maxMessageSize:t};let o=em.matchPrefix(e,"a=sctpmap:");if(o.length>0){let e=o[0].substring(10).split(" ");return{port:parseInt(e[0],10),protocol:e[1],maxMessageSize:t}}},em.writeSctpDescription=function(e,t){let n=[];return n="DTLS/SCTP"!==e.protocol?["m="+e.kind+" 9 "+e.protocol+" "+t.protocol+"\r\n","c=IN IP4 0.0.0.0\r\n","a=sctp-port:"+t.port+"\r\n"]:["m="+e.kind+" 9 "+e.protocol+" "+t.port+"\r\n","c=IN IP4 0.0.0.0\r\n","a=sctpmap:"+t.port+" "+t.protocol+" 65535\r\n"],void 0!==t.maxMessageSize&&n.push("a=max-message-size:"+t.maxMessageSize+"\r\n"),n.join("")},em.generateSessionId=function(){return Math.random().toString().substr(2,22)},em.writeSessionBoilerplate=function(e,t,n){return"v=0\r\no="+(n||"thisisadapterortc")+" "+(e||em.generateSessionId())+" "+(void 0!==t?t:2)+" IN IP4 127.0.0.1\r\ns=-\r\nt=0 0\r\n"},em.getDirection=function(e,t){let n=em.splitLines(e);for(let e=0;e<n.length;e++)switch(n[e]){case"a=sendrecv":case"a=sendonly":case"a=recvonly":case"a=inactive":return n[e].substring(2)}return t?em.getDirection(t):"sendrecv"},em.getKind=function(e){return em.splitLines(e)[0].split(" ")[0].substring(2)},em.isRejected=function(e){return"0"===e.split(" ",2)[1]},em.parseMLine=function(e){let t=em.splitLines(e)[0].substring(2).split(" ");return{kind:t[0],port:parseInt(t[1],10),protocol:t[2],fmt:t.slice(3).join(" ")}},em.parseOLine=function(e){let t=em.matchPrefix(e,"o=")[0].substring(2).split(" ");return{username:t[0],sessionId:t[1],sessionVersion:parseInt(t[2],10),netType:t[3],addressType:t[4],address:t[5]}},em.isValidSDP=function(e){if("string"!=typeof e||0===e.length)return!1;let t=em.splitLines(e);for(let e=0;e<t.length;e++)if(t[e].length<2||"="!==t[e].charAt(1))return!1;return!0},ef=em;let eS=function({window:e}={},t={shimChrome:!0,shimFirefox:!0,shimSafari:!0}){let n=function(e){let t={browser:null,version:null};if(void 0===e||!e.navigator||!e.navigator.userAgent)return t.browser="Not a browser.",t;let{navigator:n}=e;if(n.userAgentData&&n.userAgentData.brands){let e=n.userAgentData.brands.find(e=>"Chromium"===e.brand);if(e)return{browser:"chrome",version:parseInt(e.version,10)}}return n.mozGetUserMedia?(t.browser="firefox",t.version=p(n.userAgent,/Firefox\/(\d+)\./,1)):n.webkitGetUserMedia||!1===e.isSecureContext&&e.webkitRTCPeerConnection?(t.browser="chrome",t.version=p(n.userAgent,/Chrom(e|ium)\/(\d+)\./,2)):e.RTCPeerConnection&&n.userAgent.match(/AppleWebKit\/(\d+)\./)?(t.browser="safari",t.version=p(n.userAgent,/AppleWebKit\/(\d+)\./,1),t.supportsUnifiedPlan=e.RTCRtpTransceiver&&"currentDirection"in e.RTCRtpTransceiver.prototype):t.browser="Not a supported browser.",t}(e),r={browserDetails:n,commonShim:eu,extractVersion:p,disableLog:h,disableWarnings:u,sdp:ef};switch(n.browser){case"chrome":if(!j||!j.shimPeerConnection||!t.shimChrome){f("Chrome shim is not included in this adapter release.");break}if(null===n.version){f("Chrome shim can not determine version, not shimming.");break}f("adapter.js shimming chrome."),r.browserShim=j,ek(e,n),eT(e,n),j.shimGetUserMedia(e,n),j.shimMediaStream(e,n),j.shimPeerConnection(e,n),j.shimOnTrack(e,n),j.shimAddTrackRemoveTrack(e,n),j.shimGetSendersWithDtmf(e,n),j.shimSenderReceiverGetStats(e,n),j.fixNegotiationNeeded(e,n),eg(e,n),ey(e,n),eb(e,n),e_(e,n),eC(e,n),ev(e,n);break;case"firefox":if(!V||!V.shimPeerConnection||!t.shimFirefox){f("Firefox shim is not included in this adapter release.");break}f("adapter.js shimming firefox."),r.browserShim=V,ek(e,n),eT(e,n),V.shimGetUserMedia(e,n),V.shimPeerConnection(e,n),V.shimOnTrack(e,n),V.shimRemoveStream(e,n),V.shimSenderGetStats(e,n),V.shimReceiverGetStats(e,n),V.shimRTCDataChannel(e,n),V.shimAddTransceiver(e,n),V.shimGetParameters(e,n),V.shimCreateOffer(e,n),V.shimCreateAnswer(e,n),eg(e,n),eb(e,n),e_(e,n),eC(e,n);break;case"safari":if(!er||!t.shimSafari){f("Safari shim is not included in this adapter release.");break}f("adapter.js shimming safari."),r.browserShim=er,ek(e,n),eT(e,n),er.shimRTCIceServerUrls(e,n),er.shimCreateOfferLegacy(e,n),er.shimCallbacksAPI(e,n),er.shimLocalStreamsAPI(e,n),er.shimRemoteStreamsAPI(e,n),er.shimTrackEventTransceiver(e,n),er.shimGetUserMedia(e,n),er.shimAudioContext(e,n),eg(e,n),ey(e,n),e_(e,n),eC(e,n),ev(e,n);break;default:f("Unsupported browser!")}return r}({window:"undefined"==typeof window?void 0:window}),eR=eS.default||eS,eP=new class{isWebRTCSupported(){return"undefined"!=typeof RTCPeerConnection}isBrowserSupported(){let e=this.getBrowser(),t=this.getVersion();return!!this.supportedBrowsers.includes(e)&&("chrome"===e?t>=this.minChromeVersion:"firefox"===e?t>=this.minFirefoxVersion:"safari"===e&&!this.isIOS&&t>=this.minSafariVersion)}getBrowser(){return eR.browserDetails.browser}getVersion(){return eR.browserDetails.version||0}isUnifiedPlanSupported(){let e;let t=this.getBrowser(),n=eR.browserDetails.version||0;if("chrome"===t&&n<this.minChromeVersion)return!1;if("firefox"===t&&n>=this.minFirefoxVersion)return!0;if(!window.RTCRtpTransceiver||!("currentDirection"in RTCRtpTransceiver.prototype))return!1;let r=!1;try{(e=new RTCPeerConnection).addTransceiver("audio"),r=!0}catch(e){}finally{e&&e.close()}return r}toString(){return`Supports:
+    browser:${this.getBrowser()}
+    version:${this.getVersion()}
+    isIOS:${this.isIOS}
+    isWebRTCSupported:${this.isWebRTCSupported()}
+    isBrowserSupported:${this.isBrowserSupported()}
+    isUnifiedPlanSupported:${this.isUnifiedPlanSupported()}`}constructor(){this.isIOS="undefined"!=typeof navigator&&["iPad","iPhone","iPod"].includes(navigator.platform),this.supportedBrowsers=["firefox","chrome","safari"],this.minFirefoxVersion=59,this.minChromeVersion=72,this.minSafariVersion=605}},ew=e=>!e||/^[A-Za-z0-9]+(?:[ _-][A-Za-z0-9]+)*$/.test(e),eE=()=>Math.random().toString(36).slice(2),eD={iceServers:[{urls:"stun:stun.l.google.com:19302"},{urls:["turn:eu-0.turn.peerjs.com:3478","turn:us-0.turn.peerjs.com:3478"],username:"peerjs",credential:"peerjsp"}],sdpSemantics:"unified-plan"},ex=new class extends n{noop(){}blobToArrayBuffer(e,t){let n=new FileReader;return n.onload=function(e){e.target&&t(e.target.result)},n.readAsArrayBuffer(e),n}binaryStringToArrayBuffer(e){let t=new Uint8Array(e.length);for(let n=0;n<e.length;n++)t[n]=255&e.charCodeAt(n);return t.buffer}isSecure(){return"https:"===location.protocol}constructor(...e){super(...e),this.CLOUD_HOST="0.peerjs.com",this.CLOUD_PORT=443,this.chunkedBrowsers={Chrome:1,chrome:1},this.defaultConfig=eD,this.browser=eP.getBrowser(),this.browserVersion=eP.getVersion(),this.pack=o,this.unpack=i,this.supports=function(){let e;let t={browser:eP.isBrowserSupported(),webRTC:eP.isWebRTCSupported(),audioVideo:!1,data:!1,binaryBlob:!1,reliable:!1};if(!t.webRTC)return t;try{let n;e=new RTCPeerConnection(eD),t.audioVideo=!0;try{n=e.createDataChannel("_PEERJSTEST",{ordered:!0}),t.data=!0,t.reliable=!!n.ordered;try{n.binaryType="blob",t.binaryBlob=!eP.isIOS}catch(e){}}catch(e){}finally{n&&n.close()}}catch(e){}finally{e&&e.close()}return t}(),this.validateId=ew,this.randomToken=eE}};(_=P||(P={}))[_.Disabled=0]="Disabled",_[_.Errors=1]="Errors",_[_.Warnings=2]="Warnings",_[_.All=3]="All";var eI=new class{get logLevel(){return this._logLevel}set logLevel(e){this._logLevel=e}log(...e){this._logLevel>=3&&this._print(3,...e)}warn(...e){this._logLevel>=2&&this._print(2,...e)}error(...e){this._logLevel>=1&&this._print(1,...e)}setLogFunction(e){this._print=e}_print(e,...t){let n=["PeerJS: ",...t];for(let e in n)n[e]instanceof Error&&(n[e]="("+n[e].name+") "+n[e].message);e>=3?console.log(...n):e>=2?console.warn("WARNING",...n):e>=1&&console.error("ERROR",...n)}constructor(){this._logLevel=0}},eM={},eO=Object.prototype.hasOwnProperty,ej="~";function eL(){}function eA(e,t,n){this.fn=e,this.context=t,this.once=n||!1}function eB(e,t,n,r,i){if("function"!=typeof n)throw TypeError("The listener must be a function");var o=new eA(n,r||e,i),s=ej?ej+t:t;return e._events[s]?e._events[s].fn?e._events[s]=[e._events[s],o]:e._events[s].push(o):(e._events[s]=o,e._eventsCount++),e}function eF(e,t){0==--e._eventsCount?e._events=new eL:delete e._events[t]}function eU(){this._events=new eL,this._eventsCount=0}Object.create&&(eL.prototype=Object.create(null),new eL().__proto__||(ej=!1)),eU.prototype.eventNames=function(){var e,t,n=[];if(0===this._eventsCount)return n;for(t in e=this._events)eO.call(e,t)&&n.push(ej?t.slice(1):t);return Object.getOwnPropertySymbols?n.concat(Object.getOwnPropertySymbols(e)):n},eU.prototype.listeners=function(e){var t=ej?ej+e:e,n=this._events[t];if(!n)return[];if(n.fn)return[n.fn];for(var r=0,i=n.length,o=Array(i);r<i;r++)o[r]=n[r].fn;return o},eU.prototype.listenerCount=function(e){var t=ej?ej+e:e,n=this._events[t];return n?n.fn?1:n.length:0},eU.prototype.emit=function(e,t,n,r,i,o){var s=ej?ej+e:e;if(!this._events[s])return!1;var a,c,l=this._events[s],p=arguments.length;if(l.fn){switch(l.once&&this.removeListener(e,l.fn,void 0,!0),p){case 1:return l.fn.call(l.context),!0;case 2:return l.fn.call(l.context,t),!0;case 3:return l.fn.call(l.context,t,n),!0;case 4:return l.fn.call(l.context,t,n,r),!0;case 5:return l.fn.call(l.context,t,n,r,i),!0;case 6:return l.fn.call(l.context,t,n,r,i,o),!0}for(c=1,a=Array(p-1);c<p;c++)a[c-1]=arguments[c];l.fn.apply(l.context,a)}else{var d,h=l.length;for(c=0;c<h;c++)switch(l[c].once&&this.removeListener(e,l[c].fn,void 0,!0),p){case 1:l[c].fn.call(l[c].context);break;case 2:l[c].fn.call(l[c].context,t);break;case 3:l[c].fn.call(l[c].context,t,n);break;case 4:l[c].fn.call(l[c].context,t,n,r);break;default:if(!a)for(d=1,a=Array(p-1);d<p;d++)a[d-1]=arguments[d];l[c].fn.apply(l[c].context,a)}}return!0},eU.prototype.on=function(e,t,n){return eB(this,e,t,n,!1)},eU.prototype.once=function(e,t,n){return eB(this,e,t,n,!0)},eU.prototype.removeListener=function(e,t,n,r){var i=ej?ej+e:e;if(!this._events[i])return this;if(!t)return eF(this,i),this;var o=this._events[i];if(o.fn)o.fn!==t||r&&!o.once||n&&o.context!==n||eF(this,i);else{for(var s=0,a=[],c=o.length;s<c;s++)(o[s].fn!==t||r&&!o[s].once||n&&o[s].context!==n)&&a.push(o[s]);a.length?this._events[i]=1===a.length?a[0]:a:eF(this,i)}return this},eU.prototype.removeAllListeners=function(e){var t;return e?(t=ej?ej+e:e,this._events[t]&&eF(this,t)):(this._events=new eL,this._eventsCount=0),this},eU.prototype.off=eU.prototype.removeListener,eU.prototype.addListener=eU.prototype.on,eU.prefixed=ej,eU.EventEmitter=eU,eM=eU,(C=w||(w={})).Data="data",C.Media="media",(b=E||(E={})).BrowserIncompatible="browser-incompatible",b.Disconnected="disconnected",b.InvalidID="invalid-id",b.InvalidKey="invalid-key",b.Network="network",b.PeerUnavailable="peer-unavailable",b.SslUnavailable="ssl-unavailable",b.ServerError="server-error",b.SocketError="socket-error",b.SocketClosed="socket-closed",b.UnavailableID="unavailable-id",b.WebRTC="webrtc",(v=D||(D={})).NegotiationFailed="negotiation-failed",v.ConnectionClosed="connection-closed",(k=x||(x={})).NotOpenYet="not-open-yet",k.MessageToBig="message-too-big",(T=I||(I={})).Binary="binary",T.BinaryUTF8="binary-utf8",T.JSON="json",T.None="raw",(S=M||(M={})).Message="message",S.Disconnected="disconnected",S.Error="error",S.Close="close",(R=O||(O={})).Heartbeat="HEARTBEAT",R.Candidate="CANDIDATE",R.Offer="OFFER",R.Answer="ANSWER",R.Open="OPEN",R.Error="ERROR",R.IdTaken="ID-TAKEN",R.InvalidKey="INVALID-KEY",R.Leave="LEAVE",R.Expire="EXPIRE";var ez={};ez=JSON.parse('{"name":"peerjs","version":"1.5.4","keywords":["peerjs","webrtc","p2p","rtc"],"description":"PeerJS client","homepage":"https://peerjs.com","bugs":{"url":"https://github.com/peers/peerjs/issues"},"repository":{"type":"git","url":"https://github.com/peers/peerjs"},"license":"MIT","contributors":["Michelle Bu <michelle@michellebu.com>","afrokick <devbyru@gmail.com>","ericz <really.ez@gmail.com>","Jairo <kidandcat@gmail.com>","Jonas Gloning <34194370+jonasgloning@users.noreply.github.com>","Jairo Caro-Accino Viciana <jairo@galax.be>","Carlos Caballero <carlos.caballero.gonzalez@gmail.com>","hc <hheennrryy@gmail.com>","Muhammad Asif <capripio@gmail.com>","PrashoonB <prashoonbhattacharjee@gmail.com>","Harsh Bardhan Mishra <47351025+HarshCasper@users.noreply.github.com>","akotynski <aleksanderkotbury@gmail.com>","lmb <i@lmb.io>","Jairooo <jairocaro@msn.com>","Moritz Stückler <moritz.stueckler@gmail.com>","Simon <crydotsnakegithub@gmail.com>","Denis Lukov <denismassters@gmail.com>","Philipp Hancke <fippo@andyet.net>","Hans Oksendahl <hansoksendahl@gmail.com>","Jess <jessachandler@gmail.com>","khankuan <khankuan@gmail.com>","DUODVK <kurmanov.work@gmail.com>","XiZhao <kwang1imsa@gmail.com>","Matthias Lohr <matthias@lohr.me>","=frank tree <=frnktrb@googlemail.com>","Andre Eckardt <aeckardt@outlook.com>","Chris Cowan <agentme49@gmail.com>","Alex Chuev <alex@chuev.com>","alxnull <alxnull@e.mail.de>","Yemel Jardi <angel.jardi@gmail.com>","Ben Parnell <benjaminparnell.94@gmail.com>","Benny Lichtner <bennlich@gmail.com>","fresheneesz <bitetrudpublic@gmail.com>","bob.barstead@exaptive.com <bob.barstead@exaptive.com>","chandika <chandika@gmail.com>","emersion <contact@emersion.fr>","Christopher Van <cvan@users.noreply.github.com>","eddieherm <edhermoso@gmail.com>","Eduardo Pinho <enet4mikeenet@gmail.com>","Evandro Zanatta <ezanatta@tray.net.br>","Gardner Bickford <gardner@users.noreply.github.com>","Gian Luca <gianluca.cecchi@cynny.com>","PatrickJS <github@gdi2290.com>","jonnyf <github@jonathanfoss.co.uk>","Hizkia Felix <hizkifw@gmail.com>","Hristo Oskov <hristo.oskov@gmail.com>","Isaac Madwed <i.madwed@gmail.com>","Ilya Konanykhin <ilya.konanykhin@gmail.com>","jasonbarry <jasbarry@me.com>","Jonathan Burke <jonathan.burke.1311@googlemail.com>","Josh Hamit <josh.hamit@gmail.com>","Jordan Austin <jrax86@gmail.com>","Joel Wetzell <jwetzell@yahoo.com>","xizhao <kevin.wang@cloudera.com>","Alberto Torres <kungfoobar@gmail.com>","Jonathan Mayol <mayoljonathan@gmail.com>","Jefferson Felix <me@jsfelix.dev>","Rolf Erik Lekang <me@rolflekang.com>","Kevin Mai-Husan Chia <mhchia@users.noreply.github.com>","Pepijn de Vos <pepijndevos@gmail.com>","JooYoung <qkdlql@naver.com>","Tobias Speicher <rootcommander@gmail.com>","Steve Blaurock <sblaurock@gmail.com>","Kyrylo Shegeda <shegeda@ualberta.ca>","Diwank Singh Tomer <singh@diwank.name>","Sören Balko <Soeren.Balko@gmail.com>","Arpit Solanki <solankiarpit1997@gmail.com>","Yuki Ito <yuki@gnnk.net>","Artur Zayats <zag2art@gmail.com>"],"funding":{"type":"opencollective","url":"https://opencollective.com/peer"},"collective":{"type":"opencollective","url":"https://opencollective.com/peer"},"files":["dist/*"],"sideEffects":["lib/global.ts","lib/supports.ts"],"main":"dist/bundler.cjs","module":"dist/bundler.mjs","browser-minified":"dist/peerjs.min.js","browser-unminified":"dist/peerjs.js","browser-minified-msgpack":"dist/serializer.msgpack.mjs","types":"dist/types.d.ts","engines":{"node":">= 14"},"targets":{"types":{"source":"lib/exports.ts"},"main":{"source":"lib/exports.ts","sourceMap":{"inlineSources":true}},"module":{"source":"lib/exports.ts","includeNodeModules":["eventemitter3"],"sourceMap":{"inlineSources":true}},"browser-minified":{"context":"browser","outputFormat":"global","optimize":true,"engines":{"browsers":"chrome >= 83, edge >= 83, firefox >= 80, safari >= 15"},"source":"lib/global.ts"},"browser-unminified":{"context":"browser","outputFormat":"global","optimize":false,"engines":{"browsers":"chrome >= 83, edge >= 83, firefox >= 80, safari >= 15"},"source":"lib/global.ts"},"browser-minified-msgpack":{"context":"browser","outputFormat":"esmodule","isLibrary":true,"optimize":true,"engines":{"browsers":"chrome >= 83, edge >= 83, firefox >= 102, safari >= 15"},"source":"lib/dataconnection/StreamConnection/MsgPack.ts"}},"scripts":{"contributors":"git-authors-cli --print=false && prettier --write package.json && git add package.json package-lock.json && git commit -m \\"chore(contributors): update and sort contributors list\\"","check":"tsc --noEmit && tsc -p e2e/tsconfig.json --noEmit","watch":"parcel watch","build":"rm -rf dist && parcel build","prepublishOnly":"npm run build","test":"jest","test:watch":"jest --watch","coverage":"jest --coverage --collectCoverageFrom=\\"./lib/**\\"","format":"prettier --write .","format:check":"prettier --check .","semantic-release":"semantic-release","e2e":"wdio run e2e/wdio.local.conf.ts","e2e:bstack":"wdio run e2e/wdio.bstack.conf.ts"},"devDependencies":{"@parcel/config-default":"^2.9.3","@parcel/packager-ts":"^2.9.3","@parcel/transformer-typescript-tsc":"^2.9.3","@parcel/transformer-typescript-types":"^2.9.3","@semantic-release/changelog":"^6.0.1","@semantic-release/git":"^10.0.1","@swc/core":"^1.3.27","@swc/jest":"^0.2.24","@types/jasmine":"^4.3.4","@wdio/browserstack-service":"^8.11.2","@wdio/cli":"^8.11.2","@wdio/globals":"^8.11.2","@wdio/jasmine-framework":"^8.11.2","@wdio/local-runner":"^8.11.2","@wdio/spec-reporter":"^8.11.2","@wdio/types":"^8.10.4","http-server":"^14.1.1","jest":"^29.3.1","jest-environment-jsdom":"^29.3.1","mock-socket":"^9.0.0","parcel":"^2.9.3","prettier":"^3.0.0","semantic-release":"^21.0.0","ts-node":"^10.9.1","typescript":"^5.0.0","wdio-geckodriver-service":"^5.0.1"},"dependencies":{"@msgpack/msgpack":"^2.8.0","eventemitter3":"^4.0.7","peerjs-js-binarypack":"^2.1.0","webrtc-adapter":"^9.0.0"},"alias":{"process":false,"buffer":false}}');class eN extends eM.EventEmitter{start(e,t){this._id=e;let n=`${this._baseUrl}&id=${e}&token=${t}`;!this._socket&&this._disconnected&&(this._socket=new WebSocket(n+"&version="+ez.version),this._disconnected=!1,this._socket.onmessage=e=>{let t;try{t=JSON.parse(e.data),eI.log("Server message received:",t)}catch(t){eI.log("Invalid server message",e.data);return}this.emit(M.Message,t)},this._socket.onclose=e=>{this._disconnected||(eI.log("Socket closed.",e),this._cleanup(),this._disconnected=!0,this.emit(M.Disconnected))},this._socket.onopen=()=>{this._disconnected||(this._sendQueuedMessages(),eI.log("Socket open"),this._scheduleHeartbeat())})}_scheduleHeartbeat(){this._wsPingTimer=setTimeout(()=>{this._sendHeartbeat()},this.pingInterval)}_sendHeartbeat(){if(!this._wsOpen()){eI.log("Cannot send heartbeat, because socket closed");return}let e=JSON.stringify({type:O.Heartbeat});this._socket.send(e),this._scheduleHeartbeat()}_wsOpen(){return!!this._socket&&1===this._socket.readyState}_sendQueuedMessages(){let e=[...this._messagesQueue];for(let t of(this._messagesQueue=[],e))this.send(t)}send(e){if(this._disconnected)return;if(!this._id){this._messagesQueue.push(e);return}if(!e.type){this.emit(M.Error,"Invalid message");return}if(!this._wsOpen())return;let t=JSON.stringify(e);this._socket.send(t)}close(){this._disconnected||(this._cleanup(),this._disconnected=!0)}_cleanup(){this._socket&&(this._socket.onopen=this._socket.onmessage=this._socket.onclose=null,this._socket.close(),this._socket=void 0),clearTimeout(this._wsPingTimer)}constructor(e,t,n,r,i,o=5e3){super(),this.pingInterval=o,this._disconnected=!0,this._messagesQueue=[],this._baseUrl=(e?"wss://":"ws://")+t+":"+n+r+"peerjs?key="+i}}class e${startConnection(e){let t=this._startPeerConnection();if(this.connection.peerConnection=t,this.connection.type===w.Media&&e._stream&&this._addTracksToConnection(e._stream,t),e.originator){let n=this.connection,r={ordered:!!e.reliable},i=t.createDataChannel(n.label,r);n._initializeDataChannel(i),this._makeOffer()}else this.handleSDP("OFFER",e.sdp)}_startPeerConnection(){eI.log("Creating RTCPeerConnection.");let e=new RTCPeerConnection(this.connection.provider.options.config);return this._setupListeners(e),e}_setupListeners(e){let t=this.connection.peer,n=this.connection.connectionId,r=this.connection.type,i=this.connection.provider;eI.log("Listening for ICE candidates."),e.onicecandidate=e=>{e.candidate&&e.candidate.candidate&&(eI.log(`Received ICE candidates for ${t}:`,e.candidate),i.socket.send({type:O.Candidate,payload:{candidate:e.candidate,type:r,connectionId:n},dst:t}))},e.oniceconnectionstatechange=()=>{switch(e.iceConnectionState){case"failed":eI.log("iceConnectionState is failed, closing connections to "+t),this.connection.emitError(D.NegotiationFailed,"Negotiation of connection to "+t+" failed."),this.connection.close();break;case"closed":eI.log("iceConnectionState is closed, closing connections to "+t),this.connection.emitError(D.ConnectionClosed,"Connection to "+t+" closed."),this.connection.close();break;case"disconnected":eI.log("iceConnectionState changed to disconnected on the connection with "+t);break;case"completed":e.onicecandidate=()=>{}}this.connection.emit("iceStateChanged",e.iceConnectionState)},eI.log("Listening for data channel"),e.ondatachannel=e=>{eI.log("Received data channel");let r=e.channel;i.getConnection(t,n)._initializeDataChannel(r)},eI.log("Listening for remote stream"),e.ontrack=e=>{eI.log("Received remote stream");let r=e.streams[0],o=i.getConnection(t,n);o.type===w.Media&&this._addStreamToMediaConnection(r,o)}}cleanup(){eI.log("Cleaning up PeerConnection to "+this.connection.peer);let e=this.connection.peerConnection;if(!e)return;this.connection.peerConnection=null,e.onicecandidate=e.oniceconnectionstatechange=e.ondatachannel=e.ontrack=()=>{};let t="closed"!==e.signalingState,n=!1,r=this.connection.dataChannel;r&&(n=!!r.readyState&&"closed"!==r.readyState),(t||n)&&e.close()}async _makeOffer(){let e=this.connection.peerConnection,t=this.connection.provider;try{let n=await e.createOffer(this.connection.options.constraints);eI.log("Created offer."),this.connection.options.sdpTransform&&"function"==typeof this.connection.options.sdpTransform&&(n.sdp=this.connection.options.sdpTransform(n.sdp)||n.sdp);try{await e.setLocalDescription(n),eI.log("Set localDescription:",n,`for:${this.connection.peer}`);let r={sdp:n,type:this.connection.type,connectionId:this.connection.connectionId,metadata:this.connection.metadata};if(this.connection.type===w.Data){let e=this.connection;r={...r,label:e.label,reliable:e.reliable,serialization:e.serialization}}t.socket.send({type:O.Offer,payload:r,dst:this.connection.peer})}catch(e){"OperationError: Failed to set local offer sdp: Called in wrong state: kHaveRemoteOffer"!=e&&(t.emitError(E.WebRTC,e),eI.log("Failed to setLocalDescription, ",e))}}catch(e){t.emitError(E.WebRTC,e),eI.log("Failed to createOffer, ",e)}}async _makeAnswer(){let e=this.connection.peerConnection,t=this.connection.provider;try{let n=await e.createAnswer();eI.log("Created answer."),this.connection.options.sdpTransform&&"function"==typeof this.connection.options.sdpTransform&&(n.sdp=this.connection.options.sdpTransform(n.sdp)||n.sdp);try{await e.setLocalDescription(n),eI.log("Set localDescription:",n,`for:${this.connection.peer}`),t.socket.send({type:O.Answer,payload:{sdp:n,type:this.connection.type,connectionId:this.connection.connectionId},dst:this.connection.peer})}catch(e){t.emitError(E.WebRTC,e),eI.log("Failed to setLocalDescription, ",e)}}catch(e){t.emitError(E.WebRTC,e),eI.log("Failed to create answer, ",e)}}async handleSDP(e,t){t=new RTCSessionDescription(t);let n=this.connection.peerConnection,r=this.connection.provider;eI.log("Setting remote description",t);try{await n.setRemoteDescription(t),eI.log(`Set remoteDescription:${e} for:${this.connection.peer}`),"OFFER"===e&&await this._makeAnswer()}catch(e){r.emitError(E.WebRTC,e),eI.log("Failed to setRemoteDescription, ",e)}}async handleCandidate(e){eI.log("handleCandidate:",e);try{await this.connection.peerConnection.addIceCandidate(e),eI.log(`Added ICE candidate for:${this.connection.peer}`)}catch(e){this.connection.provider.emitError(E.WebRTC,e),eI.log("Failed to handleCandidate, ",e)}}_addTracksToConnection(e,t){if(eI.log(`add tracks from stream ${e.id} to peer connection`),!t.addTrack)return eI.error("Your browser does't support RTCPeerConnection#addTrack. Ignored.");e.getTracks().forEach(n=>{t.addTrack(n,e)})}_addStreamToMediaConnection(e,t){eI.log(`add stream ${e.id} to media connection ${t.connectionId}`),t.addStream(e)}constructor(e){this.connection=e}}class eJ extends eM.EventEmitter{emitError(e,t){eI.error("Error:",t),this.emit("error",new eV(`${e}`,t))}}class eV extends Error{constructor(e,t){"string"==typeof t?super(t):(super(),Object.assign(this,t)),this.type=e}}class eG extends eJ{get open(){return this._open}constructor(e,t,n){super(),this.peer=e,this.provider=t,this.options=n,this._open=!1,this.metadata=n.metadata}}class eW extends eG{get type(){return w.Media}get localStream(){return this._localStream}get remoteStream(){return this._remoteStream}_initializeDataChannel(e){this.dataChannel=e,this.dataChannel.onopen=()=>{eI.log(`DC#${this.connectionId} dc connection success`),this.emit("willCloseOnRemote")},this.dataChannel.onclose=()=>{eI.log(`DC#${this.connectionId} dc closed for:`,this.peer),this.close()}}addStream(e){eI.log("Receiving stream",e),this._remoteStream=e,super.emit("stream",e)}handleMessage(e){let t=e.type,n=e.payload;switch(e.type){case O.Answer:this._negotiator.handleSDP(t,n.sdp),this._open=!0;break;case O.Candidate:this._negotiator.handleCandidate(n.candidate);break;default:eI.warn(`Unrecognized message type:${t} from peer:${this.peer}`)}}answer(e,t={}){if(this._localStream){eI.warn("Local stream already exists on this MediaConnection. Are you answering a call twice?");return}for(let n of(this._localStream=e,t&&t.sdpTransform&&(this.options.sdpTransform=t.sdpTransform),this._negotiator.startConnection({...this.options._payload,_stream:e}),this.provider._getMessages(this.connectionId)))this.handleMessage(n);this._open=!0}close(){this._negotiator&&(this._negotiator.cleanup(),this._negotiator=null),this._localStream=null,this._remoteStream=null,this.provider&&(this.provider._removeConnection(this),this.provider=null),this.options&&this.options._stream&&(this.options._stream=null),this.open&&(this._open=!1,super.emit("close"))}constructor(e,t,n){super(e,t,n),this._localStream=this.options._stream,this.connectionId=this.options.connectionId||eW.ID_PREFIX+ex.randomToken(),this._negotiator=new e$(this),this._localStream&&this._negotiator.startConnection({_stream:this._localStream,originator:!0})}}eW.ID_PREFIX="mc_";class eH{_buildRequest(e){let t=this._options.secure?"https":"http",{host:n,port:r,path:i,key:o}=this._options,s=new URL(`${t}://${n}:${r}${i}${o}/${e}`);return s.searchParams.set("ts",`${Date.now()}${Math.random()}`),s.searchParams.set("version",ez.version),fetch(s.href,{referrerPolicy:this._options.referrerPolicy})}async retrieveId(){try{let e=await this._buildRequest("id");if(200!==e.status)throw Error(`Error. Status:${e.status}`);return e.text()}catch(t){eI.error("Error retrieving ID",t);let e="";throw"/"===this._options.path&&this._options.host!==ex.CLOUD_HOST&&(e=" If you passed in a `path` to your self-hosted PeerServer, you'll also need to pass in that same path when creating a new Peer."),Error("Could not get an ID from the server."+e)}}async listAllPeers(){try{let e=await this._buildRequest("peers");if(200!==e.status){if(401===e.status){let e="";throw e=this._options.host===ex.CLOUD_HOST?"It looks like you're using the cloud server. You can email team@peerjs.com to enable peer listing for your API key.":"You need to enable `allow_discovery` on your self-hosted PeerServer to use this feature.",Error("It doesn't look like you have permission to list peers IDs. "+e)}throw Error(`Error. Status:${e.status}`)}return e.json()}catch(e){throw eI.error("Error retrieving list peers",e),Error("Could not get list peers from the server."+e)}}constructor(e){this._options=e}}class eY extends eG{get type(){return w.Data}_initializeDataChannel(e){this.dataChannel=e,this.dataChannel.onopen=()=>{eI.log(`DC#${this.connectionId} dc connection success`),this._open=!0,this.emit("open")},this.dataChannel.onmessage=e=>{eI.log(`DC#${this.connectionId} dc onmessage:`,e.data)},this.dataChannel.onclose=()=>{eI.log(`DC#${this.connectionId} dc closed for:`,this.peer),this.close()}}close(e){if(e?.flush){this.send({__peerData:{type:"close"}});return}this._negotiator&&(this._negotiator.cleanup(),this._negotiator=null),this.provider&&(this.provider._removeConnection(this),this.provider=null),this.dataChannel&&(this.dataChannel.onopen=null,this.dataChannel.onmessage=null,this.dataChannel.onclose=null,this.dataChannel=null),this.open&&(this._open=!1,super.emit("close"))}send(e,t=!1){if(!this.open){this.emitError(x.NotOpenYet,"Connection is not open. You should listen for the `open` event before sending messages.");return}return this._send(e,t)}async handleMessage(e){let t=e.payload;switch(e.type){case O.Answer:await this._negotiator.handleSDP(e.type,t.sdp);break;case O.Candidate:await this._negotiator.handleCandidate(t.candidate);break;default:eI.warn("Unrecognized message type:",e.type,"from peer:",this.peer)}}constructor(e,t,n){super(e,t,n),this.connectionId=this.options.connectionId||eY.ID_PREFIX+eE(),this.label=this.options.label||this.connectionId,this.reliable=!!this.options.reliable,this._negotiator=new e$(this),this._negotiator.startConnection(this.options._payload||{originator:!0,reliable:this.reliable})}}eY.ID_PREFIX="dc_",eY.MAX_BUFFERED_AMOUNT=8388608;class eK extends eY{get bufferSize(){return this._bufferSize}_initializeDataChannel(e){super._initializeDataChannel(e),this.dataChannel.binaryType="arraybuffer",this.dataChannel.addEventListener("message",e=>this._handleDataMessage(e))}_bufferedSend(e){(this._buffering||!this._trySend(e))&&(this._buffer.push(e),this._bufferSize=this._buffer.length)}_trySend(e){if(!this.open)return!1;if(this.dataChannel.bufferedAmount>eY.MAX_BUFFERED_AMOUNT)return this._buffering=!0,setTimeout(()=>{this._buffering=!1,this._tryBuffer()},50),!1;try{this.dataChannel.send(e)}catch(e){return eI.error(`DC#:${this.connectionId} Error when sending:`,e),this._buffering=!0,this.close(),!1}return!0}_tryBuffer(){if(!this.open||0===this._buffer.length)return;let e=this._buffer[0];this._trySend(e)&&(this._buffer.shift(),this._bufferSize=this._buffer.length,this._tryBuffer())}close(e){if(e?.flush){this.send({__peerData:{type:"close"}});return}this._buffer=[],this._bufferSize=0,super.close()}constructor(...e){super(...e),this._buffer=[],this._bufferSize=0,this._buffering=!1}}class eX extends eK{close(e){super.close(e),this._chunkedData={}}_handleDataMessage({data:e}){let t=i(e),n=t.__peerData;if(n){if("close"===n.type){this.close();return}this._handleChunk(t);return}this.emit("data",t)}_handleChunk(e){let t=e.__peerData,n=this._chunkedData[t]||{data:[],count:0,total:e.total};if(n.data[e.n]=new Uint8Array(e.data),n.count++,this._chunkedData[t]=n,n.total===n.count){delete this._chunkedData[t];let e=function(e){let t=0;for(let n of e)t+=n.byteLength;let n=new Uint8Array(t),r=0;for(let t of e)n.set(t,r),r+=t.byteLength;return n}(n.data);this._handleDataMessage({data:e})}}_send(e,t){let n=o(e);if(n instanceof Promise)return this._send_blob(n);if(!t&&n.byteLength>this.chunker.chunkedMTU){this._sendChunks(n);return}this._bufferedSend(n)}async _send_blob(e){let t=await e;if(t.byteLength>this.chunker.chunkedMTU){this._sendChunks(t);return}this._bufferedSend(t)}_sendChunks(e){let t=this.chunker.chunk(e);for(let e of(eI.log(`DC#${this.connectionId} Try to send ${t.length} chunks...`),t))this.send(e,!0)}constructor(e,t,r){super(e,t,r),this.chunker=new n,this.serialization=I.Binary,this._chunkedData={}}}class eq extends eK{_handleDataMessage({data:e}){super.emit("data",e)}_send(e,t){this._bufferedSend(e)}constructor(...e){super(...e),this.serialization=I.None}}class eQ extends eK{_handleDataMessage({data:e}){let t=this.parse(this.decoder.decode(e)),n=t.__peerData;if(n&&"close"===n.type){this.close();return}this.emit("data",t)}_send(e,t){let n=this.encoder.encode(this.stringify(e));if(n.byteLength>=ex.chunkedMTU){this.emitError(x.MessageToBig,"Message too big for JSON channel");return}this._bufferedSend(n)}constructor(...e){super(...e),this.serialization=I.JSON,this.encoder=new TextEncoder,this.decoder=new TextDecoder,this.stringify=JSON.stringify,this.parse=JSON.parse}}class eZ extends eJ{get id(){return this._id}get options(){return this._options}get open(){return this._open}get socket(){return this._socket}get connections(){let e=Object.create(null);for(let[t,n]of this._connections)e[t]=n;return e}get destroyed(){return this._destroyed}get disconnected(){return this._disconnected}_createServerConnection(){let e=new eN(this._options.secure,this._options.host,this._options.port,this._options.path,this._options.key,this._options.pingInterval);return e.on(M.Message,e=>{this._handleMessage(e)}),e.on(M.Error,e=>{this._abort(E.SocketError,e)}),e.on(M.Disconnected,()=>{this.disconnected||(this.emitError(E.Network,"Lost connection to server."),this.disconnect())}),e.on(M.Close,()=>{this.disconnected||this._abort(E.SocketClosed,"Underlying socket is already closed.")}),e}_initialize(e){this._id=e,this.socket.start(e,this._options.token)}_handleMessage(e){let t=e.type,n=e.payload,r=e.src;switch(t){case O.Open:this._lastServerId=this.id,this._open=!0,this.emit("open",this.id);break;case O.Error:this._abort(E.ServerError,n.msg);break;case O.IdTaken:this._abort(E.UnavailableID,`ID "${this.id}" is taken`);break;case O.InvalidKey:this._abort(E.InvalidKey,`API KEY "${this._options.key}" is invalid`);break;case O.Leave:eI.log(`Received leave message from ${r}`),this._cleanupPeer(r),this._connections.delete(r);break;case O.Expire:this.emitError(E.PeerUnavailable,`Could not connect to peer ${r}`);break;case O.Offer:{let e=n.connectionId,t=this.getConnection(r,e);if(t&&(t.close(),eI.warn(`Offer received for existing Connection ID:${e}`)),n.type===w.Media){let i=new eW(r,this,{connectionId:e,_payload:n,metadata:n.metadata});t=i,this._addConnection(r,t),this.emit("call",i)}else if(n.type===w.Data){let i=new this._serializers[n.serialization](r,this,{connectionId:e,_payload:n,metadata:n.metadata,label:n.label,serialization:n.serialization,reliable:n.reliable});t=i,this._addConnection(r,t),this.emit("connection",i)}else{eI.warn(`Received malformed connection type:${n.type}`);return}for(let n of this._getMessages(e))t.handleMessage(n);break}default:{if(!n){eI.warn(`You received a malformed message from ${r} of type ${t}`);return}let i=n.connectionId,o=this.getConnection(r,i);o&&o.peerConnection?o.handleMessage(e):i?this._storeMessage(i,e):eI.warn("You received an unrecognized message:",e)}}}_storeMessage(e,t){this._lostMessages.has(e)||this._lostMessages.set(e,[]),this._lostMessages.get(e).push(t)}_getMessages(e){let t=this._lostMessages.get(e);return t?(this._lostMessages.delete(e),t):[]}connect(e,t={}){if(t={serialization:"default",...t},this.disconnected){eI.warn("You cannot connect to a new Peer because you called .disconnect() on this Peer and ended your connection with the server. You can create a new Peer to reconnect, or call reconnect on this peer if you believe its ID to still be available."),this.emitError(E.Disconnected,"Cannot connect to new Peer after disconnecting from server.");return}let n=new this._serializers[t.serialization](e,this,t);return this._addConnection(e,n),n}call(e,t,n={}){if(this.disconnected){eI.warn("You cannot connect to a new Peer because you called .disconnect() on this Peer and ended your connection with the server. You can create a new Peer to reconnect."),this.emitError(E.Disconnected,"Cannot connect to new Peer after disconnecting from server.");return}if(!t){eI.error("To call a peer, you must provide a stream from your browser's `getUserMedia`.");return}let r=new eW(e,this,{...n,_stream:t});return this._addConnection(e,r),r}_addConnection(e,t){eI.log(`add connection ${t.type}:${t.connectionId} to peerId:${e}`),this._connections.has(e)||this._connections.set(e,[]),this._connections.get(e).push(t)}_removeConnection(e){let t=this._connections.get(e.peer);if(t){let n=t.indexOf(e);-1!==n&&t.splice(n,1)}this._lostMessages.delete(e.connectionId)}getConnection(e,t){let n=this._connections.get(e);if(!n)return null;for(let e of n)if(e.connectionId===t)return e;return null}_delayedAbort(e,t){setTimeout(()=>{this._abort(e,t)},0)}_abort(e,t){eI.error("Aborting!"),this.emitError(e,t),this._lastServerId?this.disconnect():this.destroy()}destroy(){this.destroyed||(eI.log(`Destroy peer with ID:${this.id}`),this.disconnect(),this._cleanup(),this._destroyed=!0,this.emit("close"))}_cleanup(){for(let e of this._connections.keys())this._cleanupPeer(e),this._connections.delete(e);this.socket.removeAllListeners()}_cleanupPeer(e){let t=this._connections.get(e);if(t)for(let e of t)e.close()}disconnect(){if(this.disconnected)return;let e=this.id;eI.log(`Disconnect peer with ID:${e}`),this._disconnected=!0,this._open=!1,this.socket.close(),this._lastServerId=e,this._id=null,this.emit("disconnected",e)}reconnect(){if(this.disconnected&&!this.destroyed)eI.log(`Attempting reconnection to server with ID ${this._lastServerId}`),this._disconnected=!1,this._initialize(this._lastServerId);else if(this.destroyed)throw Error("This peer cannot reconnect to the server. It has already been destroyed.");else if(this.disconnected||this.open)throw Error(`Peer ${this.id} cannot reconnect because it is not disconnected from the server!`);else eI.error("In a hurry? We're still trying to make the initial connection!")}listAllPeers(e=e=>{}){this._api.listAllPeers().then(t=>e(t)).catch(e=>this._abort(E.ServerError,e))}constructor(e,t){let n;if(super(),this._serializers={raw:eq,json:eQ,binary:eX,"binary-utf8":eX,default:eX},this._id=null,this._lastServerId=null,this._destroyed=!1,this._disconnected=!1,this._open=!1,this._connections=new Map,this._lostMessages=new Map,e&&e.constructor==Object?t=e:e&&(n=e.toString()),t={debug:0,host:ex.CLOUD_HOST,port:ex.CLOUD_PORT,path:"/",key:eZ.DEFAULT_KEY,token:ex.randomToken(),config:ex.defaultConfig,referrerPolicy:"strict-origin-when-cross-origin",serializers:{},...t},this._options=t,this._serializers={...this._serializers,...this.options.serializers},"/"===this._options.host&&(this._options.host=window.location.hostname),this._options.path&&("/"!==this._options.path[0]&&(this._options.path="/"+this._options.path),"/"!==this._options.path[this._options.path.length-1]&&(this._options.path+="/")),void 0===this._options.secure&&this._options.host!==ex.CLOUD_HOST?this._options.secure=ex.isSecure():this._options.host==ex.CLOUD_HOST&&(this._options.secure=!0),this._options.logFunction&&eI.setLogFunction(this._options.logFunction),eI.logLevel=this._options.debug||0,this._api=new eH(t),this._socket=this._createServerConnection(),!ex.supports.audioVideo&&!ex.supports.data){this._delayedAbort(E.BrowserIncompatible,"The current browser does not support WebRTC");return}if(n&&!ex.validateId(n)){this._delayedAbort(E.InvalidID,`ID "${n}" is invalid`);return}n?this._initialize(n):this._api.retrieveId().then(e=>this._initialize(e)).catch(e=>this._abort(E.ServerError,e))}}eZ.DEFAULT_KEY="peerjs",window.peerjs={Peer:eZ,util:ex},window.Peer=eZ})();
+
+
+</script>
+<script>
+const GEO={"Zimbabwe":[[[31.29,-22.4],[29.66,-22.15],[29.36,-22.19],[29.04,-22.02],[29.03,-21.8],[28.01,-21.55],[27.67,-21.06],[27.7,-20.53],[27.28,-20.48],[27.18,-20.1],[26.17,-19.54],[25.94,-18.94],[25.24,-17.97],[25.26,-17.79],[26.0,-17.97],[26.78,-18.04],[27.02,-17.96],[27.93,-16.9],[28.76,-16.53],[28.91,-15.99],[29.73,-15.64],[30.4,-15.64],[30.44,-15.99],[31.24,-16.02],[31.94,-16.43],[32.95,-16.71],[32.99,-18.36],[32.7,-18.94],[32.85,-19.1],[32.78,-19.39],[32.99,-19.98],[32.49,-20.66],[32.36,-21.14],[32.43,-21.3],[31.29,-22.4]]],"Zambia":[[[30.4,-15.64],[29.49,-15.7],[28.91,-15.99],[28.76,-16.53],[27.93,-16.9],[27.02,-17.96],[26.78,-18.04],[25.45,-17.85],[24.73,-17.52],[23.38,-17.64],[22.15,-16.6],[22.04,-16.26],[21.98,-13.0],[23.96,-12.99],[23.88,-12.8],[24.05,-11.4],[23.97,-10.87],[24.37,-11.13],[24.38,-11.42],[25.29,-11.21],[25.35,-11.62],[26.03,-11.89],[26.83,-11.97],[27.16,-11.58],[27.57,-12.23],[28.41,-12.52],[29.01,-13.37],[29.55,-13.25],[29.77,-13.44],[29.8,-12.15],[29.51,-12.23],[29.49,-12.42],[29.06,-12.35],[28.48,-11.81],[28.36,-11.48],[28.65,-10.55],[28.6,-9.68],[28.4,-9.22],[28.87,-8.79],[28.9,-8.48],[30.75,-8.19],[31.03,-8.6],[31.35,-8.61],[31.67,-8.91],[32.43,-9.16],[32.92,-9.41],[33.0,-9.62],[33.19,-9.63],[33.35,-9.86],[33.31,-10.04],[33.66,-10.55],[33.26,-10.89],[33.38,-11.16],[33.23,-11.42],[33.25,-12.11],[33.34,-12.31],[33.51,-12.35],[33.02,-12.63],[32.97,-13.22],[32.67,-13.59],[32.99,-14.02],[33.2,-14.01],[30.23,-14.99],[30.4,-15.64]]],"Yemen":[[[53.08,16.65],[52.33,16.29],[52.17,15.96],[52.22,15.66],[51.6,15.34],[49.35,14.64],[48.67,14.05],[47.99,14.05],[47.41,13.66],[46.79,13.47],[45.66,13.34],[45.04,12.82],[44.62,12.82],[44.01,12.61],[43.49,12.7],[43.23,13.27],[43.28,13.69],[43.09,14.01],[42.94,14.94],[42.66,15.23],[42.8,15.33],[42.72,15.65],[42.8,16.37],[43.17,16.69],[43.16,17.2],[43.35,17.49],[43.92,17.32],[45.15,17.43],[45.54,17.3],[46.73,17.27],[46.98,16.95],[47.14,16.95],[47.44,17.11],[47.58,17.45],[48.17,18.16],[49.44,18.66],[51.98,19.0],[53.08,16.65]],[[53.76,12.64],[54.51,12.55],[53.72,12.32],[53.31,12.53],[53.53,12.72],[53.76,12.64]]],"Vietnam":[[[107.97,21.51],[107.41,21.28],[107.35,21.05],[107.16,20.95],[106.68,21.0],[106.75,20.74],[106.55,20.53],[106.52,20.29],[105.98,19.94],[105.62,18.97],[105.89,18.5],[106.5,17.95],[106.48,17.72],[106.35,17.77],[107.83,16.32],[108.03,16.33],[108.82,15.38],[109.3,13.86],[109.27,13.28],[109.45,12.6],[109.33,12.75],[109.22,12.65],[109.26,11.95],[108.99,11.34],[107.26,10.4],[107.01,10.66],[106.95,10.4],[106.73,10.54],[106.61,10.47],[106.74,10.44],[106.76,10.3],[106.47,10.3],[106.79,10.12],[106.6,9.86],[106.14,10.22],[106.57,9.64],[106.38,9.56],[105.83,10.0],[106.16,9.59],[106.17,9.4],[105.5,9.09],[105.12,8.63],[104.77,8.6],[104.9,8.75],[104.85,9.61],[105.09,9.94],[104.43,10.41],[104.85,10.53],[105.05,10.7],[105.05,10.91],[105.31,10.85],[105.76,10.99],[106.16,10.8],[106.16,11.04],[105.86,11.3],[105.85,11.64],[106.0,11.76],[106.4,11.69],[106.42,11.95],[107.51,12.36],[107.47,13.03],[107.61,13.44],[107.33,14.13],[107.53,14.65],[107.48,14.98],[107.65,15.25],[107.17,15.8],[107.4,16.04],[106.85,16.52],[106.66,16.49],[106.5,16.95],[105.69,17.74],[105.46,18.15],[105.16,18.34],[105.15,18.65],[103.89,19.3],[104.06,19.48],[104.03,19.67],[104.59,19.62],[104.93,20.02],[104.85,20.2],[104.37,20.44],[104.58,20.65],[104.1,20.95],[103.64,20.7],[103.1,20.89],[102.85,21.27],[102.95,21.68],[102.82,21.81],[102.66,21.68],[102.13,22.38],[102.47,22.75],[102.98,22.45],[103.33,22.77],[103.49,22.59],[103.62,22.78],[103.94,22.54],[104.14,22.8],[104.37,22.7],[104.69,22.82],[104.86,23.14],[105.27,23.34],[105.84,22.92],[106.15,22.97],[106.78,22.78],[106.55,22.5],[106.66,21.98],[106.97,21.92],[107.35,21.61],[107.76,21.66],[107.97,21.51]]],"Venezuela":[[[-60.02,8.55],[-59.85,8.25],[-60.51,7.81],[-60.72,7.54],[-60.63,7.21],[-60.32,7.13],[-60.35,7.0],[-60.72,6.77],[-61.14,6.69],[-61.13,6.21],[-61.39,5.94],[-60.67,5.16],[-60.63,4.89],[-61.0,4.54],[-61.28,4.52],[-61.56,4.29],[-62.71,4.02],[-62.86,3.59],[-63.34,3.94],[-64.02,3.93],[-64.19,4.13],[-64.58,4.14],[-64.79,4.28],[-64.22,3.59],[-64.05,2.5],[-63.39,2.41],[-63.39,2.22],[-64.01,1.93],[-64.2,1.53],[-65.03,1.16],[-65.55,0.69],[-65.64,0.97],[-66.3,0.75],[-66.88,1.22],[-67.21,2.39],[-67.62,2.79],[-67.86,2.79],[-67.31,3.42],[-67.66,3.86],[-67.86,4.51],[-67.83,5.27],[-67.47,5.93],[-67.48,6.18],[-67.86,6.29],[-69.43,6.12],[-70.13,6.95],[-70.74,7.09],[-71.13,6.99],[-72.01,7.03],[-72.21,7.37],[-72.47,7.52],[-72.36,8.15],[-72.8,9.11],[-73.06,9.26],[-73.37,9.19],[-73.01,9.79],[-72.69,10.84],[-72.25,11.2],[-71.96,11.67],[-71.32,11.86],[-71.96,11.57],[-71.64,11.01],[-71.73,10.99],[-71.6,10.66],[-72.11,9.82],[-71.69,9.07],[-71.24,9.16],[-71.08,9.35],[-71.05,9.71],[-71.55,10.78],[-71.47,10.96],[-70.23,11.37],[-70.1,11.52],[-69.81,11.47],[-69.82,11.67],[-70.19,11.62],[-70.29,11.89],[-70.2,12.1],[-70.0,12.18],[-69.63,11.48],[-68.83,11.43],[-68.4,11.16],[-68.14,10.49],[-66.25,10.63],[-65.85,10.26],[-65.13,10.07],[-64.19,10.46],[-63.73,10.5],[-64.3,10.64],[-61.88,10.74],[-62.38,10.55],[-62.91,10.53],[-62.69,10.29],[-62.74,10.06],[-62.55,10.2],[-62.32,9.78],[-62.08,9.98],[-61.74,9.63],[-61.77,9.81],[-61.59,9.89],[-60.79,9.36],[-61.02,9.15],[-61.25,8.6],[-61.62,8.6],[-61.3,8.41],[-60.8,8.59],[-60.02,8.55]]],"Vanuatu":[[[166.74,-14.83],[166.81,-15.16],[167.08,-14.94],[167.2,-15.44],[167.09,-15.58],[166.76,-15.63],[166.63,-15.41],[166.57,-14.64],[166.74,-14.83]]],"Uzbekistan":[[[70.95,42.25],[71.23,42.16],[70.18,41.54],[70.69,41.45],[70.78,41.26],[71.39,41.12],[71.42,41.34],[71.58,41.33],[71.66,41.54],[71.88,41.19],[72.16,41.17],[72.19,41.03],[73.14,40.81],[72.6,40.53],[72.4,40.58],[72.36,40.4],[72.13,40.44],[71.69,40.15],[71.3,40.29],[70.6,40.21],[70.37,40.41],[70.75,40.74],[70.4,41.03],[69.71,40.66],[69.36,40.77],[69.21,40.57],[69.27,40.2],[68.63,40.17],[68.97,40.09],[68.81,40.05],[68.87,39.91],[68.64,39.84],[68.51,39.56],[67.72,39.62],[67.43,39.47],[67.36,39.22],[67.65,39.13],[67.69,38.99],[68.13,38.93],[68.09,38.47],[68.35,38.21],[67.86,37.57],[67.76,37.17],[66.52,37.35],[66.57,38.01],[65.97,38.24],[65.61,38.24],[63.76,39.16],[62.48,39.98],[61.9,41.09],[61.5,41.28],[60.45,41.22],[60.09,41.4],[60.08,41.76],[60.2,41.8],[59.94,41.97],[59.99,42.21],[59.36,42.32],[58.59,42.78],[58.15,42.63],[58.47,42.3],[58.03,42.49],[57.81,42.19],[57.29,42.12],[56.97,41.86],[57.12,41.35],[57.02,41.26],[55.98,41.32],[55.98,44.99],[58.56,45.56],[61.01,44.39],[61.99,43.49],[63.21,43.63],[64.44,43.55],[64.91,43.71],[65.5,43.31],[65.8,42.88],[66.1,42.99],[66.01,42.0],[66.5,41.99],[66.71,41.18],[67.93,41.2],[68.11,41.03],[68.05,40.81],[68.41,40.62],[68.57,40.62],[68.58,40.88],[69.15,41.43],[70.95,42.25]]],"Uruguay":[[[-53.37,-33.74],[-53.79,-34.38],[-54.17,-34.67],[-54.9,-34.93],[-55.67,-34.77],[-56.25,-34.9],[-57.17,-34.45],[-57.87,-34.45],[-58.4,-33.91],[-58.44,-33.72],[-58.36,-33.18],[-58.09,-32.97],[-58.19,-31.92],[-57.99,-31.62],[-58.03,-31.42],[-57.81,-30.86],[-57.87,-30.59],[-57.65,-30.23],[-57.21,-30.28],[-57.12,-30.15],[-56.83,-30.11],[-56.04,-30.78],[-56.0,-31.08],[-55.6,-30.85],[-55.17,-31.28],[-54.59,-31.49],[-54.22,-31.86],[-53.76,-32.06],[-53.6,-32.4],[-53.12,-32.74],[-53.53,-33.17],[-53.53,-33.66],[-53.37,-33.74]]],"Puerto Rico":[[[-66.13,18.45],[-65.63,18.38],[-65.62,18.24],[-66.13,17.95],[-67.2,17.99],[-67.26,18.36],[-67.16,18.5],[-66.13,18.45]]],"United States of America":[[[-74.71,45.0],[-71.52,45.01],[-71.33,45.29],[-70.86,45.27],[-70.3,45.91],[-70.01,46.71],[-69.24,47.46],[-69.05,47.43],[-68.94,47.21],[-68.31,47.36],[-67.81,47.08],[-67.8,45.73],[-67.43,45.6],[-67.47,45.28],[-67.12,45.17],[-67.11,44.88],[-66.99,44.83],[-67.19,44.67],[-67.84,44.58],[-68.06,44.39],[-68.15,44.5],[-68.45,44.51],[-68.53,44.26],[-68.81,44.34],[-68.71,44.44],[-68.76,44.57],[-68.96,44.43],[-69.14,44.04],[-69.62,43.88],[-69.65,43.99],[-69.81,43.77],[-70.06,43.83],[-70.27,43.67],[-70.2,43.63],[-70.83,42.83],[-70.61,42.62],[-71.04,42.33],[-70.74,42.23],[-70.43,41.76],[-70.0,41.83],[-70.24,42.09],[-70.11,42.08],[-69.95,41.68],[-70.66,41.53],[-70.7,41.72],[-71.17,41.49],[-71.15,41.75],[-71.27,41.68],[-71.39,41.79],[-71.52,41.38],[-72.92,41.28],[-73.99,40.75],[-73.87,41.06],[-73.97,41.25],[-73.93,40.91],[-74.26,40.53],[-73.97,40.4],[-74.08,39.79],[-74.07,39.99],[-74.8,39.0],[-74.95,38.95],[-74.9,39.15],[-75.52,39.49],[-75.42,39.79],[-75.07,39.98],[-75.59,39.64],[-75.39,39.09],[-75.09,38.78],[-75.19,38.59],[-75.04,38.43],[-75.93,37.15],[-75.97,37.4],[-75.66,37.95],[-75.85,37.97],[-75.86,38.36],[-76.05,38.28],[-76.26,38.44],[-76.26,38.6],[-76.02,38.62],[-76.34,38.71],[-76.17,38.85],[-76.33,38.91],[-76.14,39.08],[-76.24,39.19],[-76.07,39.37],[-75.88,39.38],[-76.0,39.41],[-75.87,39.51],[-76.06,39.56],[-76.42,39.23],[-76.57,39.27],[-76.43,39.13],[-76.56,39.07],[-76.39,38.37],[-76.67,38.54],[-76.34,38.09],[-76.87,38.39],[-76.89,38.29],[-77.0,38.44],[-77.23,38.41],[-77.03,38.89],[-77.26,38.6],[-77.27,38.35],[-77.05,38.36],[-76.26,37.89],[-76.34,37.68],[-76.49,37.68],[-77.11,38.16],[-76.3,37.57],[-76.26,37.36],[-76.4,37.39],[-76.45,37.27],[-76.76,37.51],[-76.28,37.05],[-76.4,36.99],[-76.63,37.22],[-77.25,37.33],[-76.67,37.17],[-76.49,36.9],[-76.0,36.91],[-75.53,35.82],[-75.95,36.66],[-75.99,36.47],[-75.82,36.11],[-76.15,36.28],[-76.15,36.15],[-76.56,36.02],[-76.73,36.23],[-76.73,35.96],[-76.07,35.97],[-76.08,35.69],[-75.85,35.96],[-75.76,35.84],[-75.78,35.65],[-76.17,35.35],[-76.49,35.4],[-76.58,35.53],[-76.74,35.43],[-77.04,35.53],[-76.51,35.27],[-76.78,34.99],[-77.07,35.15],[-76.97,35.02],[-76.46,34.99],[-76.36,34.94],[-76.44,34.84],[-77.29,34.6],[-77.41,34.73],[-77.38,34.53],[-77.75,34.28],[-77.93,33.94],[-77.95,34.17],[-78.01,33.91],[-78.41,33.92],[-78.84,33.72],[-79.2,33.24],[-79.23,33.4],[-79.27,33.14],[-79.93,32.81],[-79.94,32.67],[-80.64,32.51],[-80.47,32.42],[-80.58,32.29],[-80.8,32.45],[-80.69,32.22],[-81.11,31.88],[-81.26,31.54],[-81.18,31.53],[-81.38,31.35],[-81.29,31.26],[-81.44,31.2],[-81.52,30.8],[-81.25,29.79],[-80.52,28.49],[-80.59,28.27],[-80.46,27.9],[-80.61,28.18],[-80.61,28.52],[-80.69,28.34],[-80.69,28.58],[-80.84,28.76],[-80.05,26.81],[-80.13,25.83],[-80.48,25.23],[-81.11,25.14],[-81.14,25.31],[-80.94,25.26],[-81.37,25.83],[-81.72,25.98],[-81.96,26.49],[-81.83,26.69],[-82.04,26.55],[-82.01,26.96],[-82.29,26.87],[-82.72,27.5],[-82.41,27.86],[-82.68,27.96],[-82.61,27.78],[-82.74,27.71],[-82.84,27.85],[-82.65,28.89],[-83.7,29.93],[-84.04,30.1],[-84.31,30.06],[-84.38,29.91],[-85.32,29.68],[-85.36,29.88],[-85.68,30.12],[-85.6,30.29],[-85.75,30.17],[-86.45,30.4],[-86.13,30.4],[-86.26,30.49],[-87.2,30.34],[-86.99,30.43],[-87.0,30.57],[-87.17,30.54],[-87.28,30.34],[-88.0,30.23],[-87.79,30.29],[-88.01,30.69],[-88.13,30.37],[-88.9,30.42],[-89.59,30.17],[-90.13,30.37],[-90.33,30.28],[-90.41,30.14],[-90.18,30.03],[-89.74,30.17],[-89.66,30.12],[-89.82,30.01],[-89.63,29.9],[-89.4,30.05],[-89.35,29.82],[-89.72,29.62],[-89.02,29.2],[-89.16,29.02],[-89.38,28.98],[-89.52,29.25],[-90.16,29.54],[-90.05,29.34],[-90.21,29.1],[-90.38,29.3],[-90.75,29.13],[-91.29,29.29],[-91.15,29.32],[-91.25,29.56],[-91.51,29.56],[-91.89,29.84],[-92.26,29.56],[-93.17,29.78],[-93.83,29.72],[-93.84,29.98],[-93.89,29.69],[-94.76,29.38],[-94.53,29.55],[-94.78,29.55],[-94.74,29.75],[-95.02,29.7],[-94.89,29.37],[-95.27,28.96],[-96.23,28.49],[-96.01,28.63],[-96.45,28.59],[-96.64,28.71],[-96.42,28.46],[-96.68,28.34],[-96.77,28.42],[-96.84,28.2],[-97.16,28.14],[-97.03,28.09],[-97.07,27.99],[-97.43,27.84],[-97.29,27.67],[-97.44,27.33],[-97.77,27.46],[-97.69,27.29],[-97.48,27.24],[-97.56,26.97],[-97.44,26.49],[-97.15,26.06],[-97.36,25.87],[-99.11,26.45],[-99.46,27.06],[-99.51,27.55],[-100.3,28.33],[-100.76,29.18],[-101.38,29.74],[-102.34,29.87],[-102.73,29.64],[-102.89,29.22],[-103.26,29.0],[-104.4,29.57],[-104.92,30.58],[-106.44,31.77],[-108.21,31.78],[-108.22,31.33],[-111.04,31.33],[-114.84,32.51],[-114.72,32.72],[-117.13,32.53],[-117.47,33.3],[-118.08,33.72],[-118.41,33.74],[-118.51,34.02],[-119.14,34.11],[-119.61,34.42],[-120.48,34.47],[-120.65,34.58],[-120.63,35.08],[-121.88,36.33],[-121.81,36.85],[-122.4,37.21],[-122.5,37.54],[-122.45,37.8],[-122.07,37.48],[-122.39,37.96],[-122.31,38.01],[-121.52,38.06],[-122.39,38.14],[-122.52,37.83],[-122.93,38.06],[-123.0,37.99],[-122.91,38.2],[-123.7,38.91],[-123.83,39.78],[-124.33,40.25],[-124.37,40.49],[-124.19,40.77],[-124.07,41.46],[-124.54,42.81],[-124.15,43.69],[-123.93,45.58],[-123.99,46.22],[-123.22,46.15],[-124.07,46.28],[-124.04,46.61],[-123.95,46.43],[-123.89,46.66],[-124.11,46.86],[-123.84,46.96],[-124.11,47.04],[-124.14,46.95],[-124.38,47.66],[-124.66,47.97],[-124.71,48.38],[-123.98,48.17],[-122.78,48.14],[-122.66,47.88],[-123.14,47.36],[-122.92,47.41],[-123.06,47.45],[-122.53,47.92],[-122.68,47.61],[-122.58,47.29],[-122.77,47.22],[-122.83,47.34],[-123.03,47.14],[-122.7,47.11],[-122.35,47.37],[-122.4,47.78],[-122.24,48.01],[-122.52,48.16],[-122.41,48.29],[-122.67,48.46],[-122.5,48.51],[-122.51,48.67],[-122.79,48.99],[-95.16,48.99],[-95.15,49.37],[-94.94,49.35],[-94.62,48.74],[-93.71,48.53],[-93.0,48.61],[-92.5,48.44],[-92.41,48.28],[-92.0,48.3],[-91.52,48.06],[-90.92,48.21],[-89.46,48.0],[-88.38,48.3],[-84.88,46.9],[-84.56,46.46],[-84.12,46.53],[-83.98,46.08],[-83.62,46.12],[-83.47,45.99],[-83.59,45.82],[-82.55,45.35],[-82.14,43.57],[-82.55,42.62],[-83.15,42.14],[-83.03,41.83],[-82.69,41.68],[-82.44,41.68],[-81.28,42.21],[-80.25,42.37],[-79.04,42.8],[-78.91,42.91],[-79.17,43.47],[-78.85,43.58],[-76.82,43.63],[-76.15,44.3],[-75.18,44.9],[-74.71,45.0]],[[-130.02,55.89],[-130.15,55.66],[-130.04,55.3],[-130.58,54.77],[-130.85,54.81],[-131.05,55.16],[-130.75,55.32],[-131.14,56.0],[-131.03,56.09],[-131.78,55.88],[-131.95,55.55],[-132.12,55.57],[-132.21,55.75],[-131.84,56.16],[-131.55,56.21],[-132.18,56.42],[-132.49,56.77],[-132.8,56.89],[-132.83,57.06],[-133.47,57.17],[-133.44,57.34],[-133.65,57.64],[-133.12,57.57],[-133.54,57.86],[-133.2,57.88],[-133.72,57.84],[-134.03,58.07],[-134.05,58.29],[-133.88,58.52],[-134.21,58.23],[-134.78,58.45],[-135.13,58.84],[-135.36,59.42],[-135.49,59.31],[-135.4,59.21],[-135.5,59.2],[-135.09,58.25],[-135.9,58.4],[-135.86,58.58],[-136.04,58.82],[-135.83,58.9],[-136.02,58.87],[-136.13,59.04],[-136.12,58.82],[-136.23,58.77],[-136.99,59.04],[-137.06,58.87],[-136.61,58.81],[-136.41,58.7],[-136.48,58.62],[-136.06,58.45],[-136.61,58.24],[-137.54,58.58],[-138.51,59.17],[-139.77,59.53],[-139.51,59.7],[-139.51,59.95],[-139.33,59.88],[-139.29,59.61],[-139.22,59.82],[-138.99,59.84],[-139.43,60.01],[-140.42,59.71],[-141.41,59.9],[-141.29,60.0],[-141.41,60.12],[-141.67,59.97],[-142.94,60.1],[-144.15,60.02],[-144.19,60.15],[-144.9,60.34],[-144.69,60.67],[-145.25,60.38],[-145.9,60.48],[-145.67,60.65],[-146.57,60.73],[-146.39,60.81],[-146.63,60.99],[-146.29,61.11],[-146.38,61.14],[-147.81,60.89],[-148.01,60.97],[-147.75,61.22],[-148.34,61.06],[-148.41,61.01],[-148.21,61.03],[-148.56,60.8],[-148.27,60.7],[-148.28,60.61],[-148.64,60.49],[-148.12,60.57],[-147.96,60.48],[-148.18,60.39],[-148.2,60.17],[-148.43,59.99],[-149.27,60.0],[-149.4,60.11],[-149.6,59.77],[-149.71,59.92],[-149.78,59.75],[-150.0,59.79],[-149.96,59.69],[-150.2,59.57],[-150.61,59.56],[-150.93,59.25],[-151.95,59.26],[-151.04,59.77],[-151.45,59.65],[-151.85,59.78],[-151.4,60.27],[-151.32,60.74],[-150.44,61.02],[-149.08,60.88],[-150.05,61.17],[-149.33,61.5],[-149.43,61.5],[-149.98,61.28],[-150.94,61.2],[-151.73,60.91],[-151.75,60.76],[-152.27,60.53],[-152.37,60.34],[-152.65,60.24],[-153.02,60.3],[-152.63,60.04],[-153.21,59.84],[-153.04,59.81],[-153.09,59.71],[-153.65,59.65],[-154.09,59.36],[-154.18,59.15],[-153.42,58.96],[-153.33,58.88],[-153.44,58.76],[-154.29,58.3],[-154.25,58.16],[-155.01,58.02],[-155.78,57.57],[-156.43,57.36],[-156.4,57.21],[-156.63,57.01],[-158.41,56.44],[-158.55,56.31],[-158.28,56.2],[-158.5,56.06],[-158.59,56.18],[-158.79,55.99],[-159.52,55.81],[-159.66,55.63],[-159.77,55.84],[-161.18,55.39],[-161.46,55.38],[-161.41,55.54],[-161.2,55.54],[-161.52,55.62],[-162.08,55.14],[-162.39,55.05],[-162.63,55.25],[-162.67,55.0],[-163.12,55.06],[-163.13,54.92],[-163.34,54.84],[-163.28,55.12],[-162.91,55.2],[-161.7,55.91],[-161.22,56.02],[-160.9,55.99],[-161.01,55.89],[-160.8,55.75],[-160.71,55.87],[-160.29,55.8],[-160.54,56.01],[-160.3,56.31],[-158.92,56.88],[-158.67,56.8],[-158.66,57.04],[-158.32,57.3],[-157.85,57.53],[-157.46,57.51],[-157.7,57.68],[-157.61,58.05],[-157.19,58.19],[-157.49,58.25],[-157.52,58.42],[-156.97,58.74],[-156.81,59.13],[-157.14,58.88],[-158.19,58.62],[-158.5,58.85],[-158.42,59.0],[-158.08,58.98],[-158.42,59.09],[-158.68,58.93],[-158.81,58.97],[-158.79,58.44],[-158.95,58.4],[-159.67,58.91],[-159.92,58.82],[-160.36,59.05],[-161.25,58.8],[-161.36,58.67],[-162.14,58.64],[-161.72,58.79],[-161.79,59.02],[-161.64,59.11],[-161.98,59.15],[-162.03,59.28],[-161.83,59.59],[-162.42,60.28],[-161.95,60.68],[-162.14,60.69],[-162.68,60.27],[-162.53,60.2],[-162.57,59.99],[-163.91,59.81],[-164.66,60.3],[-165.06,60.41],[-165.03,60.5],[-165.36,60.54],[-164.8,60.89],[-164.32,60.77],[-164.37,60.59],[-164.0,60.77],[-163.73,60.59],[-163.42,60.76],[-163.91,60.85],[-163.59,60.9],[-165.11,60.93],[-164.87,61.11],[-165.34,61.2],[-165.27,61.27],[-165.38,61.11],[-165.57,61.1],[-165.86,61.34],[-165.84,61.54],[-166.09,61.51],[-166.17,61.65],[-165.81,61.7],[-166.08,61.8],[-165.61,61.87],[-165.71,62.1],[-165.19,62.47],[-164.76,62.5],[-164.84,62.58],[-164.59,62.71],[-164.79,62.62],[-164.8,62.92],[-164.38,63.03],[-164.52,63.13],[-164.41,63.22],[-163.94,63.25],[-163.62,63.13],[-163.74,63.02],[-163.29,63.05],[-162.62,63.27],[-162.28,63.53],[-161.51,63.47],[-160.93,63.66],[-160.78,63.82],[-160.99,64.25],[-161.49,64.43],[-160.93,64.58],[-160.89,64.8],[-161.13,64.93],[-161.76,64.82],[-162.71,64.38],[-163.2,64.65],[-163.3,64.61],[-163.05,64.52],[-163.14,64.42],[-163.71,64.59],[-164.98,64.45],[-166.14,64.58],[-166.48,64.73],[-166.41,64.93],[-166.93,65.16],[-166.16,65.29],[-167.4,65.42],[-168.09,65.66],[-166.4,66.14],[-165.63,66.13],[-165.81,66.29],[-164.46,66.59],[-163.64,66.57],[-163.89,66.58],[-163.77,66.53],[-164.03,66.22],[-163.7,66.08],[-161.94,66.04],[-161.46,66.28],[-161.04,66.19],[-161.12,66.34],[-161.92,66.41],[-161.89,66.49],[-162.61,66.89],[-162.36,66.95],[-162.02,66.78],[-162.05,66.67],[-161.91,66.56],[-161.59,66.46],[-160.23,66.42],[-160.36,66.61],[-160.87,66.67],[-161.4,66.55],[-161.86,66.7],[-161.88,66.8],[-161.62,66.98],[-161.72,67.02],[-163.53,67.1],[-164.12,67.61],[-166.79,68.36],[-166.38,68.43],[-166.21,68.89],[-163.87,69.04],[-163.16,69.39],[-162.95,69.76],[-161.88,70.33],[-161.76,70.26],[-162.08,70.16],[-161.0,70.31],[-160.12,70.59],[-159.96,70.57],[-160.1,70.33],[-159.86,70.28],[-159.81,70.5],[-159.39,70.52],[-160.08,70.64],[-159.68,70.79],[-157.91,70.86],[-156.47,71.41],[-156.57,71.34],[-155.58,71.12],[-156.15,70.93],[-155.97,70.84],[-154.94,71.08],[-154.67,70.99],[-154.79,70.89],[-154.19,70.8],[-153.23,70.93],[-152.3,70.85],[-152.47,70.65],[-151.77,70.56],[-151.94,70.45],[-149.27,70.5],[-147.7,70.22],[-145.82,70.16],[-144.62,69.98],[-143.22,70.12],[-141.41,69.65],[-141.0,69.65],[-141.0,60.3],[-139.97,60.18],[-139.68,60.33],[-139.08,60.34],[-139.19,60.08],[-137.59,59.23],[-137.44,58.9],[-136.58,59.15],[-136.46,59.46],[-136.28,59.48],[-136.32,59.6],[-135.47,59.79],[-135.05,59.58],[-134.95,59.29],[-133.4,58.41],[-132.23,57.2],[-132.34,57.08],[-132.03,57.03],[-132.11,56.86],[-131.87,56.79],[-131.82,56.59],[-130.1,56.11],[-130.02,55.89]],[[-152.9,57.82],[-152.43,57.83],[-152.48,57.7],[-152.21,57.58],[-152.41,57.46],[-152.94,57.5],[-152.68,57.34],[-153.73,57.05],[-153.64,56.96],[-153.97,56.77],[-154.07,56.82],[-153.79,56.99],[-154.25,57.14],[-154.38,57.1],[-154.18,57.01],[-154.34,56.92],[-154.71,57.34],[-154.54,57.56],[-154.12,57.65],[-153.69,57.3],[-153.84,57.64],[-153.69,57.66],[-153.91,57.79],[-153.84,57.86],[-153.49,57.73],[-153.22,57.8],[-153.16,57.97],[-152.85,57.9],[-152.9,57.82]],[[-133.57,56.34],[-133.2,56.32],[-133.1,56.09],[-132.6,55.89],[-132.17,55.48],[-132.51,55.59],[-132.63,55.47],[-132.42,55.48],[-132.16,55.32],[-132.21,55.22],[-131.98,55.21],[-132.02,54.73],[-132.55,54.95],[-132.62,55.14],[-132.78,55.05],[-133.12,55.33],[-132.96,55.39],[-133.03,55.59],[-133.68,55.79],[-133.24,55.92],[-133.37,56.04],[-133.74,55.96],[-133.53,56.15],[-133.57,56.34]],[[-155.58,19.01],[-155.88,19.07],[-156.05,19.75],[-155.82,20.02],[-155.83,20.28],[-155.2,19.99],[-154.8,19.52],[-155.58,19.01]],[[-171.46,63.64],[-170.43,63.7],[-169.56,63.37],[-168.72,63.31],[-168.85,63.17],[-169.37,63.17],[-169.68,62.96],[-169.82,63.12],[-170.53,63.38],[-170.95,63.45],[-171.52,63.33],[-171.79,63.43],[-171.75,63.7],[-171.46,63.64]],[[-135.73,58.24],[-135.59,58.15],[-135.69,58.04],[-135.61,57.99],[-135.35,58.12],[-134.96,58.02],[-134.97,57.82],[-135.34,57.77],[-134.98,57.72],[-134.93,57.48],[-135.56,57.67],[-135.69,57.42],[-135.91,57.45],[-136.57,57.97],[-136.32,58.22],[-136.14,58.1],[-135.73,58.24]],[[-166.14,60.38],[-165.73,60.31],[-165.59,59.91],[-166.15,59.76],[-167.14,60.01],[-167.44,60.21],[-166.14,60.38]],[[-134.68,58.16],[-134.24,58.14],[-133.82,57.63],[-134.31,58.04],[-133.94,57.58],[-133.91,57.37],[-134.43,57.06],[-134.61,57.14],[-134.49,57.48],[-134.66,57.64],[-134.92,58.35],[-134.68,58.16]],[[-163.48,54.98],[-163.08,54.67],[-164.07,54.62],[-164.59,54.4],[-164.82,54.42],[-164.91,54.54],[-164.48,54.91],[-163.81,55.05],[-163.48,54.98]],[[-134.97,57.35],[-134.63,56.76],[-134.68,56.22],[-134.98,56.52],[-134.87,56.67],[-135.33,56.82],[-135.2,57.03],[-135.45,57.25],[-135.81,57.01],[-135.82,57.28],[-135.45,57.53],[-134.97,57.35]],[[-130.98,55.49],[-131.19,55.21],[-131.42,55.28],[-131.45,55.41],[-131.76,55.17],[-131.84,55.36],[-131.65,55.59],[-131.63,55.83],[-131.27,55.96],[-131.0,55.73],[-130.98,55.49]],[[-166.62,53.9],[-166.23,53.93],[-166.55,53.7],[-166.31,53.7],[-166.77,53.48],[-167.63,53.26],[-167.81,53.32],[-167.14,53.53],[-167.01,53.7],[-166.74,53.71],[-167.07,53.78],[-167.04,53.94],[-166.67,54.01],[-166.62,53.9]],[[-72.51,40.99],[-72.58,40.92],[-71.9,41.06],[-73.19,40.65],[-74.03,40.64],[-73.57,40.92],[-72.63,40.99],[-72.27,41.15],[-72.51,40.99]]],"S. Geo. and the Is.":[[[-37.1,-54.07],[-36.7,-54.11],[-36.65,-54.26],[-36.33,-54.25],[-36.07,-54.55],[-35.89,-54.56],[-35.91,-54.71],[-35.8,-54.76],[-36.08,-54.87],[-36.89,-54.34],[-38.02,-54.01],[-37.1,-54.07]]],"Falkland Is.":[[[-58.85,-51.27],[-58.43,-51.32],[-58.51,-51.48],[-58.27,-51.57],[-58.26,-51.42],[-57.98,-51.39],[-57.81,-51.52],[-57.96,-51.58],[-57.79,-51.64],[-58.68,-51.94],[-58.65,-52.1],[-59.2,-52.02],[-59.07,-52.17],[-59.34,-52.2],[-59.4,-52.31],[-59.53,-52.24],[-59.65,-52.14],[-59.57,-51.92],[-59.06,-51.69],[-59.1,-51.49],[-58.85,-51.27]],[[-60.29,-51.46],[-59.27,-51.43],[-59.92,-51.97],[-60.24,-51.99],[-60.39,-52.15],[-60.69,-52.19],[-60.96,-52.06],[-60.24,-51.77],[-60.58,-51.71],[-60.24,-51.64],[-60.57,-51.36],[-60.29,-51.46]]],"United Kingdom":[[[-2.67,51.62],[-3.29,51.39],[-3.56,51.41],[-3.89,51.59],[-4.24,51.57],[-4.09,51.66],[-4.39,51.74],[-4.9,51.63],[-5.26,51.88],[-4.15,52.33],[-3.98,52.54],[-4.1,52.92],[-4.68,52.81],[-4.27,53.14],[-3.43,53.34],[-3.1,53.26],[-3.17,53.39],[-3.07,53.43],[-2.75,53.31],[-3.07,53.51],[-2.87,54.18],[-3.17,54.13],[-3.59,54.56],[-3.47,54.77],[-3.04,54.95],[-3.55,54.95],[-3.96,54.78],[-4.82,54.85],[-4.91,54.69],[-5.14,54.86],[-5.17,54.99],[-5.06,54.99],[-4.68,55.5],[-4.89,55.7],[-4.83,55.93],[-4.58,55.94],[-4.84,56.05],[-4.8,56.16],[-5.23,55.89],[-5.22,56.07],[-5.0,56.23],[-5.38,56.02],[-5.56,55.39],[-5.77,55.36],[-5.51,55.8],[-5.62,55.81],[-5.54,56.25],[-5.19,56.76],[-5.65,56.53],[-6.13,56.72],[-5.73,56.85],[-5.86,56.9],[-5.56,57.23],[-5.82,57.44],[-5.58,57.55],[-5.74,57.67],[-5.61,57.88],[-5.16,57.88],[-5.41,58.07],[-5.34,58.24],[-5.01,58.26],[-5.09,58.38],[-4.98,58.58],[-4.43,58.51],[-3.05,58.63],[-3.21,58.32],[-3.99,57.96],[-4.03,57.85],[-3.86,57.82],[-4.13,57.58],[-3.3,57.71],[-1.87,57.61],[-1.78,57.47],[-2.5,56.64],[-3.31,56.36],[-2.89,56.4],[-2.67,56.25],[-3.36,56.03],[-3.79,56.09],[-2.15,55.9],[-1.65,55.57],[-1.23,54.7],[-0.08,54.12],[-0.21,54.02],[0.12,53.61],[-0.66,53.72],[-0.29,53.69],[0.27,53.34],[0.35,53.16],[0.05,52.91],[0.28,52.81],[0.56,52.97],[1.27,52.92],[1.66,52.75],[1.74,52.58],[1.59,52.12],[1.23,51.97],[1.28,51.84],[0.75,51.73],[0.9,51.69],[0.89,51.57],[0.42,51.47],[1.42,51.36],[1.4,51.18],[0.96,50.93],[0.2,50.76],[-1.42,50.9],[-1.33,50.82],[-2.03,50.72],[-2.04,50.6],[-3.0,50.72],[-3.4,50.63],[-3.68,50.24],[-4.2,50.39],[-4.73,50.29],[-5.12,50.04],[-5.65,50.08],[-4.89,50.53],[-4.19,51.19],[-3.14,51.21],[-2.43,51.74],[-2.67,51.62]],[[-6.22,54.09],[-6.65,54.06],[-6.67,54.18],[-7.05,54.41],[-7.32,54.13],[-7.61,54.14],[-8.15,54.45],[-7.75,54.59],[-7.91,54.7],[-7.55,54.77],[-7.22,55.09],[-6.13,55.22],[-5.72,54.82],[-5.88,54.64],[-5.58,54.66],[-5.47,54.5],[-5.67,54.55],[-5.61,54.27],[-6.02,54.05],[-6.22,54.09]],[[-6.2,58.36],[-6.55,58.09],[-6.42,58.02],[-6.96,57.75],[-7.08,57.81],[-6.86,57.92],[-7.06,58.0],[-7.03,58.22],[-6.73,58.19],[-6.78,58.3],[-6.24,58.5],[-6.2,58.36]],[[-6.14,57.51],[-6.14,57.31],[-5.67,57.23],[-5.99,57.04],[-6.04,57.2],[-6.32,57.2],[-6.76,57.44],[-6.36,57.67],[-6.14,57.51]]],"United Arab Emirates":[[[56.3,25.65],[56.39,24.98],[56.07,24.74],[56.0,24.95],[55.8,24.87],[55.76,24.24],[55.93,24.21],[55.99,24.06],[55.47,23.94],[55.53,23.82],[55.12,22.62],[52.56,22.93],[51.57,24.13],[51.6,24.34],[51.91,23.99],[52.65,24.16],[53.89,24.08],[54.4,24.28],[54.66,24.72],[55.94,25.79],[56.08,26.06],[56.17,26.05],[56.14,25.69],[56.3,25.65]]],"Ukraine":[[[38.21,47.09],[37.54,47.07],[36.79,46.71],[35.83,46.62],[35.02,46.11],[35.28,46.28],[35.23,46.44],[34.85,46.19],[34.95,45.73],[34.69,45.98],[33.81,46.21],[33.43,46.06],[33.2,46.18],[32.48,46.08],[31.83,46.28],[32.01,46.43],[31.56,46.56],[32.36,46.48],[32.58,46.62],[32.05,46.64],[31.76,47.21],[31.91,46.93],[31.87,46.65],[31.53,46.66],[31.56,46.78],[31.4,46.63],[30.8,46.55],[30.22,45.87],[29.63,45.72],[29.71,45.26],[29.4,45.42],[28.76,45.23],[28.21,45.45],[28.5,45.52],[28.49,45.67],[28.95,46.05],[28.96,46.46],[29.19,46.52],[29.21,46.38],[29.71,46.45],[29.84,46.35],[30.13,46.42],[29.93,46.54],[29.88,46.83],[29.57,46.96],[29.54,47.27],[29.13,47.49],[29.21,47.78],[29.13,47.96],[28.92,47.95],[28.77,48.12],[28.46,48.09],[27.55,48.48],[26.85,48.39],[26.31,48.2],[26.16,47.99],[24.89,47.72],[24.49,47.95],[23.14,48.09],[22.88,47.95],[22.77,48.11],[22.13,48.41],[22.14,48.57],[22.54,49.07],[22.84,49.04],[22.71,49.17],[22.71,49.61],[23.71,50.38],[24.09,50.53],[23.98,50.79],[24.1,50.87],[23.66,51.31],[23.61,51.61],[23.98,51.59],[24.36,51.87],[25.93,51.91],[27.14,51.75],[27.7,51.48],[28.18,51.61],[28.73,51.43],[29.1,51.63],[29.35,51.38],[30.16,51.48],[30.54,51.26],[30.58,51.69],[30.98,52.05],[32.12,52.05],[32.43,52.31],[33.73,52.34],[34.4,51.78],[34.12,51.68],[34.21,51.26],[35.06,51.2],[35.31,51.04],[35.41,50.54],[35.59,50.37],[36.12,50.41],[36.62,50.21],[37.42,50.41],[38.05,49.92],[38.26,50.05],[38.92,49.82],[39.17,49.86],[39.78,49.57],[40.08,49.58],[40.11,49.25],[39.68,49.01],[40.01,48.82],[39.79,48.81],[39.65,48.59],[39.84,48.54],[39.85,48.3],[39.96,48.27],[39.78,47.89],[38.9,47.86],[38.37,47.61],[38.21,47.09]]],"Uganda":[[[33.9,-1.0],[30.81,-0.99],[30.36,-1.07],[29.93,-1.47],[29.82,-1.34],[29.58,-1.39],[29.72,0.1],[29.94,0.5],[29.94,0.82],[31.25,2.04],[31.18,2.27],[30.73,2.46],[30.84,3.49],[31.05,3.72],[31.55,3.68],[31.8,3.8],[32.14,3.52],[32.34,3.71],[33.0,3.88],[33.49,3.76],[33.98,4.22],[34.17,3.81],[34.44,3.65],[34.45,3.16],[34.9,2.48],[34.98,1.72],[34.8,1.25],[34.48,1.04],[33.94,0.17],[33.9,-1.0]]],"Turkmenistan":[[[55.98,41.32],[57.02,41.26],[57.12,41.35],[56.97,41.86],[57.29,42.12],[57.81,42.19],[58.03,42.49],[58.47,42.3],[58.15,42.63],[58.59,42.78],[59.36,42.32],[59.99,42.21],[59.94,41.97],[60.2,41.8],[60.08,41.76],[60.09,41.4],[60.45,41.22],[61.5,41.28],[61.9,41.09],[62.48,39.98],[63.76,39.16],[65.61,38.24],[65.97,38.24],[66.57,38.01],[66.52,37.35],[65.76,37.57],[65.55,37.25],[64.82,37.13],[64.51,36.34],[64.01,36.01],[63.13,35.85],[63.06,35.45],[62.31,35.17],[61.98,35.44],[61.62,35.43],[61.26,35.62],[61.12,36.64],[60.34,36.64],[59.95,37.04],[59.46,37.25],[59.3,37.51],[58.82,37.68],[58.26,37.66],[57.35,37.97],[57.19,38.22],[56.44,38.25],[56.27,38.08],[55.38,38.05],[54.9,37.78],[54.7,37.47],[53.92,37.34],[53.87,38.95],[53.7,39.21],[53.34,39.34],[53.16,39.27],[53.24,39.61],[53.6,39.55],[53.47,39.67],[53.49,39.91],[52.99,39.99],[53.03,39.77],[52.8,40.05],[52.74,40.4],[52.94,41.04],[53.15,40.82],[53.61,40.82],[53.87,40.65],[54.38,40.69],[54.32,40.83],[54.69,40.87],[54.7,41.07],[54.1,41.52],[53.8,42.12],[53.16,42.09],[52.97,41.98],[52.81,41.71],[52.85,41.2],[52.49,41.78],[53.06,42.15],[54.12,42.33],[54.86,41.97],[55.44,41.3],[55.98,41.32]]],"Turkey":[[[41.51,41.52],[42.47,41.44],[42.79,41.56],[43.63,40.93],[43.72,40.72],[43.57,40.48],[43.67,40.13],[44.4,40.0],[44.82,39.65],[44.59,39.77],[44.39,39.42],[44.02,39.38],[44.27,38.84],[44.3,38.39],[44.45,38.34],[44.21,37.91],[44.59,37.71],[44.57,37.44],[44.79,37.29],[44.76,37.14],[44.61,37.18],[44.28,36.98],[44.11,37.3],[43.68,37.23],[42.77,37.37],[42.46,37.13],[42.2,37.3],[41.51,37.09],[40.71,37.1],[39.36,36.68],[38.77,36.69],[38.19,36.9],[37.43,36.64],[36.66,36.8],[36.54,36.46],[36.64,36.23],[36.38,36.17],[36.13,35.83],[35.89,35.92],[35.81,36.31],[36.19,36.66],[36.05,36.91],[35.39,36.57],[34.7,36.82],[33.69,36.18],[32.79,36.04],[31.35,36.8],[30.65,36.87],[30.45,36.27],[29.69,36.16],[29.22,36.32],[28.97,36.72],[28.31,36.81],[28.02,36.63],[28.09,36.75],[27.46,36.71],[28.01,36.83],[28.24,37.03],[27.26,36.98],[27.3,37.13],[27.53,37.16],[27.07,37.66],[27.23,37.73],[27.23,37.98],[26.29,38.28],[26.42,38.37],[26.44,38.64],[26.67,38.34],[27.14,38.45],[26.91,38.48],[26.76,38.71],[27.01,38.89],[26.81,38.96],[26.85,39.12],[26.68,39.29],[26.9,39.55],[26.11,39.47],[26.18,39.99],[26.74,40.4],[27.28,40.46],[27.73,40.33],[27.85,40.38],[27.73,40.48],[27.87,40.51],[27.99,40.49],[27.96,40.37],[29.01,40.39],[28.79,40.53],[29.85,40.74],[29.12,40.94],[29.15,41.22],[31.25,41.11],[32.3,41.73],[33.28,42.0],[34.75,41.96],[35.0,42.06],[35.16,42.03],[35.12,41.89],[35.3,41.73],[36.05,41.68],[36.41,41.27],[36.78,41.36],[37.07,41.18],[38.38,40.93],[39.43,41.11],[40.26,40.96],[41.51,41.52]],[[28.01,41.97],[28.2,41.56],[29.06,41.23],[28.96,41.01],[28.17,41.08],[27.5,40.97],[27.26,40.69],[26.77,40.5],[26.2,40.07],[26.25,40.31],[26.79,40.63],[26.11,40.61],[26.04,40.73],[26.33,40.95],[26.33,41.24],[26.62,41.4],[26.58,41.6],[26.33,41.77],[26.62,41.97],[27.24,42.09],[27.53,41.92],[28.01,41.97]]],"Tunisia":[[[11.5,33.18],[11.5,32.41],[10.28,31.68],[10.11,31.46],[10.22,30.78],[9.89,30.39],[9.52,30.23],[9.05,32.07],[8.33,32.54],[8.11,33.06],[7.73,33.27],[7.5,33.83],[7.52,34.08],[8.25,34.73],[8.39,35.2],[8.25,35.8],[8.35,36.37],[8.21,36.52],[8.6,36.83],[8.58,36.94],[9.69,37.34],[9.84,37.31],[9.83,37.14],[9.88,37.25],[10.2,37.21],[10.29,36.78],[10.41,36.73],[11.05,37.07],[11.13,36.87],[10.48,36.18],[10.59,35.89],[11.0,35.63],[11.12,35.24],[10.69,34.68],[10.04,34.14],[10.31,33.73],[10.71,33.69],[10.72,33.51],[10.96,33.63],[11.26,33.31],[11.2,33.25],[11.5,33.18]]],"Trinidad and Tobago":[[[-61.01,10.13],[-61.9,10.07],[-61.5,10.27],[-61.48,10.6],[-61.65,10.72],[-60.92,10.84],[-61.03,10.67],[-61.01,10.13]]],"Togo":[[[0.9,10.99],[0.77,10.39],[1.33,10.0],[1.38,9.36],[1.6,9.05],[1.63,7.0],[1.53,6.99],[1.78,6.3],[1.19,6.09],[0.74,6.45],[0.52,6.85],[0.64,7.35],[0.5,7.55],[0.69,8.3],[0.37,8.76],[0.49,8.85],[0.53,9.4],[0.23,9.46],[0.34,9.6],[0.26,9.64],[0.38,10.29],[-0.09,10.72],[0.01,11.02],[-0.07,11.12],[0.49,10.95],[0.9,10.99]]],"Timor-Leste":[[[125.07,-9.51],[124.96,-9.21],[125.15,-9.04],[124.94,-9.05],[124.92,-8.94],[125.18,-8.65],[126.97,-8.32],[127.3,-8.42],[126.91,-8.72],[125.41,-9.28],[125.07,-9.51]]],"Thailand":[[[100.12,20.32],[100.32,20.39],[100.52,20.18],[100.4,19.76],[100.51,19.55],[101.21,19.55],[101.29,18.98],[101.05,18.44],[101.14,18.14],[100.96,17.54],[101.17,17.5],[102.1,18.21],[102.66,17.82],[103.05,18.03],[103.29,18.41],[103.95,18.32],[104.74,17.46],[104.82,16.47],[105.64,15.66],[105.49,15.26],[105.48,14.53],[105.07,14.23],[104.78,14.43],[103.2,14.33],[102.91,14.14],[102.55,13.58],[102.32,13.54],[102.5,12.67],[102.75,12.43],[102.74,12.09],[102.93,11.71],[102.6,12.2],[102.54,12.11],[101.84,12.64],[100.9,12.65],[100.96,13.43],[100.6,13.57],[100.02,13.35],[99.99,12.17],[99.16,10.32],[99.16,9.73],[99.25,9.27],[99.83,9.29],[99.99,8.59],[100.28,8.27],[100.54,7.23],[100.26,7.77],[100.16,7.6],[100.42,7.19],[101.02,6.86],[101.5,6.86],[102.1,6.24],[101.87,5.82],[101.68,5.78],[101.56,5.91],[101.11,5.64],[100.98,5.77],[101.05,6.24],[100.87,6.25],[100.76,6.46],[100.35,6.55],[100.26,6.68],[100.12,6.44],[99.7,6.88],[99.6,7.36],[99.36,7.37],[98.7,8.26],[98.58,8.34],[98.36,8.19],[98.24,8.42],[98.76,10.66],[99.61,11.78],[99.41,12.55],[99.13,13.03],[99.14,13.72],[98.2,14.98],[98.19,15.2],[98.56,15.37],[98.59,16.05],[98.89,16.35],[98.66,16.33],[98.44,16.98],[97.71,17.8],[97.63,18.29],[97.38,18.52],[97.75,18.59],[97.82,19.46],[98.02,19.75],[98.92,19.77],[99.07,20.1],[99.49,20.15],[99.46,20.36],[99.89,20.42],[100.12,20.32]]],"Tanzania":[[[32.92,-9.41],[31.94,-9.05],[31.35,-8.61],[30.97,-8.55],[30.21,-7.04],[29.71,-6.62],[29.54,-6.31],[29.48,-6.03],[29.61,-5.72],[29.32,-4.9],[29.4,-4.45],[29.72,-4.46],[29.95,-4.31],[30.81,-3.2],[30.78,-2.99],[30.43,-2.82],[30.53,-2.43],[30.83,-2.34],[30.88,-2.14],[30.81,-1.56],[30.51,-1.21],[30.52,-1.06],[33.98,-1.0],[37.64,-3.05],[37.61,-3.5],[39.22,-4.69],[38.8,-6.07],[38.87,-6.33],[39.54,-7.02],[39.29,-7.52],[39.29,-7.79],[39.43,-7.81],[39.44,-8.01],[39.3,-8.44],[39.64,-9.19],[39.72,-10.0],[40.46,-10.46],[39.32,-11.12],[38.49,-11.41],[37.92,-11.3],[37.73,-11.58],[37.37,-11.71],[36.98,-11.57],[36.3,-11.71],[35.91,-11.46],[35.56,-11.6],[34.96,-11.58],[34.61,-11.08],[34.57,-10.24],[34.32,-9.73],[34.0,-9.5],[33.89,-9.67],[32.92,-9.41]]],"Tajikistan":[[[67.76,37.17],[67.86,37.57],[68.35,38.21],[68.09,38.47],[68.13,38.93],[67.69,38.99],[67.65,39.13],[67.36,39.22],[67.43,39.47],[67.72,39.62],[68.46,39.54],[68.64,39.84],[68.87,39.91],[68.81,40.05],[68.97,40.09],[68.63,40.17],[69.27,40.2],[69.21,40.57],[69.36,40.77],[69.71,40.66],[70.4,41.03],[70.75,40.72],[70.37,40.38],[70.6,40.21],[70.95,40.19],[70.52,39.95],[69.97,40.2],[69.53,40.1],[69.48,39.92],[69.28,39.92],[69.3,39.52],[70.5,39.59],[70.8,39.39],[71.47,39.6],[71.78,39.28],[72.04,39.35],[72.23,39.21],[72.56,39.38],[73.63,39.45],[73.8,38.61],[73.97,38.53],[74.28,38.66],[74.81,38.46],[74.89,37.6],[75.12,37.39],[74.89,37.23],[74.35,37.42],[73.75,37.23],[73.63,37.26],[73.72,37.42],[73.38,37.46],[72.9,37.27],[72.66,37.03],[71.66,36.7],[71.43,37.13],[71.58,37.91],[71.28,37.92],[71.26,38.31],[70.88,38.46],[70.21,37.92],[70.19,37.58],[69.49,37.55],[69.3,37.12],[68.91,37.33],[68.07,36.95],[67.76,37.17]]],"Taiwan":[[[121.01,22.62],[120.84,21.92],[120.23,22.72],[120.07,23.15],[120.13,23.65],[121.04,25.03],[121.59,25.28],[121.93,24.97],[121.4,23.17],[121.01,22.62]]],"Syria":[[[35.89,35.92],[36.15,35.83],[36.38,36.17],[36.64,36.23],[36.54,36.46],[36.66,36.8],[37.43,36.64],[38.19,36.9],[38.77,36.69],[39.36,36.68],[40.71,37.1],[41.51,37.09],[42.2,37.3],[42.36,37.11],[41.79,36.6],[41.29,36.38],[41.36,35.64],[41.19,34.77],[40.99,34.43],[36.82,32.32],[36.37,32.39],[35.79,32.73],[35.91,32.95],[35.84,33.33],[36.03,33.59],[35.97,33.73],[36.37,33.84],[36.3,33.96],[36.59,34.22],[36.51,34.43],[36.33,34.5],[36.38,34.66],[35.98,34.63],[35.9,35.42],[35.76,35.57],[35.89,35.92]]],"Switzerland":[[[9.52,47.52],[9.62,47.47],[9.49,47.06],[10.13,46.85],[10.35,46.99],[10.46,46.9],[10.43,46.55],[10.09,46.6],[10.13,46.24],[9.94,46.36],[9.53,46.31],[9.3,46.5],[8.96,45.83],[8.82,46.08],[8.46,46.25],[8.42,46.45],[7.79,45.92],[7.05,45.9],[6.77,46.16],[6.76,46.42],[6.43,46.43],[6.2,46.19],[5.97,46.15],[6.16,46.61],[6.95,47.27],[6.9,47.39],[7.05,47.49],[8.43,47.59],[8.56,47.62],[8.4,47.69],[8.57,47.78],[9.52,47.52]]],"Sweden":[[[11.39,59.04],[11.47,58.91],[11.64,58.93],[11.8,59.29],[11.68,59.59],[11.93,59.86],[12.49,60.11],[12.59,60.45],[12.3,61.0],[12.71,61.06],[12.88,61.35],[12.16,61.72],[12.3,62.28],[12.12,62.59],[12.11,62.92],[12.22,63.0],[12.0,63.29],[12.21,63.49],[12.17,63.6],[12.79,64.0],[13.96,64.01],[14.14,64.17],[14.08,64.46],[13.65,64.58],[14.48,65.3],[14.64,65.79],[14.54,66.13],[15.49,66.31],[15.42,66.49],[16.4,67.06],[16.44,67.15],[16.13,67.43],[16.19,67.51],[16.46,67.55],[16.79,67.9],[17.33,68.1],[17.92,67.97],[18.18,68.2],[18.16,68.53],[19.97,68.36],[20.24,68.48],[19.97,68.54],[20.35,68.85],[20.12,69.02],[20.9,68.98],[22.0,68.52],[22.85,68.37],[23.64,67.95],[23.5,67.87],[23.46,67.46],[23.73,67.42],[23.64,67.13],[23.99,66.81],[23.7,66.48],[23.7,66.25],[24.15,65.81],[23.1,65.74],[22.4,65.86],[22.25,65.6],[21.57,65.41],[21.61,65.26],[21.41,65.32],[21.57,65.13],[21.14,64.81],[21.52,64.46],[21.02,64.18],[20.76,63.87],[18.61,63.18],[18.31,63.0],[18.5,62.99],[18.46,62.9],[18.17,62.79],[17.88,62.87],[17.9,62.66],[18.04,62.6],[17.38,62.46],[17.63,62.23],[17.38,61.87],[17.47,61.68],[17.2,61.72],[17.13,61.57],[17.25,60.7],[17.66,60.54],[17.96,60.59],[18.56,60.25],[18.53,60.15],[18.79,60.08],[18.99,59.83],[17.97,59.36],[18.62,59.33],[18.29,59.11],[16.98,58.65],[16.21,58.64],[16.93,58.49],[16.65,58.43],[16.77,58.21],[16.55,57.81],[16.65,57.5],[16.48,57.26],[16.53,57.07],[15.92,56.17],[14.72,56.13],[14.75,56.03],[14.56,56.05],[14.21,55.83],[14.34,55.53],[14.18,55.4],[12.89,55.41],[12.97,55.75],[12.47,56.29],[12.8,56.26],[12.66,56.44],[12.86,56.45],[12.88,56.62],[12.42,56.91],[11.88,57.68],[11.73,57.72],[11.7,57.97],[11.45,58.12],[11.43,58.34],[11.25,58.37],[11.15,58.99],[11.39,59.04]],[[19.07,57.84],[18.82,57.71],[18.79,57.48],[18.91,57.4],[18.15,56.92],[18.29,57.08],[18.11,57.27],[18.14,57.56],[18.54,57.83],[18.9,57.92],[19.07,57.84]]],"eSwatini":[[[31.95,-25.96],[32.06,-26.02],[32.11,-26.84],[32.0,-26.82],[31.96,-27.31],[31.47,-27.3],[31.06,-27.11],[30.79,-26.61],[31.09,-25.98],[31.38,-25.74],[31.95,-25.96]]],"Suriname":[[[-54.16,5.36],[-54.45,5.01],[-54.45,4.48],[-54.35,4.05],[-53.99,3.59],[-54.4,2.46],[-54.66,2.33],[-54.98,2.6],[-55.73,2.41],[-55.96,2.52],[-56.14,2.26],[-55.91,2.04],[-55.96,1.86],[-56.71,2.04],[-57.21,2.88],[-57.3,3.38],[-57.65,3.39],[-58.03,4.0],[-57.88,4.88],[-57.31,5.05],[-57.21,5.21],[-57.32,5.34],[-56.97,5.99],[-56.23,5.89],[-55.9,5.7],[-55.83,5.96],[-54.36,5.91],[-54.05,5.81],[-54.16,5.36]]],"S. Sudan":[[[33.98,4.22],[33.49,3.76],[33.0,3.88],[32.34,3.71],[32.14,3.52],[31.8,3.8],[31.55,3.68],[31.15,3.79],[30.84,3.49],[29.55,4.64],[29.22,4.39],[28.73,4.51],[28.43,4.33],[28.08,4.42],[27.44,5.04],[27.14,5.72],[26.51,6.07],[26.31,6.46],[26.36,6.64],[25.28,7.43],[25.2,7.81],[24.85,8.14],[24.21,8.37],[24.15,8.67],[24.53,8.89],[25.02,10.24],[25.86,10.41],[25.92,10.17],[26.55,9.53],[27.88,9.6],[28.05,9.33],[28.85,9.33],[28.98,9.59],[29.47,9.77],[29.6,10.06],[30.0,10.28],[30.76,9.73],[31.15,9.77],[32.42,11.09],[32.34,11.69],[32.07,12.01],[32.74,12.01],[32.72,12.22],[33.2,12.22],[33.07,11.61],[33.13,10.75],[33.91,10.18],[33.87,9.51],[34.08,9.46],[34.1,8.68],[33.95,8.44],[33.28,8.44],[33.0,7.9],[33.9,7.51],[34.71,6.66],[34.98,5.86],[35.27,5.49],[33.98,4.22]]],"Sudan":[[[34.08,9.46],[33.87,9.51],[33.91,10.18],[33.13,10.75],[33.07,11.61],[33.2,12.22],[32.72,12.22],[32.74,12.01],[32.07,12.01],[32.34,11.69],[32.42,11.09],[31.15,9.77],[30.76,9.73],[30.0,10.28],[29.6,10.06],[29.47,9.77],[28.98,9.59],[28.85,9.33],[28.05,9.33],[27.88,9.6],[27.07,9.61],[26.66,9.48],[25.92,10.17],[25.8,10.42],[25.07,10.29],[24.53,8.89],[24.15,8.67],[23.54,8.82],[23.47,9.11],[23.62,9.34],[23.65,9.82],[22.86,10.92],[22.92,11.35],[22.59,11.58],[22.35,12.66],[21.93,12.68],[21.83,12.79],[22.23,13.33],[22.11,13.8],[22.54,14.16],[22.38,14.55],[22.67,14.72],[22.93,15.16],[22.93,15.53],[23.11,15.7],[23.97,15.72],[23.98,20.0],[24.98,20.0],[24.98,22.0],[31.21,21.99],[31.4,22.2],[31.43,22.0],[36.87,22.0],[36.93,21.59],[37.26,21.11],[37.14,20.98],[37.19,20.12],[37.47,18.82],[38.61,18.0],[38.22,17.56],[37.55,17.32],[37.41,17.06],[37.01,17.06],[36.91,16.3],[36.43,15.13],[36.52,14.26],[36.12,12.76],[35.67,12.62],[35.11,11.82],[34.93,10.86],[34.77,10.75],[34.57,10.88],[34.34,10.66],[34.08,9.46]]],"Sri Lanka":[[[79.98,9.81],[80.25,9.8],[80.71,9.37],[81.37,8.43],[81.87,7.29],[81.86,6.9],[81.64,6.43],[80.73,5.98],[80.27,6.01],[80.1,6.15],[79.86,6.83],[79.71,8.18],[79.75,8.29],[79.78,8.02],[79.93,8.9],[80.1,9.21],[80.08,9.58],[80.43,9.48],[80.05,9.65],[79.98,9.81]]],"Spain":[[[-1.79,43.41],[-1.41,43.24],[-1.43,43.04],[-1.3,43.1],[-0.04,42.69],[0.63,42.69],[0.7,42.85],[1.35,42.69],[1.45,42.44],[1.7,42.5],[1.99,42.36],[2.65,42.34],[3.21,42.43],[3.31,42.29],[3.17,42.26],[3.25,41.94],[2.08,41.29],[1.03,41.06],[0.71,40.82],[0.89,40.72],[0.6,40.61],[-0.33,39.52],[-0.2,39.06],[0.2,38.76],[-0.52,38.32],[-0.82,37.77],[-0.72,37.63],[-1.33,37.56],[-1.64,37.39],[-2.11,36.78],[-4.37,36.72],[-4.67,36.51],[-5.17,36.42],[-5.36,36.14],[-5.63,36.03],[-6.04,36.19],[-6.38,36.64],[-6.22,36.91],[-6.4,36.83],[-6.86,37.28],[-7.41,37.18],[-7.44,37.73],[-6.96,38.19],[-7.1,38.18],[-7.34,38.46],[-7.0,39.06],[-7.54,39.66],[-6.98,39.8],[-6.9,40.02],[-7.03,40.17],[-6.81,40.34],[-6.93,41.01],[-6.21,41.53],[-6.54,41.67],[-6.62,41.94],[-7.15,41.98],[-7.4,41.83],[-8.15,41.81],[-8.14,42.04],[-8.27,42.14],[-8.85,41.93],[-8.73,42.41],[-8.81,42.64],[-9.03,42.59],[-8.93,42.8],[-9.24,42.98],[-9.18,43.17],[-8.25,43.44],[-8.26,43.58],[-7.7,43.77],[-7.06,43.55],[-5.85,43.65],[-4.52,43.42],[-3.61,43.52],[-2.34,43.33],[-1.79,43.41]],[[3.14,39.79],[3.46,39.7],[3.07,39.3],[2.7,39.54],[2.5,39.48],[2.37,39.57],[3.16,39.97],[3.14,39.79]]],"South Korea":[[[126.63,37.78],[127.09,38.28],[128.04,38.31],[128.38,38.62],[129.42,37.06],[129.41,36.05],[129.57,36.05],[129.56,35.95],[129.21,35.18],[128.51,35.1],[128.44,34.87],[128.04,35.02],[127.71,34.96],[127.72,34.72],[127.4,34.82],[127.48,34.63],[127.32,34.46],[127.17,34.55],[127.25,34.76],[126.9,34.44],[126.76,34.51],[126.53,34.31],[126.27,34.67],[126.53,34.7],[126.59,34.82],[126.42,34.82],[126.29,35.15],[126.62,35.57],[126.49,35.65],[126.75,35.87],[126.54,36.17],[126.49,36.69],[126.16,36.77],[126.49,37.01],[126.87,36.82],[126.98,36.94],[126.74,37.19],[126.63,37.78]]],"South Africa":[[[29.36,-22.19],[29.66,-22.15],[31.29,-22.4],[31.55,-23.48],[31.95,-24.33],[31.95,-25.96],[31.42,-25.75],[31.21,-25.84],[30.8,-26.41],[30.81,-26.79],[31.28,-27.24],[31.74,-27.31],[31.96,-27.31],[32.0,-26.82],[32.88,-26.85],[32.38,-28.5],[31.34,-29.38],[30.29,-30.97],[27.86,-33.05],[26.61,-33.71],[25.81,-33.74],[25.57,-34.04],[25.0,-33.97],[24.83,-34.17],[24.6,-34.17],[23.7,-33.99],[23.27,-34.08],[22.55,-34.01],[21.79,-34.37],[20.53,-34.46],[20.02,-34.79],[19.3,-34.62],[19.33,-34.49],[19.1,-34.35],[18.83,-34.36],[18.75,-34.08],[18.5,-34.11],[18.46,-34.35],[18.33,-34.07],[18.43,-33.72],[17.85,-32.83],[17.97,-32.71],[18.12,-32.75],[18.33,-32.5],[18.21,-31.74],[17.35,-30.45],[16.95,-29.4],[16.45,-28.62],[16.76,-28.45],[16.88,-28.13],[17.06,-28.03],[17.36,-28.27],[17.45,-28.7],[18.1,-28.87],[19.25,-28.9],[19.54,-28.57],[19.98,-28.45],[19.98,-24.78],[20.43,-25.15],[20.79,-25.92],[20.81,-26.16],[20.63,-26.44],[20.68,-26.82],[21.7,-26.84],[22.6,-26.13],[22.88,-25.46],[23.06,-25.31],[23.39,-25.29],[23.9,-25.6],[24.75,-25.82],[25.44,-25.71],[25.91,-24.75],[26.4,-24.61],[26.84,-24.24],[27.08,-23.58],[27.76,-23.2],[28.21,-22.69],[29.36,-22.19]]],"Somalia":[[[41.53,-1.7],[40.98,-0.87],[40.98,2.84],[42.03,4.14],[42.79,4.29],[43.13,4.64],[43.58,4.85],[44.94,4.91],[47.98,8.0],[48.94,9.45],[48.94,11.26],[50.11,11.53],[50.79,11.98],[51.26,11.83],[51.08,11.33],[51.14,10.66],[51.03,10.44],[51.19,10.55],[51.39,10.39],[50.93,10.34],[50.82,9.43],[49.85,7.96],[49.05,6.17],[47.98,4.5],[46.05,2.47],[44.33,1.39],[43.47,0.62],[41.98,-0.97],[41.53,-1.7]]],"Somaliland":[[[48.94,11.26],[48.94,9.45],[47.98,8.0],[46.98,8.0],[44.02,8.99],[43.39,9.48],[42.66,10.6],[43.25,11.5],[43.85,10.78],[44.39,10.43],[44.94,10.44],[45.82,10.84],[46.56,10.75],[47.4,11.17],[48.02,11.14],[48.57,11.32],[48.94,11.26]]],"Solomon Is.":[[[159.75,-9.27],[159.97,-9.43],[160.35,-9.42],[160.82,-9.86],[159.85,-9.79],[159.62,-9.53],[159.62,-9.31],[159.75,-9.27]],[[160.75,-8.31],[161.0,-8.61],[160.95,-8.8],[161.16,-8.96],[161.37,-9.61],[160.77,-8.96],[160.59,-8.37],[160.75,-8.31]],[[159.88,-8.53],[158.94,-8.04],[158.46,-7.54],[159.43,-8.03],[159.84,-8.33],[159.88,-8.53]],[[161.72,-10.39],[162.1,-10.45],[162.37,-10.82],[161.79,-10.72],[161.54,-10.57],[161.49,-10.36],[161.29,-10.33],[161.31,-10.2],[161.72,-10.39]],[[157.49,-7.33],[157.44,-7.43],[157.1,-7.32],[156.45,-6.64],[157.03,-6.89],[157.19,-7.16],[157.49,-7.33]]],"Slovakia":[[[22.54,49.07],[22.11,48.39],[21.72,48.35],[21.45,48.55],[20.49,48.53],[20.33,48.3],[19.9,48.13],[19.63,48.22],[18.79,48.0],[18.73,47.79],[17.63,47.81],[17.09,48.04],[16.86,48.39],[17.13,48.84],[17.76,48.89],[18.6,49.49],[19.15,49.4],[19.44,49.6],[19.77,49.37],[19.8,49.19],[20.06,49.18],[20.36,49.38],[20.95,49.32],[21.35,49.43],[22.54,49.07]]],"Slovenia":[[[16.52,46.5],[16.32,46.53],[16.23,46.37],[15.64,46.2],[15.65,45.86],[15.28,45.73],[15.34,45.47],[15.24,45.44],[14.79,45.48],[14.57,45.66],[14.37,45.48],[13.61,45.48],[13.88,45.61],[13.49,45.99],[13.63,46.18],[13.38,46.26],[13.7,46.52],[14.55,46.4],[14.89,46.61],[15.96,46.68],[16.09,46.86],[16.28,46.86],[16.52,46.5]]],"Sierra Leone":[[[-10.28,8.48],[-10.65,7.76],[-11.51,6.91],[-12.49,7.39],[-12.48,7.75],[-12.7,7.72],[-12.88,7.86],[-12.96,8.15],[-13.27,8.43],[-13.08,8.43],[-12.89,8.63],[-13.18,8.58],[-13.21,8.84],[-13.06,8.88],[-13.29,9.05],[-13.03,9.1],[-12.43,9.9],[-11.27,10.0],[-10.69,9.31],[-10.75,9.1],[-10.61,9.06],[-10.5,8.69],[-10.71,8.34],[-10.28,8.48]]],"Serbia":[[[22.7,44.24],[22.42,44.01],[22.37,43.78],[22.56,43.45],[22.98,43.19],[22.94,43.1],[22.47,42.84],[22.53,42.48],[22.42,42.33],[21.56,42.25],[21.75,42.67],[21.39,42.75],[20.8,43.26],[20.35,42.83],[19.22,43.45],[19.25,43.58],[19.5,43.64],[19.24,43.96],[19.58,44.04],[19.12,44.36],[19.35,44.88],[19.0,44.9],[19.14,45.2],[19.4,45.21],[19.01,45.4],[19.06,45.52],[18.84,45.84],[19.53,46.16],[20.21,46.13],[20.77,45.75],[20.77,45.48],[21.49,45.15],[21.35,45.01],[21.53,44.9],[21.36,44.83],[22.09,44.54],[22.5,44.71],[22.64,44.65],[22.74,44.57],[22.49,44.44],[22.7,44.24]]],"Senegal":[[[-12.28,14.81],[-12.23,14.46],[-12.02,14.21],[-12.05,13.63],[-11.83,13.32],[-11.63,13.37],[-11.39,12.94],[-11.39,12.4],[-12.29,12.33],[-13.06,12.49],[-13.14,12.64],[-15.2,12.68],[-15.58,12.49],[-16.71,12.35],[-16.76,12.53],[-16.44,12.61],[-16.6,12.72],[-16.77,12.63],[-16.76,13.06],[-16.65,13.15],[-15.83,13.16],[-15.81,13.32],[-15.29,13.4],[-15.15,13.56],[-14.25,13.24],[-13.83,13.41],[-13.98,13.54],[-14.41,13.5],[-15.11,13.81],[-15.43,13.73],[-15.51,13.59],[-16.56,13.59],[-16.77,13.9],[-16.62,14.04],[-16.79,14.0],[-17.17,14.64],[-17.53,14.75],[-17.15,14.92],[-16.84,15.29],[-16.24,16.53],[-15.77,16.49],[-14.96,16.68],[-14.3,16.58],[-13.87,16.15],[-13.51,16.14],[-13.21,15.62],[-12.28,14.81]]],"Saudi Arabia":[[[51.98,19.0],[49.04,18.58],[48.17,18.16],[47.58,17.45],[47.44,17.11],[47.14,16.95],[46.98,16.95],[46.73,17.27],[45.54,17.3],[45.15,17.43],[43.92,17.32],[43.42,17.52],[43.19,17.36],[43.17,16.69],[42.8,16.37],[42.3,17.44],[41.75,17.88],[41.23,18.68],[40.76,19.75],[40.08,20.27],[39.73,20.39],[39.27,20.97],[38.99,21.88],[39.06,22.59],[38.46,23.71],[37.92,24.18],[37.54,24.29],[37.18,24.82],[37.27,24.96],[37.15,25.29],[35.18,28.04],[34.62,28.06],[34.95,29.35],[36.07,29.2],[36.75,29.87],[37.47,30.0],[37.63,30.31],[37.98,30.5],[36.96,31.49],[39.14,32.13],[40.37,31.94],[42.08,31.08],[44.69,29.2],[47.43,28.99],[47.67,28.53],[48.44,28.54],[48.8,27.72],[49.24,27.49],[49.41,27.18],[50.15,26.66],[50.01,26.68],[50.22,26.31],[50.15,26.1],[50.03,26.11],[50.56,25.09],[50.93,24.59],[51.41,24.57],[51.31,24.34],[51.57,24.29],[51.59,24.08],[52.56,22.93],[55.1,22.62],[55.19,22.7],[55.64,22.0],[54.98,20.0],[51.98,19.0]]],"Rwanda":[[[29.58,-1.39],[29.82,-1.34],[29.93,-1.47],[30.51,-1.07],[30.81,-1.56],[30.83,-2.34],[29.93,-2.34],[29.87,-2.72],[29.7,-2.79],[29.39,-2.81],[29.1,-2.6],[28.92,-2.68],[28.86,-2.45],[29.13,-2.2],[29.14,-1.82],[29.58,-1.39]]],"Russia":[[[130.69,42.3],[130.42,42.73],[131.07,42.9],[131.26,43.38],[131.17,43.7],[131.26,44.07],[130.98,44.85],[131.45,44.98],[131.85,45.33],[132.94,45.03],[133.11,45.13],[133.19,45.49],[133.44,45.61],[133.51,45.88],[133.86,46.25],[133.87,46.5],[134.2,47.13],[134.17,47.3],[134.75,47.71],[134.57,48.02],[134.66,48.25],[134.29,48.37],[133.47,48.1],[133.15,48.11],[132.71,47.95],[132.48,47.71],[130.96,47.71],[130.73,48.02],[130.81,48.34],[130.55,48.6],[130.55,48.86],[130.2,48.89],[129.5,49.39],[129.07,49.37],[128.7,49.6],[128.0,49.57],[127.55,49.8],[127.59,50.21],[127.34,50.35],[127.31,50.71],[126.92,51.1],[126.34,52.36],[126.02,52.61],[126.05,52.74],[125.65,53.04],[125.07,53.2],[124.81,53.13],[123.61,53.55],[120.98,53.28],[120.1,52.79],[120.07,52.63],[120.66,52.57],[120.68,51.97],[120.07,51.6],[119.16,50.41],[119.35,50.28],[119.26,50.07],[118.45,49.84],[117.87,49.51],[116.22,50.01],[115.43,49.9],[114.74,50.23],[114.3,50.27],[113.45,49.94],[112.81,49.52],[111.34,49.36],[110.71,49.14],[108.61,49.32],[107.97,49.65],[107.92,49.95],[107.23,49.99],[106.71,50.31],[105.38,50.47],[104.08,50.15],[103.3,50.2],[102.29,50.58],[102.11,51.35],[99.92,51.76],[98.89,52.12],[98.64,51.8],[98.04,51.45],[97.84,51.05],[98.03,50.65],[98.28,50.53],[98.17,50.18],[97.36,49.74],[96.07,50.0],[95.52,49.91],[94.61,50.02],[94.36,50.22],[94.25,50.56],[93.1,50.6],[92.94,50.78],[92.63,50.69],[92.35,50.86],[92.19,50.7],[91.8,50.69],[91.41,50.47],[90.05,50.09],[89.64,49.9],[89.65,49.72],[89.11,49.5],[88.19,49.45],[87.99,49.19],[87.42,49.08],[86.63,49.56],[86.68,49.78],[86.18,49.5],[85.23,49.62],[84.99,50.06],[84.32,50.24],[83.94,50.78],[83.36,50.99],[82.49,50.73],[81.47,50.74],[81.39,50.96],[81.07,50.97],[81.13,51.19],[80.74,51.29],[80.45,51.18],[80.42,50.95],[79.99,50.78],[77.86,53.27],[76.48,54.02],[76.42,54.15],[76.65,54.14],[76.84,54.44],[75.44,54.09],[75.22,53.89],[74.45,53.65],[74.35,53.49],[73.86,53.62],[73.41,53.45],[73.31,53.71],[73.71,54.04],[73.23,53.96],[72.62,54.13],[72.45,53.94],[72.19,54.33],[72.01,54.21],[71.09,54.21],[71.19,54.6],[70.74,55.3],[70.18,55.16],[68.98,55.39],[68.2,55.16],[68.15,54.98],[65.48,54.62],[65.09,54.34],[64.46,54.38],[61.93,53.95],[61.23,54.02],[60.98,53.62],[61.53,53.52],[61.23,53.45],[61.2,53.29],[61.66,53.23],[62.08,53.01],[61.05,52.97],[60.77,52.68],[60.99,52.34],[60.03,51.93],[60.46,51.65],[61.56,51.32],[61.39,50.86],[60.94,50.7],[60.42,50.68],[60.06,50.85],[59.81,50.58],[59.52,50.49],[59.45,50.62],[58.88,50.69],[58.36,51.06],[57.84,51.09],[57.44,50.89],[57.01,51.07],[56.49,51.02],[55.69,50.58],[54.64,51.01],[54.55,50.95],[54.65,50.66],[54.56,50.54],[54.14,51.04],[53.34,51.48],[52.57,51.48],[52.22,51.71],[51.35,51.47],[50.79,51.73],[50.25,51.29],[49.5,51.08],[49.32,50.85],[48.62,50.61],[48.84,50.01],[48.76,49.93],[48.34,49.86],[47.71,50.38],[47.43,50.36],[47.3,50.06],[46.89,49.7],[46.8,49.37],[47.03,49.15],[46.7,48.8],[46.66,48.41],[47.07,48.23],[47.09,47.95],[47.29,47.74],[48.17,47.71],[48.96,46.77],[48.56,46.76],[48.54,46.61],[49.25,46.29],[48.69,46.09],[48.73,45.9],[48.49,45.94],[47.63,45.58],[47.46,45.68],[47.52,45.49],[47.08,44.82],[47.0,44.88],[46.72,44.56],[46.75,44.42],[47.31,44.1],[47.46,43.56],[47.65,43.89],[47.46,43.03],[48.57,41.85],[47.86,41.21],[47.52,41.23],[47.26,41.32],[46.75,41.81],[45.64,42.2],[45.65,42.52],[44.87,42.76],[44.77,42.62],[44.51,42.75],[43.83,42.57],[43.78,42.75],[42.76,43.17],[41.58,43.22],[40.65,43.53],[40.15,43.57],[39.98,43.42],[38.72,44.29],[38.18,44.42],[37.85,44.7],[37.5,44.7],[37.2,44.97],[36.65,45.13],[36.94,45.29],[36.72,45.37],[36.79,45.41],[37.22,45.27],[37.65,45.38],[37.61,45.57],[37.93,46.0],[38.08,45.94],[38.18,46.09],[38.49,46.09],[37.91,46.41],[37.77,46.64],[38.5,46.66],[38.44,46.81],[39.27,47.04],[39.2,47.27],[38.67,47.14],[38.55,47.15],[38.76,47.26],[38.58,47.24],[38.21,47.09],[38.2,47.32],[38.29,47.56],[38.82,47.84],[39.78,47.89],[39.96,48.27],[39.85,48.3],[39.84,48.54],[39.65,48.59],[39.79,48.81],[40.01,48.82],[39.68,49.01],[40.11,49.25],[40.08,49.58],[39.78,49.57],[39.17,49.86],[38.92,49.82],[38.26,50.05],[38.05,49.92],[37.42,50.41],[36.62,50.21],[36.12,50.41],[35.59,50.37],[35.41,50.54],[35.31,51.04],[35.06,51.2],[34.21,51.26],[34.12,51.68],[34.4,51.78],[33.73,52.34],[32.43,52.31],[32.12,52.05],[31.76,52.1],[31.58,52.31],[31.56,52.76],[31.26,53.02],[31.42,53.2],[32.14,53.09],[32.71,53.42],[32.47,53.55],[32.45,53.69],[31.75,53.81],[31.83,54.03],[31.4,54.2],[31.07,54.49],[31.15,54.63],[30.8,54.78],[30.98,55.05],[30.81,55.28],[30.91,55.57],[30.23,55.84],[29.48,55.68],[29.28,55.97],[28.28,56.06],[28.15,56.14],[28.17,56.39],[27.88,56.82],[27.64,56.85],[27.83,57.29],[27.35,57.53],[27.54,57.8],[27.78,57.87],[27.5,58.22],[27.43,58.79],[27.9,59.28],[28.15,59.37],[28.01,59.48],[28.06,59.78],[28.33,59.69],[28.52,59.85],[28.95,59.83],[29.15,60.0],[30.12,59.87],[30.17,59.96],[29.72,60.19],[29.07,60.19],[28.64,60.38],[28.49,60.54],[28.62,60.49],[28.65,60.61],[28.51,60.68],[27.8,60.54],[31.19,62.48],[31.54,62.92],[31.18,63.21],[29.99,63.73],[30.53,64.08],[30.49,64.24],[29.99,64.52],[30.11,64.73],[29.6,64.97],[29.83,65.15],[29.61,65.25],[29.82,65.57],[29.72,65.63],[30.09,65.68],[30.09,65.79],[29.06,66.89],[29.99,67.67],[29.34,68.06],[28.69,68.19],[28.47,68.49],[28.77,68.84],[28.41,68.9],[29.12,69.05],[29.39,69.3],[29.99,69.39],[30.16,69.63],[30.86,69.54],[30.87,69.78],[31.55,69.7],[32.0,69.81],[31.98,69.95],[33.01,69.72],[32.91,69.6],[32.09,69.63],[32.38,69.48],[33.0,69.47],[32.98,69.37],[33.45,69.43],[33.33,69.15],[33.14,69.07],[33.68,69.31],[35.86,69.19],[37.73,68.69],[38.43,68.36],[39.57,68.07],[39.82,68.06],[39.81,68.15],[40.38,67.83],[40.97,67.71],[41.13,67.27],[41.36,67.21],[41.19,66.83],[40.1,66.3],[38.66,66.07],[35.51,66.4],[34.82,66.61],[34.48,66.55],[34.45,66.65],[33.15,66.84],[32.85,67.02],[32.93,67.09],[31.89,67.16],[33.18,66.68],[33.22,66.53],[33.65,66.44],[33.36,66.33],[34.11,66.23],[34.69,65.95],[34.78,65.77],[34.41,65.4],[34.8,64.99],[34.95,64.76],[34.87,64.56],[35.03,64.44],[35.65,64.38],[36.37,64.0],[37.44,63.81],[37.97,63.95],[38.06,64.09],[37.95,64.32],[37.18,64.41],[36.58,64.79],[36.53,64.94],[36.79,64.99],[36.88,65.17],[39.76,64.58],[40.06,64.77],[40.44,64.78],[39.8,65.35],[39.82,65.6],[40.69,65.96],[41.47,66.12],[42.21,66.52],[43.23,66.41],[43.65,66.25],[43.54,66.12],[44.11,66.01],[44.1,66.23],[44.49,66.67],[44.43,66.94],[44.29,67.1],[43.78,67.26],[44.22,68.0],[44.2,68.25],[43.33,68.67],[45.89,68.48],[46.68,67.97],[46.69,67.85],[45.53,67.76],[44.9,67.41],[45.56,67.19],[45.88,66.89],[46.49,66.8],[47.66,66.98],[47.88,67.58],[48.83,67.68],[48.75,67.9],[49.16,67.87],[50.84,68.35],[51.99,68.54],[52.4,68.35],[52.72,68.48],[52.34,68.61],[53.8,69.0],[54.49,68.99],[53.8,68.91],[53.97,68.84],[53.76,68.63],[53.93,68.44],[53.26,68.27],[54.86,68.2],[54.92,68.37],[55.42,68.57],[56.04,68.65],[57.13,68.55],[58.17,68.89],[59.06,69.01],[59.37,68.74],[59.11,68.62],[59.1,68.44],[59.73,68.35],[59.92,68.47],[59.9,68.71],[60.49,68.73],[60.93,68.99],[60.17,69.59],[60.91,69.85],[64.19,69.53],[64.93,69.33],[64.9,69.25],[67.0,68.87],[67.73,68.51],[68.5,68.35],[69.14,68.95],[68.54,68.97],[68.12,69.24],[68.01,69.48],[67.62,69.58],[67.06,69.69],[66.9,69.55],[66.8,69.74],[66.93,70.01],[67.24,70.11],[67.15,70.22],[67.29,70.74],[66.7,70.82],[66.85,71.06],[66.64,71.08],[66.92,71.28],[68.27,71.68],[69.39,72.96],[71.5,72.91],[72.81,72.69],[72.57,72.01],[71.87,71.46],[72.58,71.15],[72.7,70.96],[72.7,70.46],[72.47,70.28],[72.6,69.79],[72.58,68.97],[73.59,68.48],[73.14,68.18],[73.07,67.77],[72.59,67.59],[71.85,67.01],[71.37,66.96],[71.54,66.68],[70.72,66.52],[70.38,66.6],[70.69,66.74],[69.01,66.79],[69.19,66.58],[69.98,66.4],[72.07,66.25],[72.32,66.33],[72.42,66.56],[73.79,66.99],[74.08,67.41],[74.77,67.77],[74.74,68.07],[74.39,68.42],[74.58,68.75],[75.12,68.86],[76.46,68.98],[77.24,68.47],[77.18,67.78],[77.77,67.57],[78.92,67.59],[77.59,67.75],[77.54,68.01],[77.67,68.19],[78.0,68.26],[77.65,68.9],[76.0,69.24],[74.81,69.09],[73.78,69.2],[73.89,69.42],[73.58,69.8],[73.83,70.18],[74.34,70.58],[73.58,71.22],[73.09,71.44],[73.67,71.85],[74.99,72.15],[75.1,72.42],[74.79,72.81],[75.37,72.8],[75.6,72.58],[75.74,72.3],[75.27,71.96],[75.25,71.81],[75.5,71.65],[75.28,71.43],[75.73,71.27],[77.59,71.17],[78.32,70.93],[79.02,70.95],[79.08,71.0],[78.49,71.03],[78.21,71.27],[76.43,71.55],[76.03,71.91],[76.87,72.03],[77.55,71.84],[78.19,71.91],[78.02,72.09],[77.41,72.11],[78.48,72.4],[79.42,72.38],[80.76,72.09],[81.66,71.72],[83.11,71.72],[83.23,71.67],[82.98,71.45],[82.32,71.26],[82.24,71.0],[82.33,70.81],[82.16,70.6],[82.22,70.4],[82.59,70.89],[83.01,70.9],[83.03,70.58],[82.68,70.22],[83.08,70.09],[83.07,70.28],[83.5,70.35],[83.74,70.55],[83.15,71.1],[83.55,71.54],[83.53,71.68],[83.2,71.87],[82.64,71.92],[82.09,72.27],[80.83,72.49],[80.66,72.71],[80.84,72.95],[80.42,73.23],[80.58,73.57],[86.89,73.89],[87.03,73.82],[85.79,73.44],[85.82,73.33],[86.68,73.11],[85.91,73.39],[87.57,73.81],[87.21,73.88],[86.57,74.24],[86.0,74.32],[86.4,74.45],[87.23,74.36],[85.79,74.65],[86.2,74.82],[86.86,74.72],[87.47,75.01],[86.94,75.07],[87.01,75.17],[87.67,75.13],[90.19,75.59],[94.16,75.96],[92.86,75.98],[93.26,76.1],[95.58,76.14],[96.08,76.08],[95.65,75.89],[96.6,75.99],[96.5,75.89],[98.66,76.24],[99.77,76.03],[99.44,75.8],[99.54,75.8],[99.85,75.93],[99.82,76.14],[98.8,76.48],[101.6,76.44],[101.68,76.49],[100.93,76.56],[101.1,76.7],[100.91,76.9],[102.61,77.51],[104.01,77.73],[106.06,77.39],[104.2,77.1],[106.94,77.03],[107.43,76.93],[106.64,76.57],[106.39,76.59],[106.42,76.51],[107.72,76.52],[108.18,76.74],[111.11,76.72],[112.09,76.48],[111.94,76.38],[112.62,76.38],[112.8,76.13],[112.66,76.05],[113.27,76.25],[113.56,75.89],[113.86,75.92],[113.57,75.57],[112.45,75.83],[112.96,75.57],[113.24,75.61],[113.73,75.45],[113.62,75.29],[112.92,75.02],[109.84,74.32],[109.91,74.26],[109.81,74.17],[108.2,73.69],[107.27,73.62],[106.68,73.33],[106.19,73.31],[105.14,72.78],[105.71,72.84],[106.48,73.14],[107.75,73.17],[110.87,73.73],[109.67,73.8],[110.26,74.02],[111.06,73.94],[111.13,74.05],[111.55,74.03],[111.23,73.97],[111.4,73.83],[112.15,73.71],[112.79,73.75],[112.94,73.84],[112.84,73.96],[113.03,73.91],[113.42,73.65],[113.16,73.46],[113.49,73.35],[113.47,73.05],[113.16,72.77],[113.67,72.64],[113.22,72.81],[113.54,73.06],[113.56,73.23],[113.89,73.35],[113.51,73.5],[114.06,73.58],[115.34,73.7],[118.45,73.59],[118.94,73.48],[118.46,73.46],[118.43,73.25],[119.75,72.98],[122.54,72.88],[122.75,72.91],[122.53,73.02],[123.16,72.95],[123.62,73.19],[123.32,73.43],[123.41,73.64],[124.54,73.75],[125.6,73.45],[126.26,73.55],[126.29,73.39],[126.55,73.33],[127.03,73.55],[127.74,73.48],[129.1,73.11],[128.6,72.9],[129.02,72.87],[129.25,72.7],[128.42,72.53],[129.28,72.44],[129.41,72.32],[129.28,72.09],[128.93,72.08],[127.73,72.41],[128.91,71.75],[129.21,71.92],[129.46,71.74],[128.84,71.66],[129.14,71.59],[129.76,71.12],[130.54,70.89],[130.76,70.96],[131.02,70.75],[131.43,70.83],[132.04,71.24],[132.23,71.64],[132.65,71.93],[133.13,71.61],[133.69,71.43],[134.7,71.39],[136.09,71.62],[137.94,71.13],[137.84,71.23],[138.32,71.33],[137.92,71.38],[138.23,71.6],[138.78,71.63],[139.21,71.44],[139.99,71.49],[139.69,71.7],[139.72,71.89],[139.36,71.95],[140.19,72.19],[139.18,72.16],[139.14,72.33],[139.6,72.5],[141.08,72.59],[140.65,72.84],[140.81,72.89],[146.25,72.44],[146.24,72.35],[144.9,72.4],[144.17,72.26],[144.29,72.19],[146.83,72.29],[146.11,71.95],[146.0,71.95],[146.23,72.14],[145.76,72.23],[145.66,72.07],[145.76,71.94],[145.07,71.93],[144.99,71.75],[145.19,71.7],[146.07,71.81],[147.26,72.33],[149.5,72.16],[150.02,71.9],[148.92,71.71],[150.67,71.45],[150.1,71.23],[150.97,71.38],[151.58,71.29],[152.09,71.02],[151.76,70.98],[152.51,70.83],[155.89,71.1],[158.7,70.94],[159.35,70.79],[159.91,70.51],[160.01,70.31],[159.73,69.87],[159.83,69.78],[160.91,69.61],[161.04,69.1],[161.34,68.9],[160.86,68.54],[161.1,68.56],[161.56,68.9],[161.54,69.38],[162.17,69.61],[163.2,69.72],[166.89,69.5],[167.86,69.73],[168.15,69.58],[168.3,69.27],[169.31,69.08],[169.61,68.79],[170.54,68.83],[171.0,69.14],[170.58,69.58],[170.16,69.63],[170.5,69.86],[170.49,70.11],[173.28,69.82],[173.44,69.95],[175.92,69.9],[178.85,69.39],[179.87,69.01],[-180.0,68.98],[-178.87,68.75],[-178.54,68.58],[-178.75,68.66],[-178.69,68.55],[-178.1,68.43],[-178.06,68.27],[-177.8,68.34],[-178.37,68.57],[-177.53,68.3],[-177.59,68.22],[-175.35,67.68],[-175.23,67.45],[-175.37,67.36],[-175.0,67.44],[-174.85,67.35],[-174.94,67.09],[-174.77,66.78],[-174.92,66.62],[-174.5,66.54],[-174.39,66.34],[-174.09,66.47],[-174.06,66.23],[-173.78,66.43],[-174.23,66.63],[-174.01,66.78],[-174.09,66.94],[-174.55,67.09],[-173.16,67.07],[-173.34,66.91],[-173.26,66.84],[-173.19,66.99],[-172.52,66.95],[-173.01,67.06],[-171.8,66.93],[-170.47,66.32],[-170.6,66.25],[-170.3,66.29],[-170.24,66.17],[-169.73,66.06],[-170.4,65.93],[-170.67,65.62],[-171.45,65.79],[-171.05,65.55],[-171.17,65.5],[-171.91,65.5],[-172.78,65.68],[-172.23,65.45],[-172.31,65.28],[-172.66,65.25],[-172.29,65.2],[-172.21,65.05],[-173.07,64.85],[-172.8,64.79],[-172.9,64.63],[-172.38,64.43],[-172.74,64.41],[-172.9,64.53],[-172.92,64.37],[-173.16,64.28],[-173.38,64.35],[-173.33,64.54],[-173.73,64.36],[-174.57,64.72],[-175.44,64.82],[-175.85,65.01],[-175.86,65.23],[-176.09,65.47],[-177.06,65.61],[-178.41,65.49],[-178.5,65.74],[-178.94,66.03],[-178.75,66.01],[-178.53,66.4],[-178.87,66.19],[-179.1,66.23],[-179.14,66.37],[-179.34,66.29],[-179.33,66.16],[-179.68,66.18],[-179.79,65.9],[-179.37,65.64],[-179.35,65.52],[-180.0,65.07],[179.83,65.03],[179.45,64.82],[178.52,64.6],[177.75,64.72],[176.88,65.08],[176.34,65.05],[177.04,65.0],[177.22,64.86],[177.07,64.79],[176.06,64.96],[174.55,64.68],[176.06,64.9],[176.35,64.7],[176.14,64.59],[177.39,64.77],[177.43,64.44],[177.69,64.3],[178.05,64.22],[178.23,64.36],[178.69,63.84],[178.73,63.67],[178.47,63.57],[178.65,63.56],[178.74,63.39],[178.79,63.54],[178.92,63.35],[179.33,63.19],[179.41,63.08],[179.26,63.01],[179.57,62.77],[179.12,62.32],[177.29,62.6],[177.34,62.78],[177.02,62.78],[176.97,62.66],[177.16,62.56],[174.51,61.82],[173.62,61.72],[173.13,61.41],[172.86,61.47],[172.91,61.31],[172.4,61.17],[172.39,61.06],[170.61,60.43],[170.35,59.97],[169.98,60.07],[169.62,60.44],[169.23,60.6],[168.46,60.59],[167.23,60.41],[166.27,59.86],[166.14,59.98],[166.35,60.48],[165.09,60.1],[164.96,59.84],[164.44,60.07],[164.11,59.9],[164.13,59.98],[163.78,60.04],[163.49,59.89],[163.32,59.71],[163.27,59.3],[162.14,58.45],[161.96,58.08],[162.39,57.72],[162.66,57.95],[163.23,57.79],[162.76,57.24],[162.8,56.81],[163.26,56.69],[163.34,56.23],[163.05,56.04],[162.84,56.06],[162.63,56.23],[163.04,56.52],[162.67,56.49],[162.49,56.4],[162.53,56.26],[162.09,56.09],[161.72,55.5],[162.1,54.75],[161.63,54.52],[160.77,54.54],[160.07,54.19],[159.84,53.78],[160.02,53.13],[159.58,53.24],[158.75,52.91],[158.47,53.03],[158.61,52.87],[158.49,52.38],[158.1,51.81],[156.75,50.97],[156.52,51.38],[156.37,52.51],[156.11,52.87],[155.56,55.2],[155.72,56.07],[156.02,56.75],[156.85,57.29],[156.98,57.47],[156.79,57.75],[156.87,57.8],[157.45,57.8],[157.67,58.02],[158.27,58.01],[159.21,58.52],[159.85,59.13],[161.76,60.15],[162.07,60.47],[163.71,60.92],[163.56,61.03],[164.01,61.34],[163.8,61.46],[164.02,61.71],[164.21,62.29],[164.6,62.47],[165.21,62.37],[165.4,62.49],[164.42,62.71],[163.33,62.55],[163.02,61.89],[163.01,61.79],[163.26,61.7],[163.09,61.57],[162.86,61.71],[162.39,61.66],[160.77,60.75],[160.17,60.64],[160.38,61.02],[159.79,60.96],[159.95,61.13],[159.88,61.29],[160.25,61.65],[160.31,61.89],[159.55,61.72],[159.19,61.93],[157.09,61.68],[156.68,61.48],[156.63,61.27],[155.72,60.68],[154.97,60.38],[154.29,59.83],[154.15,59.53],[154.97,59.45],[155.17,59.36],[155.16,59.19],[154.46,59.22],[154.01,59.08],[153.36,59.21],[152.82,58.93],[152.32,59.03],[152.09,58.91],[151.33,58.88],[151.12,59.08],[152.26,59.22],[151.35,59.56],[150.48,59.5],[150.67,59.56],[149.64,59.77],[149.06,59.63],[149.21,59.49],[148.8,59.53],[148.74,59.37],[148.96,59.37],[148.73,59.26],[148.26,59.41],[147.51,59.27],[146.54,59.46],[146.05,59.17],[145.55,59.41],[143.87,59.41],[142.33,59.15],[141.6,58.65],[140.79,58.3],[140.45,57.81],[138.66,56.97],[137.69,56.14],[135.54,55.11],[135.21,54.84],[135.26,54.73],[135.85,54.58],[136.8,54.62],[136.68,53.93],[136.8,53.78],[137.16,53.82],[137.26,54.03],[137.14,54.18],[137.67,54.28],[137.34,54.1],[137.84,53.95],[137.25,53.55],[137.95,53.6],[138.53,53.96],[138.57,53.82],[138.25,53.52],[138.45,53.54],[138.7,53.87],[138.66,54.3],[139.32,54.19],[139.71,54.28],[140.18,54.05],[140.69,53.6],[141.38,53.29],[141.4,53.18],[141.18,53.01],[140.84,53.09],[141.26,52.84],[141.13,52.43],[141.49,52.18],[141.37,51.92],[140.93,51.62],[140.52,50.8],[140.48,50.55],[140.62,50.08],[140.46,49.91],[140.52,49.6],[140.32,49.12],[140.38,48.96],[140.11,48.42],[139.37,47.89],[138.59,47.06],[138.34,46.54],[137.69,45.82],[135.87,44.37],[135.13,43.53],[134.01,42.95],[133.16,42.7],[132.3,42.88],[132.31,43.31],[131.87,43.1],[131.94,43.3],[131.16,42.63],[130.71,42.66],[130.83,42.52],[130.69,42.3]],[[-180.0,71.54],[-178.44,71.54],[-177.5,71.22],[-177.82,71.07],[-179.42,70.92],[-180.0,70.99],[179.88,70.98],[178.79,70.82],[178.68,71.11],[179.88,71.52],[-180.0,71.54]],[[67.77,76.24],[61.36,75.32],[60.28,75.01],[60.5,74.9],[59.75,74.75],[59.67,74.61],[59.24,74.69],[59.04,74.49],[58.53,74.5],[58.62,74.23],[57.77,74.01],[57.87,73.85],[57.76,73.77],[57.31,73.84],[57.54,73.66],[56.63,73.31],[55.01,73.45],[54.3,73.35],[54.13,73.48],[54.2,73.54],[53.76,73.77],[54.64,73.96],[55.34,74.42],[56.14,74.5],[55.58,74.63],[56.5,74.96],[55.81,75.12],[56.57,75.1],[56.88,75.24],[56.84,75.35],[57.61,75.34],[58.06,75.66],[58.88,75.86],[60.28,76.1],[60.94,76.07],[61.2,76.28],[62.97,76.24],[64.46,76.38],[67.53,77.01],[68.49,76.93],[68.94,76.71],[68.9,76.57],[67.77,76.24]],[[142.76,54.39],[142.98,54.14],[142.92,53.79],[143.33,52.96],[143.19,51.95],[143.46,51.47],[143.82,50.28],[144.34,49.18],[144.69,48.87],[144.71,48.64],[144.05,49.25],[143.1,49.2],[142.57,48.07],[142.56,47.74],[143.22,46.79],[143.48,46.75],[143.58,46.36],[143.43,46.03],[143.28,46.56],[142.58,46.7],[142.08,45.92],[141.83,46.45],[142.04,47.14],[141.97,47.59],[142.18,48.01],[141.86,48.75],[142.14,49.57],[142.07,50.63],[142.21,51.22],[141.72,51.74],[141.81,51.79],[141.67,51.93],[141.66,52.27],[141.85,52.79],[141.83,53.34],[142.14,53.5],[142.53,53.45],[142.71,53.89],[142.34,54.28],[142.76,54.39]],[[55.32,73.31],[56.43,73.2],[56.19,73.03],[56.12,72.81],[55.72,72.77],[55.4,72.55],[55.36,72.41],[55.52,72.22],[55.3,71.94],[56.45,71.11],[57.62,70.73],[57.15,70.59],[56.26,70.71],[56.56,70.59],[56.44,70.56],[53.72,70.81],[53.38,70.87],[53.61,70.91],[53.67,71.09],[54.16,71.12],[53.41,71.34],[53.32,71.4],[53.41,71.53],[51.81,71.49],[51.44,71.78],[51.58,72.07],[52.25,72.13],[52.62,72.3],[52.92,72.67],[52.55,72.77],[53.37,72.92],[53.25,72.97],[53.25,73.18],[54.81,73.39],[55.32,73.31]],[[140.05,75.83],[140.82,75.63],[140.94,75.7],[140.99,75.96],[141.49,76.14],[142.67,75.86],[143.69,75.86],[145.36,75.53],[144.73,75.37],[144.89,75.27],[144.02,75.04],[143.17,75.12],[142.82,75.27],[142.7,75.45],[142.98,75.63],[142.94,75.71],[142.31,75.69],[142.09,75.66],[142.2,75.39],[143.13,74.97],[142.47,74.82],[141.99,74.99],[140.27,74.85],[139.68,74.96],[139.1,74.66],[138.09,74.8],[136.95,75.33],[137.29,75.35],[137.27,75.75],[137.71,75.76],[137.56,75.96],[138.21,76.12],[138.92,76.2],[140.05,75.83]],[[97.67,80.16],[98.02,80.02],[97.63,79.85],[97.65,79.76],[98.35,79.88],[98.6,80.05],[99.95,79.85],[100.06,79.78],[99.78,79.63],[99.68,79.32],[99.04,79.29],[99.82,79.1],[99.93,78.96],[99.44,78.83],[97.56,78.83],[96.81,78.99],[94.79,79.09],[94.22,79.4],[93.07,79.5],[94.99,80.1],[97.67,80.16]],[[96.53,81.08],[97.83,80.8],[97.86,80.7],[97.11,80.61],[97.03,80.54],[97.42,80.32],[97.17,80.24],[93.87,80.01],[91.53,80.36],[92.83,80.62],[93.26,80.79],[92.61,80.81],[93.36,81.03],[94.84,81.14],[95.16,81.27],[95.8,81.28],[96.53,81.08]],[[102.88,79.25],[102.41,78.84],[102.95,79.06],[103.8,79.15],[104.45,78.88],[105.14,78.82],[105.34,78.59],[104.74,78.34],[101.2,78.19],[99.85,77.96],[99.29,78.04],[100.02,78.34],[100.42,78.75],[100.95,78.79],[100.86,78.93],[101.05,79.12],[101.59,79.35],[102.25,79.26],[102.18,79.37],[102.4,79.43],[103.1,79.3],[102.88,79.25]],[[33.59,46.1],[33.81,46.21],[34.69,45.98],[35.46,45.32],[36.17,45.45],[36.57,45.39],[36.39,45.07],[35.47,45.1],[35.09,44.8],[34.72,44.81],[34.08,44.42],[33.76,44.4],[33.45,44.55],[33.61,44.91],[33.55,45.1],[32.51,45.4],[33.67,45.95],[33.59,46.1]],[[20.96,55.28],[20.59,54.98],[21.19,54.93],[21.23,55.26],[21.39,55.27],[22.07,55.06],[22.57,55.06],[22.83,54.87],[22.69,54.56],[22.76,54.36],[19.6,54.46],[19.86,54.63],[19.97,54.92],[20.52,55.0],[20.96,55.28]],[[146.8,75.37],[148.43,75.41],[148.59,75.24],[150.82,75.16],[150.58,74.92],[149.05,74.77],[148.09,74.83],[146.15,75.2],[146.44,75.56],[146.75,75.51],[146.8,75.37]],[[50.28,80.93],[51.7,80.69],[48.9,80.37],[48.68,80.3],[48.96,80.27],[48.98,80.16],[48.39,80.1],[47.74,80.08],[47.63,80.11],[47.98,80.21],[46.99,80.18],[46.64,80.3],[47.9,80.53],[49.09,80.52],[49.24,80.82],[50.28,80.93]],[[142.19,73.9],[143.34,73.57],[143.49,73.25],[139.69,73.42],[140.38,73.48],[141.08,73.87],[142.19,73.9]]],"Romania":[[[28.21,45.45],[28.76,45.23],[29.4,45.42],[29.71,45.26],[29.56,44.84],[29.05,44.76],[29.09,44.98],[28.89,44.92],[28.81,44.57],[28.89,44.57],[28.64,44.3],[28.59,43.74],[27.09,44.17],[26.22,44.01],[25.5,43.67],[22.92,43.83],[22.87,43.95],[23.03,44.08],[22.49,44.44],[22.72,44.61],[22.5,44.71],[22.09,44.54],[21.36,44.83],[21.53,44.9],[21.35,45.01],[21.49,45.15],[20.77,45.48],[20.77,45.75],[20.24,46.11],[21.12,46.28],[22.0,47.5],[23.14,48.09],[24.58,47.93],[24.89,47.72],[26.16,47.99],[26.31,48.2],[26.71,48.26],[26.98,48.16],[27.61,47.34],[28.07,46.98],[28.24,46.64],[28.07,45.6],[28.21,45.45]]],"Qatar":[[[51.27,24.61],[50.97,24.57],[50.86,24.68],[50.76,25.4],[51.0,25.98],[51.26,26.15],[51.54,25.9],[51.49,25.53],[51.61,25.05],[51.43,24.67],[51.27,24.61]]],"Portugal":[[[-8.78,41.94],[-8.27,42.14],[-8.14,42.04],[-8.15,41.81],[-7.4,41.83],[-7.15,41.98],[-6.62,41.94],[-6.54,41.67],[-6.21,41.53],[-6.93,41.01],[-6.81,40.34],[-7.03,40.17],[-6.9,40.02],[-6.98,39.8],[-7.54,39.66],[-7.0,39.06],[-7.34,38.46],[-7.1,38.18],[-6.96,38.19],[-7.44,37.73],[-7.41,37.18],[-7.84,37.01],[-8.6,37.12],[-9.0,37.03],[-8.81,37.43],[-8.88,38.45],[-8.67,38.42],[-8.8,38.52],[-9.21,38.45],[-9.25,38.66],[-9.02,38.75],[-8.79,39.08],[-9.14,38.74],[-9.47,38.73],[-9.38,39.34],[-8.84,40.12],[-8.69,40.75],[-8.76,41.7],[-8.89,41.77],[-8.78,41.94]]],"Poland":[[[23.6,51.52],[24.1,50.87],[23.98,50.79],[24.09,50.53],[23.41,50.17],[22.65,49.54],[22.81,49.02],[21.64,49.41],[20.87,49.32],[20.36,49.38],[20.06,49.18],[19.76,49.2],[19.77,49.37],[19.44,49.6],[18.97,49.4],[18.56,49.88],[17.63,50.12],[17.7,50.31],[17.42,50.25],[16.88,50.43],[16.99,50.24],[16.64,50.1],[16.21,50.42],[16.42,50.57],[16.28,50.66],[16.01,50.61],[14.99,51.01],[14.98,50.89],[14.81,50.86],[15.02,51.25],[14.6,51.83],[14.75,52.08],[14.55,52.36],[14.62,52.53],[14.13,52.88],[14.41,53.22],[14.26,53.73],[14.58,53.64],[14.56,53.82],[14.2,53.92],[16.19,54.29],[16.56,54.55],[18.08,54.84],[18.76,54.68],[18.44,54.75],[18.67,54.43],[18.98,54.35],[19.6,54.46],[22.89,54.39],[23.45,54.14],[23.89,53.03],[23.9,52.7],[23.41,52.52],[23.18,52.29],[23.65,52.04],[23.6,51.52]]],"Philippines":[[[121.1,18.62],[121.85,18.29],[122.27,18.46],[122.15,17.66],[122.52,17.12],[122.14,16.19],[121.6,15.93],[121.61,15.67],[121.39,15.32],[121.69,14.77],[121.63,14.58],[121.77,14.17],[122.21,13.93],[122.2,14.15],[122.63,14.32],[122.94,14.19],[123.1,13.75],[123.3,13.84],[123.32,14.06],[123.81,13.84],[123.81,13.72],[123.55,13.65],[123.82,13.27],[123.79,13.11],[124.14,13.04],[124.06,12.57],[123.88,12.69],[123.95,12.92],[123.31,13.04],[123.16,13.44],[122.59,13.91],[122.47,13.89],[122.67,13.4],[122.6,13.19],[122.38,13.52],[121.78,13.94],[121.34,13.65],[120.84,13.89],[120.64,13.81],[120.62,14.19],[120.94,14.65],[120.59,14.88],[120.59,14.48],[120.44,14.45],[120.25,14.79],[120.08,14.85],[119.77,16.25],[119.83,16.33],[120.16,16.05],[120.37,16.11],[120.36,17.64],[120.6,18.51],[121.1,18.62]],[[126.01,9.32],[126.19,9.28],[126.31,8.95],[126.14,8.6],[126.37,8.48],[126.46,8.2],[126.58,7.25],[126.19,6.85],[126.19,6.31],[125.82,7.33],[125.69,7.26],[125.38,6.69],[125.59,6.47],[125.67,5.98],[125.35,5.6],[125.23,6.07],[124.93,5.88],[124.08,6.4],[123.99,6.99],[124.21,7.4],[123.67,7.82],[123.49,7.81],[123.39,7.41],[123.1,7.7],[122.84,7.53],[122.79,7.72],[122.62,7.76],[122.14,6.95],[121.9,7.07],[122.24,7.94],[122.91,8.16],[123.09,8.48],[123.44,8.7],[123.85,8.43],[123.8,8.05],[124.2,8.23],[124.4,8.6],[124.73,8.56],[124.87,8.97],[125.14,8.87],[125.21,9.03],[125.5,9.01],[125.47,9.76],[126.01,9.32]],[[125.24,12.53],[125.54,12.19],[125.49,11.59],[125.74,11.05],[125.23,11.15],[125.03,11.34],[124.92,11.56],[125.0,11.77],[124.44,12.15],[124.29,12.57],[125.24,12.53]],[[123.13,9.06],[122.99,9.06],[122.87,9.32],[122.56,9.48],[122.4,9.82],[122.47,9.96],[122.86,10.09],[122.82,10.5],[122.98,10.89],[123.26,10.99],[123.51,10.92],[123.57,10.78],[123.16,9.86],[123.15,9.61],[123.32,9.27],[123.13,9.06]],[[122.5,11.61],[122.84,11.6],[122.9,11.44],[123.16,11.54],[123.12,11.29],[122.77,10.82],[121.95,10.44],[122.1,11.64],[121.92,11.85],[122.03,11.9],[122.5,11.61]],[[117.31,8.44],[117.22,8.37],[117.35,8.71],[119.22,10.48],[119.31,10.97],[119.55,11.31],[119.53,10.95],[119.69,10.5],[119.37,10.33],[119.19,10.06],[118.78,9.92],[118.44,9.26],[117.31,8.44]],[[120.7,13.48],[121.2,13.43],[121.52,13.13],[121.54,12.64],[121.4,12.3],[121.24,12.22],[120.96,12.45],[120.65,13.17],[120.34,13.41],[120.4,13.52],[120.7,13.48]],[[124.57,11.34],[124.93,11.37],[125.03,11.21],[125.01,10.79],[125.27,10.31],[125.14,10.19],[124.99,10.37],[125.03,10.03],[124.78,10.17],[124.79,10.78],[124.66,10.96],[124.44,10.92],[124.33,11.53],[124.57,11.34]],[[123.37,9.45],[123.39,9.97],[124.04,11.27],[124.01,10.4],[123.7,10.13],[123.37,9.45]],[[124.6,9.79],[124.12,9.6],[123.94,9.62],[123.82,9.82],[124.34,10.16],[124.58,10.03],[124.6,9.79]],[[123.72,12.29],[124.04,11.97],[124.04,11.75],[123.47,12.22],[123.16,11.93],[123.23,12.58],[123.72,12.29]]],"Peru":[[[-69.96,-4.24],[-70.05,-4.33],[-70.4,-4.15],[-70.8,-4.17],[-70.97,-4.35],[-71.84,-4.5],[-72.89,-5.12],[-72.98,-5.63],[-73.24,-6.1],[-73.14,-6.47],[-73.76,-6.91],[-73.72,-7.31],[-73.96,-7.38],[-74.0,-7.56],[-73.72,-7.78],[-73.78,-7.94],[-73.55,-8.35],[-72.97,-8.99],[-73.21,-9.41],[-72.38,-9.51],[-72.18,-10.0],[-71.24,-9.97],[-70.54,-9.44],[-70.64,-11.01],[-69.58,-10.95],[-68.69,-12.5],[-68.98,-12.88],[-69.08,-13.68],[-68.87,-14.17],[-69.36,-14.8],[-69.17,-15.24],[-69.42,-15.64],[-69.22,-16.15],[-68.84,-16.34],[-69.63,-17.2],[-69.51,-17.51],[-69.85,-17.7],[-69.8,-17.99],[-69.93,-18.21],[-70.42,-18.35],[-71.34,-17.68],[-71.53,-17.3],[-72.47,-16.71],[-73.73,-16.2],[-75.11,-15.41],[-75.93,-14.63],[-76.38,-13.86],[-76.26,-13.8],[-76.23,-13.37],[-76.83,-12.35],[-77.15,-12.06],[-77.22,-11.66],[-77.63,-11.29],[-78.76,-8.62],[-79.99,-6.77],[-81.14,-6.06],[-81.16,-5.88],[-80.93,-5.84],[-80.88,-5.63],[-81.34,-4.67],[-81.23,-4.23],[-80.33,-3.39],[-80.18,-3.88],[-80.49,-4.01],[-80.49,-4.17],[-80.35,-4.21],[-80.48,-4.43],[-80.14,-4.3],[-79.64,-4.46],[-79.33,-4.93],[-79.03,-4.97],[-78.69,-4.56],[-78.35,-3.4],[-78.16,-3.46],[-78.18,-3.35],[-77.86,-2.98],[-76.68,-2.56],[-76.09,-2.13],[-75.57,-1.53],[-75.41,-0.92],[-75.25,-0.95],[-75.26,-0.59],[-75.63,-0.12],[-75.22,-0.04],[-74.62,-0.37],[-74.25,-0.97],[-73.67,-1.25],[-73.5,-1.69],[-73.2,-1.83],[-73.15,-2.28],[-72.94,-2.39],[-72.22,-2.4],[-71.75,-2.15],[-71.4,-2.33],[-70.97,-2.21],[-70.09,-2.66],[-70.74,-3.78],[-70.34,-3.82],[-69.96,-4.24]]],"Paraguay":[[[-58.16,-20.16],[-57.83,-21.0],[-57.96,-22.11],[-56.94,-22.27],[-56.45,-22.08],[-56.25,-22.27],[-55.85,-22.31],[-55.62,-22.67],[-55.42,-23.95],[-55.08,-24.0],[-54.63,-23.81],[-54.24,-24.05],[-54.44,-25.12],[-54.61,-25.43],[-54.75,-26.53],[-55.14,-26.93],[-55.43,-27.01],[-55.72,-27.41],[-56.16,-27.32],[-56.44,-27.55],[-58.17,-27.27],[-58.6,-27.31],[-58.62,-27.13],[-58.19,-26.63],[-58.11,-26.18],[-57.57,-25.53],[-57.65,-25.33],[-57.96,-25.05],[-59.19,-24.56],[-59.89,-24.09],[-61.03,-23.75],[-61.8,-23.18],[-62.65,-22.23],[-62.28,-21.07],[-62.28,-20.56],[-61.76,-19.65],[-60.01,-19.3],[-59.09,-19.29],[-58.18,-19.82],[-58.16,-20.16]]],"Papua New Guinea":[[[140.98,-9.12],[140.98,-6.91],[140.86,-6.74],[140.98,-6.35],[141.0,-2.61],[142.55,-3.2],[143.51,-3.43],[144.07,-3.8],[144.48,-3.83],[145.09,-4.35],[145.34,-4.38],[145.77,-4.82],[145.75,-5.4],[147.57,-6.06],[147.8,-6.31],[147.84,-6.66],[146.96,-6.83],[147.19,-7.38],[148.13,-8.1],[148.25,-8.55],[148.45,-8.7],[148.58,-9.05],[149.2,-9.03],[149.26,-9.5],[150.01,-9.69],[149.76,-9.81],[149.87,-10.01],[150.85,-10.24],[150.45,-10.31],[150.65,-10.52],[150.32,-10.65],[149.75,-10.35],[147.77,-10.07],[147.02,-9.39],[146.96,-9.06],[146.63,-8.95],[146.03,-8.08],[144.51,-7.57],[144.14,-7.76],[143.65,-7.46],[143.94,-7.95],[143.52,-8.0],[143.61,-8.2],[142.52,-8.32],[142.21,-8.2],[142.47,-8.37],[143.11,-8.47],[143.38,-8.76],[143.37,-8.96],[142.65,-9.33],[142.23,-9.17],[141.13,-9.22],[140.98,-9.12]],[[151.92,-4.3],[152.12,-4.21],[152.41,-4.34],[152.35,-4.82],[151.98,-5.07],[152.14,-5.36],[152.08,-5.46],[151.52,-5.55],[151.23,-5.92],[150.47,-6.26],[149.65,-6.29],[149.38,-6.08],[149.1,-6.12],[148.34,-5.67],[148.43,-5.47],[149.83,-5.52],[149.96,-5.45],[150.09,-5.01],[150.18,-5.52],[150.74,-5.51],[150.95,-5.42],[151.33,-4.96],[151.67,-4.88],[151.59,-4.2],[151.92,-4.3]],[[152.97,-4.76],[152.89,-4.83],[152.74,-4.64],[152.67,-4.13],[152.28,-3.58],[150.75,-2.74],[150.83,-2.57],[152.03,-3.25],[153.02,-4.11],[153.13,-4.35],[152.97,-4.76]],[[155.96,-6.69],[155.72,-6.86],[155.34,-6.72],[155.2,-6.31],[154.76,-5.93],[154.73,-5.45],[155.09,-5.62],[155.47,-6.14],[155.82,-6.38],[155.96,-6.69]]],"Panama":[[[-77.37,8.66],[-77.48,8.5],[-77.2,7.97],[-77.54,7.57],[-77.76,7.7],[-77.9,7.23],[-78.42,8.06],[-78.29,8.09],[-78.14,8.39],[-77.76,8.13],[-78.1,8.5],[-78.22,8.4],[-78.4,8.51],[-78.41,8.36],[-78.51,8.63],[-79.09,9.0],[-79.51,8.97],[-79.69,8.85],[-79.75,8.6],[-80.46,8.21],[-80.01,7.5],[-80.67,7.23],[-80.9,7.28],[-81.06,7.9],[-81.27,7.63],[-81.5,7.72],[-81.73,8.14],[-82.68,8.32],[-82.87,8.25],[-82.88,8.07],[-83.03,8.34],[-82.86,8.45],[-82.92,8.74],[-82.73,8.92],[-82.94,9.06],[-82.94,9.45],[-82.8,9.59],[-82.37,9.43],[-82.34,9.21],[-82.19,9.19],[-82.24,9.03],[-82.08,8.93],[-81.78,8.96],[-81.9,9.14],[-81.36,8.78],[-80.13,9.21],[-79.58,9.6],[-79.11,9.54],[-78.08,9.24],[-77.37,8.66]]],"Pakistan":[[[76.77,35.66],[77.05,35.11],[76.6,34.74],[75.71,34.5],[74.3,34.77],[73.96,34.65],[73.8,34.38],[73.97,34.24],[73.9,34.07],[74.25,33.95],[73.98,33.72],[74.15,33.51],[74.0,33.19],[74.3,32.99],[74.35,32.77],[74.66,32.76],[74.68,32.49],[75.33,32.28],[74.55,31.82],[74.52,31.19],[74.63,31.04],[73.9,30.43],[73.93,30.22],[73.81,30.09],[73.38,29.93],[72.95,29.09],[72.34,28.75],[71.87,27.96],[70.8,27.71],[70.4,28.02],[69.54,27.12],[69.51,26.74],[70.15,26.51],[70.1,25.91],[70.26,25.71],[70.65,25.67],[70.65,25.42],[71.05,24.69],[71.04,24.4],[70.72,24.24],[70.49,24.41],[69.81,24.17],[68.78,24.31],[68.72,23.96],[68.28,23.93],[68.11,23.75],[67.5,23.94],[67.31,24.17],[67.17,24.76],[66.7,24.86],[66.7,25.23],[66.33,25.6],[66.13,25.49],[66.47,25.45],[64.78,25.31],[64.66,25.18],[64.06,25.4],[63.56,25.35],[63.49,25.21],[61.57,25.19],[61.84,26.23],[62.24,26.36],[62.44,26.56],[63.16,26.65],[63.3,27.15],[62.76,27.25],[62.76,28.24],[61.89,28.55],[60.84,29.86],[62.48,29.41],[63.57,29.5],[64.1,29.39],[64.39,29.54],[65.09,29.56],[66.23,29.87],[66.35,30.8],[66.83,31.26],[67.45,31.23],[67.74,31.34],[67.58,31.51],[68.16,31.8],[68.6,31.8],[68.87,31.63],[69.28,31.94],[69.24,32.43],[69.5,33.02],[69.92,33.11],[70.29,33.37],[69.89,34.01],[70.65,33.95],[71.05,34.05],[71.1,34.37],[70.97,34.53],[71.62,35.18],[71.43,35.83],[71.19,36.04],[71.62,36.44],[72.16,36.7],[73.12,36.87],[74.04,36.83],[74.6,37.04],[75.15,36.97],[75.35,36.91],[75.42,36.74],[75.88,36.6],[75.91,36.05],[76.15,35.83],[76.55,35.89],[76.77,35.66]]],"Oman":[[[53.08,16.65],[51.98,19.0],[54.98,20.0],[55.64,22.0],[55.19,22.7],[55.2,23.03],[55.51,23.72],[55.47,23.94],[55.99,24.06],[55.93,24.21],[55.76,24.24],[55.8,24.87],[56.0,24.95],[56.07,24.74],[56.39,24.98],[56.64,24.47],[57.12,23.98],[58.77,23.52],[59.43,22.66],[59.82,22.51],[59.8,22.22],[58.47,20.41],[58.21,20.42],[58.17,20.59],[57.86,20.24],[57.71,19.68],[57.81,19.02],[56.82,18.75],[56.38,17.99],[55.48,17.84],[55.26,17.59],[55.28,17.32],[55.06,17.04],[54.07,17.0],[53.08,16.65]]],"Norway":[[[20.62,69.04],[20.12,69.02],[20.35,68.85],[19.97,68.54],[20.24,68.48],[19.97,68.36],[18.3,68.56],[18.16,68.53],[18.18,68.2],[17.92,67.97],[17.33,68.1],[16.79,67.9],[16.59,67.63],[16.13,67.43],[16.44,67.15],[16.4,67.06],[15.42,66.49],[15.49,66.31],[14.54,66.13],[14.64,65.79],[14.48,65.3],[13.65,64.58],[14.08,64.46],[14.06,64.1],[12.79,64.0],[12.17,63.6],[12.21,63.49],[12.0,63.29],[12.22,63.0],[12.11,62.92],[12.12,62.59],[12.3,62.28],[12.16,61.72],[12.88,61.35],[12.71,61.06],[12.3,61.0],[12.59,60.45],[12.49,60.11],[11.93,59.86],[11.68,59.59],[11.8,59.29],[11.64,58.93],[11.47,58.91],[11.37,59.1],[10.83,59.18],[10.64,59.39],[10.6,59.76],[10.57,59.59],[10.4,59.52],[10.43,59.28],[10.18,59.01],[9.84,58.96],[9.56,59.11],[9.7,59.01],[8.17,58.14],[7.0,58.02],[6.88,58.15],[6.59,58.1],[6.66,58.26],[6.05,58.38],[5.52,58.73],[5.61,59.01],[6.1,58.87],[6.36,59.0],[6.1,58.95],[5.89,59.1],[5.95,59.3],[6.4,59.56],[5.17,59.16],[5.3,59.64],[6.22,59.82],[5.73,59.86],[6.35,60.35],[6.57,60.36],[6.53,60.15],[6.72,60.42],[7.0,60.51],[6.15,60.35],[5.15,59.64],[5.21,60.09],[5.69,60.12],[5.29,60.21],[5.14,60.44],[5.65,60.69],[5.12,60.64],[5.01,61.04],[6.78,61.14],[7.04,60.95],[7.04,61.09],[7.61,61.21],[7.35,61.3],[7.44,61.43],[7.17,61.17],[6.6,61.29],[6.38,61.13],[5.11,61.19],[5.0,61.43],[5.34,61.48],[4.93,61.71],[4.93,61.88],[6.02,61.79],[6.73,61.87],[5.27,61.94],[5.1,62.03],[5.14,62.16],[5.36,62.15],[5.72,62.38],[6.69,62.47],[6.14,62.41],[6.35,62.61],[7.49,62.54],[7.69,62.59],[7.54,62.67],[8.09,62.73],[6.73,62.72],[6.94,62.93],[7.57,63.1],[8.1,63.09],[8.62,62.85],[8.16,63.16],[8.63,63.34],[8.36,63.5],[8.67,63.62],[9.14,63.59],[9.16,63.46],[9.7,63.63],[10.02,63.39],[10.76,63.46],[10.73,63.63],[11.37,63.81],[11.18,63.9],[11.46,64.0],[11.08,63.99],[10.91,63.92],[11.05,63.85],[10.94,63.77],[10.06,63.51],[9.57,63.71],[10.56,64.42],[11.63,64.81],[11.3,64.76],[11.49,64.98],[12.16,65.18],[12.51,65.1],[12.92,65.34],[12.42,65.18],[12.13,65.28],[12.27,65.57],[12.69,65.9],[13.03,65.96],[12.79,66.1],[14.03,66.3],[13.12,66.23],[13.07,66.43],[13.21,66.64],[13.96,66.8],[13.65,66.91],[14.11,67.12],[15.42,67.2],[14.44,67.27],[14.96,67.57],[15.59,67.35],[15.69,67.52],[15.25,67.6],[15.31,67.77],[14.78,67.68],[14.8,67.81],[15.13,67.97],[15.62,67.95],[15.29,68.04],[16.01,68.23],[16.31,67.88],[16.26,68.0],[16.39,68.09],[16.21,68.32],[17.55,68.43],[16.52,68.53],[17.39,68.8],[17.7,69.1],[18.1,69.16],[18.08,69.32],[18.26,69.47],[18.86,69.31],[18.61,69.49],[18.99,69.56],[19.2,69.75],[19.69,69.81],[19.64,69.42],[19.96,69.82],[20.32,69.95],[20.34,69.62],[20.11,69.34],[20.49,69.54],[20.74,69.52],[20.53,69.69],[20.62,69.91],[21.16,69.89],[21.43,70.01],[21.98,69.83],[21.8,70.07],[21.36,70.23],[22.69,70.37],[23.36,69.98],[23.38,70.25],[24.42,70.7],[24.26,70.83],[24.66,71.0],[25.77,70.85],[25.21,70.49],[24.99,70.22],[25.04,70.11],[26.51,70.91],[26.74,70.85],[26.56,70.67],[26.65,70.64],[26.58,70.41],[26.99,70.51],[27.18,70.74],[27.55,70.8],[27.24,70.95],[27.6,71.09],[28.39,70.98],[28.33,70.82],[27.9,70.68],[28.27,70.67],[28.19,70.25],[28.61,70.76],[28.83,70.86],[29.74,70.65],[30.07,70.7],[30.21,70.54],[30.96,70.34],[30.26,70.12],[28.78,70.15],[29.6,69.98],[29.69,69.74],[30.09,69.72],[30.24,69.86],[30.43,69.72],[30.87,69.78],[30.92,69.65],[30.79,69.53],[30.16,69.63],[30.09,69.43],[29.39,69.3],[28.96,69.02],[28.85,69.18],[29.33,69.47],[29.14,69.67],[27.75,70.06],[27.13,69.91],[26.53,69.91],[26.07,69.69],[25.77,69.28],[25.75,68.99],[24.94,68.59],[24.0,68.8],[23.32,68.65],[22.41,68.72],[21.59,69.27],[21.07,69.21],[21.07,69.04],[20.62,69.04]],[[16.79,79.91],[17.83,79.8],[17.96,79.7],[17.69,79.53],[17.67,79.39],[18.4,79.61],[18.82,79.43],[18.68,79.26],[19.89,79.06],[20.61,79.11],[20.77,79.06],[20.5,78.98],[21.39,78.74],[19.68,78.61],[19.15,78.38],[18.96,78.18],[19.0,78.08],[18.44,78.03],[18.23,77.52],[17.85,77.5],[17.15,77.05],[17.25,76.97],[16.98,76.81],[17.06,76.66],[16.7,76.58],[14.37,77.23],[14.0,77.51],[14.69,77.53],[14.92,77.69],[17.03,77.8],[16.91,77.9],[14.09,77.77],[13.79,77.85],[13.68,78.03],[14.31,78.0],[14.25,78.07],[15.7,78.23],[15.78,78.33],[17.17,78.42],[16.45,78.5],[16.78,78.66],[15.42,78.47],[15.26,78.59],[15.38,78.77],[15.02,78.63],[14.69,78.72],[14.47,78.67],[14.43,78.49],[14.64,78.41],[14.11,78.27],[13.15,78.24],[11.37,78.95],[12.4,78.95],[11.98,79.03],[11.89,79.15],[12.08,79.27],[11.98,79.29],[11.21,79.13],[10.74,79.52],[10.81,79.64],[10.68,79.76],[11.7,79.82],[12.29,79.71],[12.22,79.8],[13.69,79.86],[13.92,79.76],[12.56,79.57],[13.33,79.58],[13.96,79.34],[14.06,79.38],[14.04,79.59],[14.59,79.8],[15.05,79.67],[15.76,79.17],[16.34,78.98],[15.83,79.71],[16.25,80.05],[16.79,79.91]],[[20.9,80.25],[21.55,80.24],[22.29,80.05],[22.44,80.19],[22.45,80.4],[23.01,80.47],[23.32,80.42],[23.11,80.19],[24.4,80.36],[26.86,80.16],[27.15,80.06],[27.2,79.91],[26.0,79.62],[25.64,79.4],[23.95,79.19],[22.7,79.33],[22.87,79.41],[20.13,79.49],[19.68,79.59],[20.78,79.75],[18.73,79.76],[18.25,79.93],[18.86,80.04],[17.92,80.14],[19.34,80.12],[19.54,80.16],[19.18,80.33],[19.75,80.23],[19.81,80.33],[19.61,80.46],[19.73,80.48],[20.9,80.25]],[[21.61,78.6],[22.04,78.58],[22.3,78.23],[23.45,78.15],[23.12,77.99],[24.9,77.76],[22.8,77.28],[22.43,77.32],[22.69,77.55],[21.05,77.44],[20.87,77.57],[21.2,77.62],[21.65,77.92],[21.04,78.06],[20.53,78.33],[20.56,78.42],[20.23,78.48],[21.61,78.6]],[[15.76,68.56],[16.27,68.87],[16.55,68.72],[15.98,68.4],[14.26,68.19],[14.59,68.4],[15.1,68.44],[15.41,68.62],[15.56,68.87],[15.44,68.92],[15.48,69.04],[15.89,69.28],[16.13,69.27],[15.81,69.02],[15.93,68.73],[15.76,68.56]],[[17.5,69.6],[18.08,69.4],[17.95,69.2],[17.49,69.2],[17.08,69.01],[16.81,69.07],[16.97,69.14],[17.0,69.36],[17.36,69.38],[17.23,69.48],[17.5,69.6]],[[19.25,70.07],[19.61,70.02],[18.78,69.58],[18.06,69.6],[18.68,69.78],[18.69,69.89],[19.05,70.04],[19.13,70.24],[19.25,70.07]],[[11.25,78.61],[12.12,78.23],[11.12,78.46],[10.56,78.9],[10.96,78.85],[11.25,78.61]],[[15.21,68.94],[15.4,68.78],[15.22,68.62],[14.37,68.71],[15.04,68.89],[15.04,69.0],[15.21,68.94]]],"North Korea":[[[128.38,38.62],[128.04,38.31],[127.09,38.28],[126.63,37.78],[126.37,37.88],[126.12,37.74],[125.77,37.99],[125.36,37.72],[125.31,37.84],[124.99,37.93],[125.21,38.08],[124.69,38.13],[125.07,38.56],[125.55,38.69],[125.17,38.81],[125.41,39.29],[125.36,39.53],[124.78,39.76],[124.64,39.61],[124.35,39.91],[124.39,40.1],[124.89,40.46],[125.99,40.9],[126.49,41.36],[126.6,41.64],[126.9,41.78],[127.18,41.53],[128.15,41.39],[128.29,41.61],[128.04,41.99],[128.92,42.04],[129.32,42.41],[129.7,42.45],[129.86,42.96],[130.08,42.97],[130.69,42.3],[130.24,42.18],[129.76,41.71],[129.71,40.86],[128.51,40.13],[127.97,40.0],[127.53,39.7],[127.55,39.46],[127.4,39.21],[127.79,39.08],[128.38,38.62]]],"Nigeria":[[[13.61,13.7],[14.06,13.08],[14.2,12.38],[14.52,12.3],[14.62,12.15],[14.57,11.53],[13.98,11.21],[13.7,10.87],[13.27,10.04],[13.2,9.56],[12.93,9.43],[12.73,8.74],[12.4,8.6],[12.02,7.59],[11.77,7.27],[11.86,7.12],[11.58,6.89],[11.4,6.53],[11.11,6.46],[11.01,6.74],[10.61,7.06],[10.41,6.88],[10.14,7.0],[9.06,6.01],[8.56,4.76],[8.24,4.91],[8.29,4.56],[7.64,4.52],[7.53,4.65],[7.28,4.55],[7.08,4.72],[7.16,4.51],[6.92,4.39],[6.77,4.72],[6.86,4.37],[6.63,4.34],[6.58,4.48],[6.55,4.34],[6.26,4.31],[6.27,4.43],[6.17,4.28],[5.59,4.65],[5.37,5.26],[5.55,5.47],[5.39,5.4],[5.2,5.53],[5.46,5.61],[5.33,5.71],[5.11,5.64],[4.86,6.03],[4.43,6.35],[3.45,6.43],[3.72,6.6],[3.34,6.4],[2.71,6.37],[2.77,9.05],[3.04,9.08],[3.32,9.78],[3.6,10.01],[3.61,10.35],[3.79,10.44],[3.72,11.08],[3.49,11.4],[3.66,11.76],[3.65,12.53],[4.04,12.93],[4.15,13.46],[4.42,13.65],[5.49,13.87],[6.3,13.66],[6.94,13.01],[7.83,13.34],[8.75,12.91],[9.62,12.81],[10.05,13.21],[10.47,13.33],[11.41,13.35],[12.12,13.09],[12.46,13.09],[12.87,13.45],[13.61,13.7]]],"Niger":[[[13.61,13.7],[12.87,13.45],[12.46,13.09],[12.12,13.09],[11.41,13.35],[10.47,13.33],[10.05,13.21],[9.62,12.81],[8.75,12.91],[7.83,13.34],[6.94,13.01],[6.3,13.66],[5.49,13.87],[4.66,13.73],[4.15,13.46],[4.04,12.93],[3.65,12.53],[3.59,11.7],[2.81,12.38],[2.37,12.22],[2.39,11.9],[2.07,12.31],[2.23,12.47],[2.1,12.7],[1.56,12.64],[1.01,13.02],[0.99,13.36],[1.2,13.36],[0.62,13.7],[0.16,14.5],[0.23,14.96],[0.95,14.98],[1.3,15.27],[3.06,15.43],[3.5,15.36],[3.88,15.75],[4.18,16.58],[4.23,19.14],[5.84,19.48],[7.48,20.87],[11.97,23.52],[13.48,23.18],[14.21,22.62],[14.98,23.0],[15.18,21.52],[15.61,20.95],[15.59,20.73],[15.96,20.35],[15.73,19.9],[15.47,16.91],[14.37,15.75],[13.45,14.38],[13.61,13.7]]],"Nicaragua":[[[-83.16,14.99],[-83.28,14.81],[-83.34,14.9],[-83.41,14.83],[-83.19,14.34],[-83.41,14.0],[-83.57,13.32],[-83.51,12.41],[-83.63,12.46],[-83.59,12.71],[-83.75,12.5],[-83.68,12.02],[-83.77,12.06],[-83.83,11.86],[-83.65,11.64],[-83.87,11.3],[-83.64,10.92],[-83.71,10.79],[-84.17,10.78],[-84.35,10.98],[-84.7,11.05],[-84.91,10.95],[-85.59,11.19],[-85.74,11.06],[-86.76,12.16],[-87.67,12.9],[-87.58,13.04],[-87.39,12.92],[-86.96,13.05],[-86.92,13.22],[-86.71,13.31],[-86.73,13.76],[-86.33,13.77],[-86.04,14.05],[-85.73,13.86],[-85.18,14.34],[-85.16,14.53],[-84.86,14.81],[-84.54,14.63],[-83.54,14.98],[-83.16,14.99]]],"New Zealand":[[[173.12,-41.28],[173.95,-40.92],[173.8,-41.27],[174.0,-40.99],[174.3,-41.02],[174.04,-41.24],[174.37,-41.1],[174.07,-41.43],[174.16,-41.56],[174.09,-41.67],[174.28,-41.74],[174.21,-41.85],[173.22,-42.98],[172.62,-43.27],[172.74,-43.35],[172.53,-43.47],[173.07,-43.68],[173.1,-43.84],[172.5,-43.84],[172.58,-43.77],[172.48,-43.73],[172.3,-43.87],[172.04,-43.7],[172.18,-43.9],[171.24,-44.26],[171.15,-44.91],[171.0,-44.91],[171.11,-45.04],[170.7,-45.68],[170.78,-45.87],[170.33,-45.99],[169.69,-46.55],[169.1,-46.63],[168.38,-46.61],[168.23,-46.39],[167.84,-46.37],[167.54,-46.15],[166.83,-46.23],[166.71,-46.13],[166.92,-45.96],[166.73,-46.05],[166.72,-45.89],[166.49,-45.96],[166.51,-45.81],[167.0,-45.71],[166.8,-45.65],[166.99,-45.53],[166.73,-45.54],[166.78,-45.41],[166.92,-45.41],[166.87,-45.31],[167.16,-45.41],[167.12,-45.32],[167.23,-45.29],[167.03,-45.12],[167.26,-45.08],[167.17,-45.0],[167.41,-44.83],[167.46,-44.96],[167.46,-44.8],[167.7,-44.64],[167.91,-44.67],[167.86,-44.5],[168.37,-44.08],[169.18,-43.91],[169.17,-43.78],[169.83,-43.54],[170.24,-43.16],[170.4,-43.18],[170.3,-43.11],[170.73,-43.03],[170.97,-42.72],[171.04,-42.86],[171.03,-42.7],[171.31,-42.46],[171.49,-41.8],[171.95,-41.54],[172.27,-40.76],[172.64,-40.52],[172.94,-40.52],[172.73,-40.54],[172.7,-40.67],[172.99,-40.85],[173.12,-41.28]],[[173.27,-34.93],[173.45,-34.84],[173.47,-34.95],[174.1,-35.14],[174.14,-35.3],[174.32,-35.25],[174.58,-35.79],[174.39,-35.8],[174.8,-36.31],[174.72,-36.84],[175.3,-36.99],[175.38,-37.21],[175.54,-37.2],[175.38,-36.56],[175.46,-36.48],[175.77,-36.73],[176.11,-37.64],[177.27,-37.99],[178.01,-37.55],[178.53,-37.69],[178.27,-38.55],[177.98,-38.72],[177.91,-39.24],[177.52,-39.07],[177.08,-39.22],[176.94,-39.56],[177.11,-39.67],[176.84,-40.16],[175.98,-41.21],[175.31,-41.61],[175.17,-41.42],[174.88,-41.42],[174.87,-41.22],[174.64,-41.29],[175.16,-40.62],[175.21,-40.2],[175.01,-39.95],[173.93,-39.51],[173.76,-39.32],[173.84,-39.14],[174.57,-38.84],[174.8,-37.9],[174.93,-37.8],[174.59,-37.1],[174.73,-37.22],[174.93,-37.09],[174.78,-36.94],[174.47,-36.94],[174.19,-36.49],[174.4,-36.6],[174.39,-36.24],[174.03,-36.12],[173.92,-35.91],[174.17,-36.33],[174.06,-36.36],[173.41,-35.54],[173.63,-35.32],[173.31,-35.44],[173.12,-35.21],[173.19,-35.02],[172.71,-34.46],[173.04,-34.43],[172.97,-34.54],[173.27,-34.93]]],"Netherlands":[[[5.99,50.75],[5.64,50.84],[5.8,51.15],[5.21,51.28],[5.03,51.47],[4.5,51.47],[4.37,51.36],[3.45,51.54],[4.28,51.47],[4.01,51.6],[4.18,51.61],[3.95,51.81],[4.48,52.31],[4.77,52.94],[5.06,52.96],[5.87,53.38],[6.82,53.44],[7.2,53.28],[7.03,52.65],[6.69,52.53],[7.0,52.42],[7.02,52.27],[6.72,52.08],[6.74,51.91],[5.95,51.8],[6.2,51.45],[6.13,51.15],[5.86,51.03],[6.05,50.91],[5.99,50.75]]],"Nepal":[[[88.11,27.87],[87.98,27.13],[88.16,26.81],[88.06,26.43],[87.29,26.36],[87.01,26.56],[86.7,26.43],[86.01,26.65],[85.79,26.6],[85.65,26.83],[85.19,26.77],[84.69,27.04],[84.61,27.3],[84.09,27.49],[83.29,27.37],[82.73,27.52],[82.68,27.67],[81.85,27.87],[80.05,28.87],[80.32,29.57],[80.61,29.96],[80.91,30.17],[81.18,30.04],[81.42,30.34],[81.86,30.36],[82.85,29.68],[83.16,29.61],[83.58,29.18],[84.1,29.22],[84.23,28.91],[84.8,28.56],[85.16,28.59],[85.12,28.32],[85.68,28.28],[86.0,27.91],[86.14,28.12],[86.41,27.93],[86.62,28.1],[87.14,27.84],[88.11,27.87]]],"Namibia":[[[23.38,-17.64],[24.73,-17.52],[25.26,-17.79],[24.91,-17.82],[24.53,-18.05],[24.36,-17.98],[23.6,-18.46],[23.22,-18.0],[20.98,-18.32],[20.97,-22.0],[19.98,-22.0],[19.98,-28.45],[19.54,-28.57],[19.16,-28.94],[18.1,-28.87],[17.45,-28.7],[17.36,-28.27],[17.06,-28.03],[16.88,-28.13],[16.76,-28.45],[16.45,-28.62],[15.72,-27.97],[15.29,-27.28],[14.84,-25.73],[14.84,-25.03],[14.5,-24.2],[14.46,-22.45],[13.45,-20.92],[12.46,-18.93],[11.78,-18.0],[11.74,-17.25],[12.55,-17.21],[13.1,-16.97],[13.48,-17.04],[14.02,-17.41],[18.4,-17.4],[18.96,-17.8],[20.19,-17.86],[20.75,-18.02],[23.38,-17.64]]],"Mozambique":[[[31.29,-22.4],[32.43,-21.3],[32.36,-21.14],[32.49,-20.66],[32.99,-19.98],[32.78,-19.39],[32.85,-19.1],[32.7,-18.94],[32.99,-18.36],[32.95,-16.71],[31.94,-16.43],[31.24,-16.02],[30.41,-15.98],[30.23,-14.99],[33.2,-14.01],[33.64,-14.57],[34.37,-14.43],[34.5,-14.6],[34.55,-15.14],[34.25,-15.89],[34.44,-16.27],[35.08,-16.83],[35.09,-17.11],[35.27,-17.12],[35.17,-16.56],[35.36,-16.16],[35.75,-16.06],[35.89,-14.89],[35.85,-14.67],[35.25,-13.9],[34.56,-13.36],[34.36,-12.17],[34.62,-11.62],[35.56,-11.6],[35.91,-11.46],[36.3,-11.71],[36.98,-11.57],[37.37,-11.71],[37.73,-11.58],[37.92,-11.3],[38.49,-11.41],[39.32,-11.12],[40.46,-10.46],[40.61,-10.66],[40.49,-10.76],[40.6,-10.83],[40.4,-11.33],[40.58,-12.64],[40.44,-12.98],[40.57,-12.98],[40.6,-14.12],[40.71,-14.21],[40.65,-14.54],[40.78,-14.42],[40.84,-14.72],[40.56,-15.47],[39.98,-16.23],[39.79,-16.3],[39.84,-16.44],[39.08,-16.97],[38.14,-17.24],[37.51,-17.57],[36.94,-17.99],[36.41,-18.77],[36.26,-18.72],[36.24,-18.86],[35.85,-18.99],[34.95,-19.81],[34.65,-19.7],[34.76,-19.82],[34.71,-20.47],[34.98,-20.81],[35.27,-21.65],[35.31,-22.4],[35.38,-22.45],[35.45,-22.12],[35.54,-22.3],[35.57,-22.96],[35.37,-23.8],[35.54,-23.82],[35.49,-24.07],[34.99,-24.65],[33.35,-25.26],[32.79,-25.64],[32.59,-26.0],[32.85,-26.27],[32.96,-26.08],[32.88,-26.85],[32.11,-26.84],[32.06,-26.02],[31.92,-25.77],[31.98,-24.46],[31.55,-23.48],[31.29,-22.4]]],"Morocco":[[[-2.22,35.1],[-1.79,34.75],[-1.68,33.32],[-1.45,32.79],[-1.06,32.47],[-1.24,32.34],[-1.23,32.11],[-2.86,32.08],[-3.02,31.83],[-3.77,31.69],[-3.83,31.2],[-3.62,31.07],[-3.67,30.96],[-4.97,30.47],[-5.45,29.96],[-6.48,29.82],[-6.64,29.57],[-7.16,29.61],[-8.66,28.72],[-8.79,27.12],[-9.41,27.09],[-9.82,26.85],[-10.76,27.02],[-11.39,26.88],[-11.34,26.63],[-11.72,26.1],[-12.06,25.99],[-12.43,24.83],[-13.06,24.4],[-13.31,23.98],[-13.89,23.69],[-14.22,22.31],[-14.63,21.86],[-14.75,21.5],[-17.0,21.42],[-16.93,21.9],[-16.36,22.59],[-16.21,23.1],[-15.79,23.79],[-15.98,23.67],[-15.9,23.84],[-14.91,24.72],[-14.79,25.4],[-14.41,26.25],[-13.58,26.74],[-12.95,27.91],[-11.55,28.31],[-10.2,29.38],[-9.67,30.11],[-9.65,30.45],[-9.88,30.72],[-9.81,31.42],[-9.35,32.09],[-9.25,32.57],[-8.51,33.25],[-6.9,33.97],[-6.35,34.78],[-5.92,35.79],[-5.28,35.9],[-5.25,35.61],[-4.63,35.21],[-3.39,35.21],[-2.97,35.41],[-2.84,35.13],[-2.22,35.1]]],"W. Sahara":[[[-8.69,27.66],[-8.68,26.0],[-12.02,26.0],[-12.02,23.47],[-12.62,23.27],[-13.15,22.82],[-13.02,21.33],[-16.97,21.33],[-17.1,20.86],[-17.0,21.42],[-14.75,21.5],[-14.63,21.86],[-14.22,22.31],[-13.89,23.69],[-13.31,23.98],[-13.06,24.4],[-12.43,24.83],[-12.06,25.99],[-11.72,26.1],[-11.34,26.63],[-11.39,26.88],[-10.76,27.02],[-9.82,26.85],[-9.41,27.09],[-8.79,27.12],[-8.82,27.66],[-8.69,27.66]]],"Montenegro":[[[19.19,43.53],[19.61,43.17],[20.35,42.85],[20.05,42.76],[20.06,42.55],[19.79,42.48],[19.65,42.63],[19.28,42.17],[19.34,41.87],[18.44,42.52],[18.55,42.64],[18.46,43.0],[18.62,43.03],[18.85,43.35],[19.03,43.29],[18.95,43.53],[19.19,43.53]]],"Mongolia":[[[87.81,49.16],[88.12,49.26],[88.19,49.45],[89.11,49.5],[89.65,49.72],[89.64,49.9],[90.05,50.09],[91.41,50.47],[91.8,50.69],[92.19,50.7],[92.35,50.86],[92.63,50.69],[92.94,50.78],[93.1,50.6],[94.25,50.56],[94.36,50.22],[94.61,50.02],[95.52,49.91],[96.07,50.0],[97.36,49.74],[98.17,50.18],[98.28,50.53],[98.03,50.65],[97.84,51.05],[98.04,51.45],[98.64,51.8],[98.89,52.12],[99.92,51.76],[102.11,51.35],[102.29,50.58],[103.3,50.2],[104.08,50.15],[105.38,50.47],[106.71,50.31],[107.23,49.99],[107.92,49.95],[107.97,49.65],[108.61,49.32],[110.71,49.14],[111.34,49.36],[112.81,49.52],[113.45,49.94],[114.3,50.27],[114.74,50.23],[115.43,49.9],[116.35,49.98],[116.68,49.82],[115.82,48.58],[115.79,48.25],[115.52,48.13],[115.62,47.87],[115.9,47.69],[116.23,47.86],[116.76,47.87],[117.35,47.65],[117.77,47.99],[118.5,47.98],[119.71,47.15],[119.9,46.73],[119.71,46.61],[118.84,46.76],[117.74,46.52],[117.44,46.59],[117.33,46.36],[116.56,46.29],[116.2,45.74],[115.68,45.46],[114.56,45.39],[114.08,44.97],[113.59,44.75],[112.71,44.88],[112.41,45.06],[111.9,45.06],[111.62,44.83],[111.4,44.37],[111.93,43.71],[111.01,43.34],[110.4,42.77],[109.34,42.44],[106.77,42.29],[104.98,41.6],[104.5,41.66],[104.5,41.88],[103.71,41.75],[103.07,42.01],[102.16,42.16],[101.49,42.54],[99.98,42.68],[99.47,42.57],[97.21,42.79],[96.39,42.72],[96.3,42.93],[95.86,43.28],[95.53,43.95],[95.33,44.04],[95.35,44.28],[94.71,44.35],[93.52,44.94],[90.88,45.2],[90.66,45.53],[91.0,46.04],[90.91,46.27],[91.03,46.57],[90.33,47.66],[90.03,47.88],[89.78,47.83],[89.48,48.03],[89.05,48.0],[88.58,48.22],[88.52,48.38],[87.98,48.55],[88.06,48.71],[87.74,48.88],[87.87,49.0],[87.81,49.16]]],"Moldova":[[[26.62,48.26],[27.55,48.48],[28.46,48.09],[28.77,48.12],[28.92,47.95],[29.13,47.96],[29.21,47.78],[29.13,47.49],[29.54,47.27],[29.57,46.96],[29.88,46.83],[29.93,46.54],[30.13,46.42],[29.84,46.35],[29.71,46.45],[29.21,46.38],[29.19,46.52],[28.96,46.46],[28.95,46.05],[28.49,45.67],[28.5,45.52],[28.21,45.45],[28.07,45.6],[28.24,46.64],[28.07,46.98],[27.61,47.34],[26.98,48.16],[26.62,48.26]]],"Mexico":[[[-117.13,32.53],[-114.72,32.72],[-114.84,32.51],[-111.04,31.33],[-108.22,31.33],[-108.21,31.78],[-106.44,31.77],[-104.92,30.58],[-104.4,29.57],[-103.26,29.0],[-102.89,29.22],[-102.61,29.75],[-102.27,29.87],[-101.44,29.78],[-100.76,29.18],[-100.3,28.33],[-99.51,27.55],[-99.46,27.06],[-99.11,26.45],[-97.38,25.87],[-97.15,25.96],[-97.67,24.39],[-97.84,22.51],[-97.76,22.11],[-97.31,21.56],[-97.41,21.27],[-97.38,21.57],[-97.75,22.03],[-97.18,20.72],[-96.46,19.87],[-96.29,19.34],[-95.78,18.81],[-95.92,18.82],[-95.63,18.69],[-95.72,18.77],[-95.18,18.7],[-94.46,18.17],[-93.55,18.43],[-92.89,18.47],[-92.44,18.67],[-91.98,18.72],[-91.91,18.53],[-91.53,18.46],[-91.27,18.62],[-91.34,18.9],[-91.44,18.89],[-90.74,19.35],[-90.69,19.73],[-90.49,19.95],[-90.35,21.01],[-89.82,21.28],[-88.47,21.57],[-88.01,21.6],[-87.25,21.45],[-87.19,21.55],[-87.39,21.55],[-87.13,21.62],[-86.82,21.42],[-86.77,21.15],[-86.92,20.79],[-87.42,20.23],[-87.46,19.82],[-87.69,19.64],[-87.43,19.58],[-87.66,19.35],[-87.66,19.26],[-87.5,19.29],[-87.8,18.36],[-87.88,18.27],[-88.04,18.48],[-88.07,18.83],[-88.3,18.47],[-88.52,18.45],[-88.81,17.96],[-89.14,17.97],[-89.16,17.82],[-90.99,17.82],[-90.99,17.25],[-91.41,17.26],[-90.42,16.39],[-90.45,16.07],[-91.74,16.07],[-92.21,15.28],[-92.08,15.07],[-92.23,14.54],[-93.17,15.45],[-94.37,16.28],[-94.0,16.02],[-94.66,16.2],[-94.62,16.35],[-94.79,16.29],[-94.9,16.42],[-95.02,16.28],[-94.8,16.21],[-96.51,15.65],[-97.18,15.91],[-97.75,15.97],[-98.52,16.31],[-98.76,16.53],[-99.69,16.72],[-100.85,17.2],[-101.92,17.96],[-102.7,18.06],[-103.44,18.33],[-103.91,18.83],[-104.94,19.31],[-105.48,19.98],[-105.67,20.38],[-105.26,20.58],[-105.33,20.75],[-105.51,20.81],[-105.24,21.12],[-105.21,21.49],[-105.43,21.62],[-105.65,21.99],[-105.79,22.63],[-106.94,23.88],[-107.77,24.47],[-107.53,24.36],[-107.51,24.49],[-107.95,24.62],[-108.28,25.08],[-108.05,25.07],[-108.7,25.38],[-108.79,25.54],[-109.03,25.48],[-108.88,25.73],[-109.31,25.63],[-109.42,26.03],[-109.2,26.3],[-109.12,26.25],[-109.28,26.53],[-109.48,26.71],[-109.76,26.7],[-109.94,27.08],[-110.38,27.23],[-110.59,27.54],[-110.53,27.86],[-111.12,27.97],[-112.16,29.02],[-113.06,30.65],[-113.05,31.18],[-113.62,31.35],[-113.76,31.56],[-113.95,31.63],[-114.15,31.51],[-114.93,31.9],[-114.79,31.65],[-114.88,31.16],[-114.55,30.02],[-113.76,29.37],[-113.5,28.93],[-113.2,28.8],[-113.09,28.51],[-112.87,28.42],[-112.73,27.83],[-112.33,27.52],[-111.86,26.68],[-111.7,26.58],[-111.79,26.88],[-111.57,26.71],[-111.29,25.79],[-110.69,24.87],[-110.66,24.34],[-110.37,24.1],[-110.26,24.34],[-109.42,23.48],[-109.46,23.21],[-109.82,22.92],[-110.0,22.89],[-110.36,23.61],[-111.8,24.54],[-112.07,24.84],[-112.18,25.91],[-112.38,26.21],[-113.02,26.58],[-113.15,26.95],[-113.27,26.79],[-113.6,26.72],[-113.84,26.97],[-114.45,27.22],[-114.54,27.43],[-114.99,27.74],[-115.04,27.84],[-114.3,27.87],[-114.07,27.68],[-114.27,27.93],[-114.05,28.43],[-114.94,29.35],[-115.67,29.76],[-116.06,30.8],[-116.3,30.97],[-116.33,31.2],[-116.66,31.56],[-116.72,31.73],[-116.62,31.85],[-116.85,32.0],[-117.13,32.53]]],"Mauritania":[[[-12.28,14.81],[-13.21,15.62],[-13.41,16.06],[-13.87,16.15],[-14.09,16.42],[-14.54,16.66],[-16.24,16.53],[-16.54,15.84],[-16.46,16.6],[-16.08,17.55],[-16.05,18.22],[-16.21,19.0],[-16.52,19.36],[-16.31,19.51],[-16.44,19.47],[-16.21,20.23],[-16.43,20.65],[-16.62,20.63],[-16.93,21.12],[-17.05,20.81],[-16.97,21.33],[-13.02,21.33],[-13.15,22.82],[-12.62,23.27],[-12.02,23.47],[-12.02,26.0],[-8.68,26.0],[-8.69,27.29],[-4.82,25.0],[-6.59,24.99],[-5.63,16.57],[-5.36,16.28],[-5.51,15.5],[-9.18,15.5],[-9.34,15.53],[-9.35,15.68],[-9.45,15.46],[-10.7,15.42],[-10.95,15.15],[-11.5,15.64],[-11.76,15.43],[-11.94,14.89],[-12.11,14.74],[-12.28,14.81]]],"Mali":[[[-11.39,12.4],[-11.39,12.94],[-11.63,13.37],[-11.83,13.32],[-12.05,13.63],[-12.02,14.21],[-12.23,14.46],[-12.28,14.81],[-12.11,14.74],[-11.94,14.89],[-11.76,15.43],[-11.5,15.64],[-10.95,15.15],[-10.7,15.42],[-9.45,15.46],[-9.35,15.68],[-9.34,15.53],[-9.18,15.5],[-5.51,15.5],[-5.36,16.28],[-5.63,16.57],[-6.59,24.99],[-4.82,25.0],[1.15,21.1],[1.16,20.82],[1.61,20.55],[1.76,20.33],[3.13,19.85],[3.26,19.41],[3.11,19.15],[3.26,19.01],[4.23,19.14],[4.18,16.58],[3.88,15.75],[3.5,15.36],[3.06,15.43],[1.3,15.27],[0.95,14.98],[0.22,14.91],[-0.67,15.07],[-1.97,14.46],[-2.12,14.17],[-2.59,14.23],[-2.87,13.95],[-2.95,13.65],[-3.25,13.66],[-3.3,13.28],[-3.53,13.18],[-3.95,13.4],[-4.33,13.12],[-4.23,12.79],[-4.48,12.67],[-4.43,12.34],[-4.7,12.08],[-5.29,11.83],[-5.25,11.37],[-5.49,11.04],[-5.52,10.43],[-5.84,10.39],[-6.04,10.19],[-6.24,10.26],[-6.26,10.72],[-6.42,10.56],[-6.65,10.66],[-6.69,10.35],[-6.95,10.34],[-7.02,10.14],[-7.36,10.26],[-7.5,10.44],[-7.99,10.16],[-8.01,10.32],[-8.27,10.49],[-8.34,10.99],[-8.67,11.01],[-8.4,11.37],[-8.82,11.67],[-8.82,11.92],[-9.12,12.45],[-9.39,12.47],[-9.36,12.26],[-9.71,12.04],[-10.28,12.21],[-10.68,11.9],[-10.93,12.2],[-11.31,12.02],[-11.5,12.2],[-11.39,12.4]]],"Malaysia":[[[117.58,4.17],[117.1,4.34],[115.84,4.33],[115.57,3.94],[115.45,3.04],[115.12,2.89],[115.18,2.52],[114.79,2.25],[114.83,1.98],[114.51,1.45],[113.9,1.43],[113.62,1.24],[113.01,1.43],[112.94,1.57],[112.48,1.56],[112.19,1.44],[112.08,1.14],[111.81,1.01],[111.1,1.05],[110.5,0.86],[109.73,1.52],[109.55,1.85],[109.63,2.03],[109.86,1.76],[110.35,1.72],[111.22,1.4],[111.03,1.56],[111.25,2.06],[111.24,2.44],[111.44,2.38],[111.44,2.63],[111.62,2.82],[112.99,3.16],[113.92,4.24],[114.01,4.57],[114.66,4.04],[114.84,4.39],[114.75,4.72],[115.03,4.9],[115.11,4.39],[115.32,4.36],[115.14,4.9],[115.56,5.09],[115.42,5.41],[115.6,5.6],[115.88,5.61],[116.78,6.99],[116.79,6.61],[117.13,6.97],[117.25,6.92],[117.29,6.68],[117.65,6.47],[117.64,6.0],[117.5,5.88],[118.0,6.05],[118.12,5.86],[117.94,5.79],[117.97,5.71],[118.35,5.81],[118.59,5.59],[119.26,5.37],[119.13,5.1],[118.26,4.99],[118.18,4.83],[118.56,4.5],[118.55,4.38],[118.01,4.25],[117.7,4.34],[117.58,4.17]],[[100.12,6.44],[100.26,6.68],[100.35,6.55],[100.76,6.46],[100.87,6.25],[101.05,6.24],[100.98,5.77],[101.11,5.64],[101.56,5.91],[101.79,5.78],[102.1,6.24],[102.28,6.2],[103.1,5.41],[103.45,4.67],[103.36,3.77],[103.44,2.93],[103.81,2.58],[104.22,1.72],[104.25,1.39],[103.98,1.62],[103.99,1.46],[103.48,1.33],[103.36,1.55],[102.73,1.86],[101.3,2.89],[101.3,3.25],[100.72,3.97],[100.8,4.02],[100.62,4.37],[100.34,5.98],[100.12,6.44]]],"Malawi":[[[33.2,-14.01],[32.99,-14.02],[32.67,-13.59],[32.97,-13.22],[33.02,-12.63],[33.51,-12.35],[33.34,-12.31],[33.25,-12.11],[33.23,-11.42],[33.38,-11.16],[33.26,-10.89],[33.66,-10.55],[33.31,-10.04],[33.35,-9.86],[33.19,-9.63],[33.0,-9.62],[32.97,-9.39],[33.89,-9.67],[34.0,-9.5],[34.52,-10.03],[34.66,-10.71],[34.61,-11.08],[34.96,-11.58],[34.62,-11.62],[34.36,-12.17],[34.56,-13.36],[35.25,-13.9],[35.85,-14.67],[35.89,-14.89],[35.75,-16.06],[35.36,-16.16],[35.17,-16.56],[35.27,-17.12],[35.09,-17.11],[35.08,-16.83],[34.44,-16.27],[34.25,-15.89],[34.54,-15.3],[34.5,-14.6],[34.33,-14.41],[33.64,-14.57],[33.2,-14.01]]],"Madagascar":[[[49.54,-12.43],[49.94,-13.07],[50.24,-14.73],[50.44,-15.15],[50.41,-15.63],[50.19,-15.96],[49.89,-15.46],[49.66,-15.52],[49.84,-16.49],[49.77,-16.81],[49.45,-17.24],[49.48,-17.9],[49.36,-18.34],[47.18,-24.79],[46.73,-25.15],[46.16,-25.23],[45.51,-25.56],[45.11,-25.54],[44.03,-25.0],[43.67,-24.3],[43.7,-23.42],[43.26,-22.38],[43.5,-21.36],[43.8,-21.18],[44.4,-19.92],[44.45,-19.43],[44.04,-18.29],[43.98,-17.39],[44.42,-16.7],[44.48,-16.22],[44.91,-16.17],[45.22,-15.95],[45.6,-15.99],[45.7,-15.81],[46.16,-15.74],[46.4,-15.93],[46.33,-15.71],[46.47,-15.51],[46.94,-15.22],[47.1,-15.43],[47.09,-15.15],[47.35,-14.77],[47.46,-14.71],[47.48,-15.01],[47.77,-14.64],[47.97,-14.67],[47.77,-14.37],[47.99,-13.96],[47.88,-13.81],[47.94,-13.66],[48.04,-13.6],[48.26,-13.72],[48.8,-13.27],[48.92,-12.84],[48.79,-12.47],[49.21,-12.08],[49.54,-12.43]]],"Macedonia":[[[21.56,42.25],[22.28,42.35],[22.8,42.03],[23.0,41.74],[22.93,41.36],[22.6,41.14],[21.99,41.13],[21.58,40.87],[20.74,40.91],[20.49,41.27],[20.55,41.86],[20.72,41.87],[20.78,42.07],[21.06,42.17],[21.29,42.1],[21.56,42.25]]],"Luxembourg":[[[6.12,50.12],[6.2,49.92],[6.49,49.8],[6.35,49.45],[5.79,49.54],[5.88,49.65],[5.74,49.92],[5.98,50.17],[6.12,50.12]]],"Lithuania":[[[22.76,54.36],[22.69,54.56],[22.83,54.87],[22.57,55.06],[21.23,55.26],[21.05,56.07],[22.08,56.41],[24.12,56.26],[24.84,56.41],[25.07,56.2],[25.66,56.1],[26.6,55.67],[26.46,55.34],[26.78,55.27],[25.86,54.92],[25.55,54.33],[25.75,54.26],[25.68,54.14],[25.46,54.29],[24.87,54.14],[24.77,53.97],[23.56,53.92],[23.37,54.2],[22.76,54.36]]],"Libya":[[[9.52,30.23],[9.89,30.39],[10.22,30.78],[10.11,31.46],[10.28,31.68],[11.5,32.41],[11.5,33.18],[12.28,32.86],[12.75,32.8],[13.28,32.92],[15.18,32.39],[15.71,31.43],[17.83,30.93],[19.13,30.27],[19.71,30.49],[20.11,30.96],[19.93,31.82],[20.03,32.11],[20.37,32.43],[21.06,32.78],[21.63,32.94],[22.19,32.92],[23.09,32.62],[23.11,32.33],[23.29,32.21],[24.95,31.95],[25.15,31.65],[24.85,31.34],[24.98,30.78],[24.7,30.2],[24.98,29.18],[24.98,20.0],[23.98,20.0],[23.98,19.5],[15.98,23.45],[14.21,22.62],[13.48,23.18],[11.97,23.52],[11.51,24.32],[10.69,24.55],[10.33,24.53],[10.12,24.79],[10.0,25.33],[9.42,26.15],[9.49,26.33],[9.86,26.55],[9.89,26.85],[9.75,27.33],[9.92,27.79],[9.82,29.12],[9.31,30.12],[9.52,30.23]]],"Liberia":[[[-11.51,6.91],[-10.65,7.76],[-10.28,8.48],[-9.66,8.47],[-9.52,8.35],[-9.37,7.7],[-9.46,7.42],[-9.12,7.22],[-8.89,7.26],[-8.71,7.66],[-8.58,7.68],[-8.3,7.07],[-8.33,6.8],[-8.6,6.51],[-7.89,6.23],[-7.8,5.98],[-7.45,5.84],[-7.54,4.35],[-9.13,5.05],[-10.28,6.08],[-10.71,6.26],[-11.51,6.91]]],"Lesotho":[[[28.74,-30.1],[28.39,-30.15],[28.06,-30.63],[27.75,-30.6],[27.39,-30.32],[27.06,-29.63],[27.36,-29.46],[27.74,-28.94],[28.63,-28.58],[29.39,-29.27],[29.1,-29.92],[28.74,-30.1]]],"Lebanon":[[[35.98,34.63],[36.38,34.66],[36.33,34.5],[36.51,34.43],[36.59,34.22],[36.3,33.96],[36.37,33.84],[36.02,33.78],[35.94,33.67],[36.02,33.56],[35.49,33.12],[35.11,33.08],[35.65,34.25],[35.98,34.63]]],"Latvia":[[[26.6,55.67],[25.66,56.1],[25.07,56.2],[24.84,56.41],[24.12,56.26],[22.08,56.41],[21.05,56.07],[21.03,56.64],[21.73,57.57],[22.56,57.72],[23.29,57.09],[23.93,57.01],[24.38,57.25],[24.32,57.87],[25.28,58.05],[25.99,57.84],[26.46,57.54],[27.47,57.52],[27.83,57.29],[27.64,56.85],[27.85,56.85],[28.1,56.55],[28.15,56.14],[27.58,55.8],[27.05,55.83],[26.6,55.67]]],"Laos":[[[102.13,22.38],[102.66,21.68],[102.82,21.81],[102.95,21.68],[102.85,21.27],[103.1,20.89],[103.64,20.7],[104.1,20.95],[104.58,20.65],[104.37,20.44],[104.85,20.2],[104.93,20.02],[104.59,19.62],[104.03,19.67],[104.06,19.48],[103.89,19.3],[105.15,18.65],[105.16,18.34],[105.46,18.15],[105.69,17.74],[106.5,16.95],[106.66,16.49],[106.85,16.52],[107.4,16.04],[107.17,15.8],[107.65,15.25],[107.42,14.56],[106.82,14.31],[106.5,14.58],[106.22,14.48],[105.98,14.34],[106.12,14.05],[106.07,13.92],[105.25,14.2],[105.18,14.35],[105.5,14.59],[105.49,15.26],[105.64,15.66],[104.82,16.47],[104.74,17.46],[103.95,18.32],[103.29,18.41],[103.05,18.03],[102.66,17.82],[102.1,18.21],[101.17,17.5],[100.91,17.58],[101.14,18.14],[101.05,18.44],[101.29,18.98],[101.21,19.55],[100.96,19.61],[100.63,19.5],[100.42,19.65],[100.54,20.13],[100.32,20.39],[100.12,20.26],[100.18,20.59],[100.33,20.8],[100.62,20.86],[100.52,20.92],[100.7,21.25],[101.14,21.57],[101.25,21.2],[101.8,21.21],[101.74,21.83],[101.52,22.25],[101.74,22.5],[102.13,22.38]]],"Kyrgyzstan":[[[70.96,40.24],[71.3,40.29],[71.69,40.15],[72.13,40.44],[72.36,40.4],[72.4,40.58],[72.6,40.53],[73.14,40.81],[72.19,41.03],[72.16,41.17],[71.88,41.19],[71.66,41.54],[71.58,41.33],[71.42,41.34],[71.39,41.12],[70.78,41.26],[70.69,41.45],[70.18,41.54],[71.23,42.16],[70.89,42.34],[71.42,42.78],[72.28,42.76],[73.49,42.41],[73.42,42.59],[73.56,43.0],[74.21,43.24],[75.36,42.84],[76.99,42.97],[79.13,42.78],[79.43,42.48],[79.92,42.41],[80.25,42.06],[78.74,41.56],[78.36,41.37],[78.12,41.08],[76.91,41.02],[76.32,40.35],[76.26,40.43],[75.68,40.31],[75.52,40.63],[75.24,40.48],[74.84,40.48],[74.83,40.33],[73.99,40.04],[73.83,39.8],[73.91,39.58],[73.72,39.46],[72.56,39.38],[72.23,39.21],[72.04,39.35],[71.78,39.28],[71.47,39.6],[70.8,39.39],[70.5,39.59],[69.3,39.52],[69.28,39.92],[69.48,39.92],[69.53,40.1],[69.97,40.2],[70.52,39.95],[70.96,40.24]]],"Kuwait":[[[48.44,28.54],[47.67,28.53],[47.43,28.99],[46.53,29.1],[47.15,30.0],[47.75,30.08],[47.98,29.98],[48.15,29.57],[47.97,29.62],[47.72,29.39],[48.05,29.35],[48.44,28.54]]],"Kosovo":[[[20.35,42.83],[20.8,43.26],[21.39,42.75],[21.75,42.65],[21.56,42.25],[21.29,42.1],[21.06,42.17],[20.78,42.07],[20.72,41.87],[20.58,41.87],[20.49,42.22],[20.06,42.55],[20.05,42.76],[20.35,42.83]]],"Kenya":[[[33.9,-1.0],[33.94,0.17],[34.48,1.04],[34.8,1.25],[34.98,1.77],[34.86,2.59],[34.45,3.16],[34.44,3.65],[34.17,3.81],[33.98,4.22],[35.27,5.49],[35.33,5.36],[35.75,5.34],[35.76,4.81],[36.02,4.47],[36.91,4.41],[38.09,3.65],[39.49,3.46],[39.84,3.85],[40.77,4.27],[41.14,3.96],[41.88,3.98],[40.96,2.81],[40.98,-0.87],[41.53,-1.7],[41.27,-1.95],[40.89,-2.02],[40.9,-2.27],[40.64,-2.54],[40.22,-2.69],[40.12,-3.25],[39.38,-4.63],[39.19,-4.68],[37.8,-3.67],[37.61,-3.5],[37.64,-3.05],[33.9,-1.0]]],"Kazakhstan":[[[70.95,42.25],[69.15,41.43],[68.58,40.88],[68.57,40.62],[68.41,40.62],[68.05,40.81],[68.11,41.03],[67.93,41.2],[66.71,41.18],[66.5,41.99],[66.01,42.0],[66.1,42.99],[65.8,42.88],[65.5,43.31],[64.91,43.71],[64.44,43.55],[63.21,43.63],[61.99,43.49],[61.01,44.39],[58.56,45.56],[55.98,44.99],[55.98,41.32],[55.44,41.3],[54.86,41.97],[54.12,42.33],[53.06,42.15],[52.49,41.78],[52.6,42.76],[51.9,42.87],[51.62,43.16],[51.3,43.17],[51.3,43.48],[50.83,44.19],[50.33,44.33],[50.25,44.46],[50.41,44.62],[51.54,44.53],[51.01,44.92],[51.42,45.36],[53.2,45.33],[52.77,45.57],[53.13,46.19],[53.06,46.48],[53.17,46.67],[53.07,46.86],[52.48,46.99],[52.14,46.83],[51.18,47.11],[49.89,46.59],[49.35,46.52],[49.23,46.34],[48.58,46.58],[48.56,46.76],[48.96,46.77],[48.17,47.71],[47.29,47.74],[47.09,47.95],[47.07,48.23],[46.66,48.41],[46.7,48.8],[47.03,49.15],[46.8,49.37],[46.82,49.5],[47.5,50.4],[47.71,50.38],[48.34,49.86],[48.76,49.93],[48.84,50.01],[48.62,50.61],[49.32,50.85],[49.5,51.08],[50.25,51.29],[50.79,51.73],[51.35,51.47],[52.22,51.71],[52.57,51.48],[53.34,51.48],[54.14,51.04],[54.56,50.54],[54.65,50.66],[54.55,50.95],[54.64,51.01],[55.69,50.58],[56.49,51.02],[57.01,51.07],[57.44,50.89],[57.84,51.09],[58.36,51.06],[58.88,50.69],[59.45,50.62],[59.52,50.49],[59.81,50.58],[60.06,50.85],[60.42,50.68],[60.94,50.7],[61.39,50.86],[61.56,51.32],[60.46,51.65],[60.03,51.93],[60.99,52.34],[60.77,52.68],[61.05,52.97],[62.08,53.01],[61.66,53.23],[61.2,53.29],[61.23,53.45],[61.53,53.52],[60.98,53.62],[61.23,54.02],[61.93,53.95],[64.46,54.38],[65.09,54.34],[65.48,54.62],[68.15,54.98],[68.2,55.16],[68.98,55.39],[70.18,55.16],[70.74,55.3],[71.19,54.6],[71.09,54.21],[72.01,54.21],[72.19,54.33],[72.45,53.94],[72.62,54.13],[73.23,53.96],[73.71,54.04],[73.31,53.71],[73.41,53.45],[73.86,53.62],[74.35,53.49],[74.45,53.65],[75.22,53.89],[75.44,54.09],[76.84,54.44],[76.65,54.14],[76.42,54.15],[76.48,54.02],[77.86,53.27],[79.99,50.78],[80.42,50.95],[80.45,51.18],[80.74,51.29],[81.13,51.19],[81.07,50.97],[81.39,50.96],[81.47,50.74],[82.49,50.73],[83.36,50.99],[83.94,50.78],[84.32,50.24],[84.99,50.06],[85.23,49.62],[86.18,49.5],[86.68,49.78],[86.63,49.56],[87.32,49.09],[86.81,49.05],[86.55,48.53],[85.75,48.38],[85.52,47.92],[85.66,47.25],[85.48,47.06],[84.79,46.83],[84.67,46.97],[84.02,46.97],[83.03,47.19],[82.32,45.6],[82.61,45.42],[82.52,45.13],[81.87,45.18],[81.69,45.35],[79.87,44.88],[80.48,44.71],[80.35,44.55],[80.35,44.1],[80.79,43.16],[80.39,43.04],[80.54,42.87],[80.2,42.73],[80.21,42.19],[79.92,42.41],[79.43,42.48],[79.13,42.78],[76.99,42.97],[75.36,42.84],[74.21,43.24],[73.56,43.0],[73.42,42.59],[73.49,42.41],[71.76,42.82],[71.26,42.73],[70.89,42.34],[70.95,42.25]]],"Jordan":[[[35.79,32.73],[36.37,32.39],[36.82,32.32],[38.77,33.37],[39.04,32.31],[39.25,32.35],[39.29,32.24],[38.96,32.0],[36.96,31.49],[37.98,30.5],[37.63,30.31],[37.47,30.0],[36.75,29.87],[36.48,29.5],[36.02,29.19],[34.95,29.35],[35.14,30.42],[35.44,31.13],[35.57,32.64],[35.79,32.73]]],"Japan":[[[141.23,41.37],[141.45,41.4],[141.43,40.72],[141.8,40.29],[141.99,39.79],[141.98,39.43],[141.9,39.11],[141.55,38.76],[141.47,38.4],[141.11,38.34],[140.96,38.15],[141.0,37.11],[140.57,36.23],[140.87,35.72],[140.46,35.51],[140.36,35.18],[139.92,34.9],[139.8,34.96],[139.83,35.3],[140.1,35.59],[139.83,35.66],[139.65,35.41],[139.68,35.15],[139.47,35.3],[139.25,35.28],[138.9,34.63],[138.76,34.7],[138.9,35.02],[138.72,35.12],[138.19,34.6],[137.06,34.58],[137.27,34.77],[136.96,34.84],[136.91,34.71],[136.9,35.03],[136.8,35.05],[136.53,34.68],[136.88,34.43],[136.85,34.32],[136.33,34.18],[135.92,33.56],[135.69,33.49],[135.45,33.55],[135.13,34.01],[135.1,34.29],[135.42,34.62],[134.74,34.77],[134.25,34.71],[133.14,34.3],[132.31,34.32],[132.14,33.84],[131.74,34.05],[130.92,33.98],[130.89,34.26],[131.0,34.39],[131.35,34.41],[132.92,35.51],[133.98,35.51],[135.18,35.75],[135.33,35.53],[135.9,35.61],[136.09,35.77],[136.07,36.12],[136.7,36.74],[136.84,37.38],[137.32,37.52],[136.9,37.12],[137.02,36.84],[137.25,36.75],[138.32,37.22],[138.88,37.84],[139.4,38.14],[139.8,38.88],[140.06,39.62],[140.0,39.86],[139.74,39.92],[140.01,40.26],[139.97,40.67],[140.28,40.85],[140.39,41.23],[140.63,41.2],[140.75,40.83],[140.94,40.94],[141.12,40.88],[141.25,41.21],[140.8,41.14],[140.8,41.25],[140.94,41.5],[141.23,41.37]],[[143.82,44.12],[144.72,43.93],[145.37,44.33],[145.13,43.87],[145.14,43.66],[145.34,43.3],[145.83,43.39],[144.92,43.0],[143.97,42.88],[143.43,42.42],[143.24,42.0],[141.85,42.58],[141.41,42.55],[140.99,42.34],[140.71,42.56],[140.48,42.56],[140.33,42.29],[141.15,41.81],[140.66,41.82],[140.39,41.52],[140.04,41.47],[140.11,41.91],[139.83,42.28],[139.86,42.58],[140.43,42.95],[140.39,43.3],[141.14,43.18],[141.38,43.28],[141.4,43.64],[141.76,44.48],[141.78,44.72],[141.58,45.16],[141.67,45.4],[141.94,45.51],[142.88,44.67],[143.82,44.12]],[[131.18,33.6],[131.69,33.6],[131.54,33.27],[131.9,33.25],[131.85,33.12],[132.01,32.92],[131.66,32.47],[131.34,31.4],[131.07,31.44],[131.1,31.26],[130.69,31.01],[130.78,31.71],[130.56,31.56],[130.59,31.18],[130.15,31.41],[130.29,31.45],[130.32,31.6],[130.19,31.77],[130.19,32.09],[130.64,32.62],[130.5,32.66],[130.55,32.83],[130.24,33.18],[130.13,33.1],[130.18,32.85],[130.33,32.85],[130.34,32.7],[130.05,32.77],[129.77,32.57],[129.83,32.73],[129.68,33.06],[129.99,32.85],[129.58,33.24],[130.72,33.93],[130.95,33.87],[131.18,33.6]],[[134.36,34.26],[134.64,34.23],[134.74,33.82],[134.38,33.61],[134.18,33.25],[133.96,33.45],[133.63,33.51],[133.29,33.36],[132.8,32.75],[132.64,32.76],[132.71,32.9],[132.49,32.92],[132.41,33.43],[132.03,33.34],[132.64,33.69],[132.94,34.1],[133.19,33.93],[133.58,34.02],[133.6,34.24],[133.95,34.35],[134.36,34.26]]],"Jamaica":[[[-77.26,18.46],[-76.35,18.15],[-76.21,17.91],[-76.85,17.97],[-76.95,17.85],[-77.12,17.88],[-77.2,17.71],[-77.77,17.88],[-78.34,18.29],[-78.22,18.45],[-77.87,18.52],[-77.26,18.46]]],"Italy":[[[7.02,45.93],[7.79,45.92],[8.42,46.45],[8.46,46.25],[8.82,46.08],[8.96,45.83],[9.3,46.5],[9.53,46.31],[9.94,46.36],[10.08,46.23],[10.09,46.6],[10.43,46.55],[10.45,46.87],[10.99,46.78],[11.24,46.98],[12.17,47.08],[12.16,46.94],[12.39,46.7],[13.7,46.52],[13.38,46.26],[13.63,46.18],[13.49,45.99],[13.88,45.61],[13.72,45.59],[13.63,45.77],[13.21,45.77],[12.27,45.45],[12.22,45.24],[12.52,44.97],[12.25,44.72],[12.4,44.22],[13.56,43.57],[14.01,42.69],[14.54,42.24],[15.17,41.93],[16.17,41.9],[15.9,41.51],[17.96,40.65],[18.46,40.22],[18.39,39.9],[18.34,39.82],[18.08,39.94],[17.87,40.28],[17.48,40.31],[17.18,40.5],[16.93,40.46],[16.52,39.75],[17.11,39.38],[17.17,39.0],[16.62,38.8],[16.54,38.41],[16.06,37.94],[15.72,37.94],[15.64,38.18],[15.82,38.3],[15.93,38.67],[16.2,38.76],[16.21,38.94],[15.69,39.99],[14.95,40.24],[14.95,40.47],[14.77,40.67],[14.34,40.6],[14.46,40.73],[14.05,40.81],[13.73,41.24],[13.04,41.27],[11.64,42.29],[11.14,42.39],[11.17,42.53],[10.71,42.94],[10.51,42.97],[10.25,43.85],[10.05,44.02],[8.76,44.42],[8.0,43.88],[7.49,43.77],[7.64,44.16],[7.32,44.14],[6.9,44.34],[6.84,44.51],[7.03,44.72],[6.99,44.83],[6.63,45.07],[7.08,45.24],[7.15,45.38],[6.79,45.74],[7.02,45.93]],[[15.58,38.22],[15.1,37.46],[15.29,37.06],[15.11,36.69],[14.5,36.8],[14.14,37.1],[12.64,37.59],[12.44,37.82],[12.74,38.18],[12.9,38.03],[13.35,38.18],[13.79,37.98],[15.5,38.29],[15.58,38.22]],[[9.63,40.88],[9.8,40.5],[9.64,40.27],[9.71,40.02],[9.56,39.17],[9.06,39.24],[8.97,38.96],[8.65,38.93],[8.42,39.21],[8.55,39.84],[8.41,39.92],[8.47,40.29],[8.19,40.65],[8.2,40.87],[8.7,40.9],[9.23,41.26],[9.61,41.02],[9.63,40.88]]],"Israel":[[[35.87,33.43],[35.91,32.95],[35.57,32.64],[35.55,32.4],[35.19,32.54],[34.95,32.16],[34.96,31.82],[35.2,31.75],[34.95,31.6],[34.88,31.37],[35.45,31.48],[35.44,31.13],[34.9,29.48],[34.25,31.21],[34.53,31.53],[35.11,33.08],[35.41,33.07],[35.87,33.43]]],"Palestine":[[[35.55,32.4],[35.45,31.48],[34.88,31.37],[34.95,31.6],[35.2,31.75],[34.95,31.84],[35.07,32.46],[35.19,32.54],[35.55,32.4]]],"Ireland":[[[-7.22,55.09],[-7.55,54.77],[-7.91,54.7],[-7.75,54.59],[-8.15,54.45],[-7.61,54.14],[-7.32,54.13],[-7.01,54.41],[-6.65,54.06],[-6.18,54.05],[-6.35,53.94],[-6.14,53.58],[-6.03,52.93],[-6.22,52.54],[-6.46,52.34],[-6.32,52.25],[-6.89,52.16],[-6.96,52.25],[-8.06,51.83],[-8.41,51.89],[-8.41,51.71],[-9.3,51.5],[-9.84,51.48],[-9.52,51.68],[-10.12,51.6],[-9.6,51.87],[-10.34,51.8],[-9.91,52.12],[-10.39,52.13],[-10.36,52.21],[-9.77,52.25],[-9.91,52.4],[-9.63,52.55],[-8.78,52.68],[-8.99,52.76],[-9.17,52.63],[-9.92,52.57],[-9.52,52.78],[-9.3,53.1],[-8.93,53.21],[-10.09,53.41],[-10.12,53.55],[-9.72,53.6],[-9.9,53.73],[-9.58,53.8],[-9.91,53.86],[-9.86,54.09],[-10.09,54.16],[-10.06,54.26],[-8.54,54.24],[-8.62,54.35],[-8.13,54.64],[-8.76,54.68],[-8.38,54.89],[-8.27,55.15],[-7.67,55.26],[-7.56,55.12],[-7.66,54.97],[-7.48,55.05],[-7.52,55.25],[-7.3,55.3],[-7.37,55.36],[-6.96,55.24],[-7.22,55.09]]],"Iraq":[[[42.36,37.11],[42.77,37.37],[43.68,37.23],[44.11,37.3],[44.28,36.98],[44.73,37.16],[45.36,36.02],[45.78,35.82],[46.27,35.77],[46.0,35.61],[46.13,35.13],[45.68,34.8],[45.64,34.57],[45.5,34.58],[45.44,34.42],[45.54,34.22],[45.4,33.97],[46.02,33.42],[46.15,33.23],[46.11,32.96],[47.37,32.42],[47.83,31.79],[47.68,31.0],[48.01,30.99],[48.02,30.47],[48.33,30.29],[48.54,29.96],[47.67,30.1],[47.22,30.04],[46.53,29.1],[44.72,29.19],[42.08,31.08],[40.37,31.94],[39.14,32.13],[39.29,32.24],[39.25,32.35],[39.04,32.31],[38.77,33.37],[40.99,34.43],[41.19,34.77],[41.36,35.64],[41.29,36.38],[41.79,36.6],[42.36,37.11]]],"Iran":[[[53.92,37.34],[54.7,37.47],[54.9,37.78],[55.38,38.05],[56.27,38.08],[56.44,38.25],[57.19,38.22],[57.35,37.97],[58.26,37.66],[58.82,37.68],[59.3,37.51],[59.46,37.25],[59.95,37.04],[60.34,36.64],[61.17,36.57],[61.28,35.51],[61.1,35.27],[61.08,34.86],[60.73,34.52],[60.89,34.32],[60.64,34.31],[60.49,34.09],[60.49,33.71],[60.92,33.51],[60.56,33.14],[60.83,32.25],[60.82,31.5],[61.66,31.38],[61.81,30.91],[60.84,29.86],[61.89,28.55],[62.75,28.25],[62.76,27.25],[63.17,27.25],[63.3,27.12],[63.16,26.65],[62.44,26.56],[62.24,26.36],[61.84,26.23],[61.59,25.2],[61.41,25.1],[60.66,25.28],[60.51,25.44],[60.4,25.31],[59.46,25.48],[59.05,25.42],[58.8,25.55],[57.34,25.79],[56.98,26.91],[56.81,27.09],[56.36,27.2],[54.76,26.51],[54.25,26.7],[53.71,26.73],[52.69,27.32],[52.48,27.62],[51.59,27.86],[51.28,28.13],[51.06,28.73],[50.84,28.93],[50.88,29.06],[50.68,29.15],[50.65,29.42],[50.17,29.92],[50.07,30.2],[49.56,30.03],[49.0,30.37],[49.23,30.47],[49.0,30.51],[48.87,30.06],[48.54,29.96],[48.43,30.04],[48.33,30.29],[48.02,30.47],[48.01,30.99],[47.68,31.0],[47.83,31.79],[47.37,32.42],[46.11,32.96],[46.15,33.23],[46.02,33.42],[45.4,33.97],[45.54,34.22],[45.44,34.42],[45.5,34.58],[45.64,34.57],[45.68,34.8],[46.13,35.13],[46.0,35.61],[46.27,35.77],[45.78,35.82],[45.36,36.02],[45.24,36.36],[45.05,36.47],[44.79,37.29],[44.57,37.44],[44.59,37.71],[44.21,37.91],[44.45,38.34],[44.3,38.39],[44.27,38.84],[44.02,39.38],[44.39,39.42],[44.59,39.77],[45.48,39.01],[46.17,38.87],[46.55,38.9],[47.48,39.5],[48.0,39.68],[48.32,39.4],[48.11,39.24],[48.29,39.02],[48.0,38.85],[48.59,38.41],[48.87,38.44],[49.08,37.67],[50.13,37.41],[50.53,37.01],[51.12,36.74],[52.19,36.62],[53.77,36.93],[53.92,36.93],[53.68,36.85],[53.97,36.82],[53.92,37.34]]],"Indonesia":[[[109.63,2.03],[109.54,1.9],[109.66,1.62],[110.5,0.86],[111.1,1.05],[111.81,1.01],[112.08,1.14],[112.19,1.44],[112.48,1.56],[112.94,1.57],[113.01,1.43],[113.62,1.24],[113.9,1.43],[114.51,1.45],[114.83,1.98],[114.79,2.25],[115.18,2.52],[115.12,2.89],[115.45,3.04],[115.68,4.19],[115.86,4.35],[117.1,4.34],[117.58,4.17],[117.46,4.08],[117.78,3.69],[117.06,3.62],[117.34,3.43],[117.35,3.19],[117.61,3.06],[117.57,2.93],[118.06,2.32],[117.79,2.03],[118.99,0.98],[118.53,0.81],[118.19,0.87],[117.91,1.1],[117.96,0.89],[117.74,0.73],[117.52,0.24],[117.56,-0.77],[116.91,-1.22],[116.74,-1.04],[116.75,-1.33],[116.28,-1.79],[116.42,-1.79],[116.45,-1.92],[116.32,-2.14],[116.56,-2.3],[116.53,-2.51],[116.32,-2.55],[116.33,-2.9],[116.17,-2.93],[116.26,-3.13],[115.96,-3.59],[114.7,-4.17],[114.53,-3.38],[114.34,-3.44],[114.34,-3.24],[114.23,-3.36],[114.08,-3.28],[113.71,-3.46],[113.61,-3.2],[113.34,-3.25],[113.04,-2.93],[112.97,-3.19],[112.76,-3.32],[112.28,-3.32],[111.86,-3.55],[111.82,-3.06],[111.7,-2.89],[110.93,-3.07],[110.83,-3.0],[110.9,-2.91],[110.7,-3.02],[110.57,-2.89],[110.26,-2.97],[110.1,-2.0],[109.96,-1.86],[109.98,-1.28],[109.79,-1.01],[109.26,-0.81],[109.37,-0.64],[109.12,-0.39],[109.26,0.03],[108.95,0.36],[108.92,0.91],[108.96,1.13],[109.13,1.25],[109.01,1.24],[109.08,1.5],[109.38,1.92],[109.63,2.03]],[[96.49,5.23],[97.55,5.21],[98.25,4.42],[98.31,4.09],[99.73,3.18],[100.53,2.19],[100.89,1.95],[100.83,2.24],[101.05,2.26],[101.48,1.69],[101.79,1.62],[102.1,1.36],[102.39,0.84],[103.03,0.58],[103.01,0.42],[102.55,0.22],[103.34,0.51],[103.67,0.29],[103.79,0.05],[103.43,-0.19],[103.44,-0.58],[103.72,-0.89],[104.38,-1.07],[104.51,-1.82],[104.85,-2.09],[104.65,-2.59],[104.97,-2.37],[105.4,-2.38],[106.04,-3.11],[105.84,-3.61],[105.89,-5.01],[105.75,-5.82],[105.35,-5.55],[105.08,-5.75],[104.64,-5.52],[104.68,-5.89],[104.6,-5.91],[103.83,-5.08],[102.54,-4.15],[102.13,-3.6],[101.58,-3.17],[100.89,-2.25],[100.86,-1.94],[100.31,-0.83],[99.67,0.05],[99.16,0.35],[98.6,1.87],[97.7,2.36],[97.59,2.85],[96.97,3.58],[96.44,3.82],[95.58,4.66],[95.21,5.28],[95.23,5.56],[95.63,5.61],[96.13,5.29],[96.49,5.23]],[[140.97,-2.61],[140.98,-6.35],[140.86,-6.74],[140.98,-6.91],[140.98,-9.12],[139.98,-8.17],[140.12,-7.92],[139.94,-8.1],[139.38,-8.19],[139.25,-7.98],[138.89,-8.24],[139.09,-7.59],[138.75,-7.25],[139.18,-7.19],[138.84,-7.14],[138.6,-6.94],[138.87,-6.86],[138.44,-6.34],[138.3,-5.95],[138.38,-5.84],[138.2,-5.81],[138.34,-5.68],[138.09,-5.71],[138.06,-5.47],[137.28,-4.95],[135.98,-4.53],[135.19,-4.45],[134.68,-4.08],[134.71,-3.95],[134.89,-3.94],[134.27,-3.95],[134.15,-3.8],[133.97,-3.82],[133.68,-3.48],[133.84,-3.05],[133.7,-3.09],[133.65,-3.36],[133.52,-3.41],[133.4,-3.9],[133.25,-4.06],[132.92,-4.06],[132.75,-3.7],[132.87,-3.55],[132.75,-3.29],[131.97,-2.79],[132.23,-2.68],[132.72,-2.79],[133.19,-2.44],[133.7,-2.62],[133.91,-2.39],[133.79,-2.29],[133.92,-2.1],[132.96,-2.27],[132.31,-2.24],[132.02,-1.99],[131.93,-1.56],[131.0,-1.38],[131.26,-0.86],[131.8,-0.7],[132.39,-0.36],[132.86,-0.42],[133.47,-0.73],[133.97,-0.74],[134.11,-0.85],[134.07,-1.0],[134.26,-1.36],[134.11,-1.72],[134.19,-2.31],[134.46,-2.83],[134.57,-2.51],[134.7,-2.93],[134.84,-2.91],[134.92,-3.25],[135.25,-3.37],[135.49,-3.34],[135.86,-3.0],[136.39,-2.27],[137.07,-2.11],[137.17,-2.03],[137.12,-1.84],[137.81,-1.48],[139.79,-2.35],[140.62,-2.45],[140.75,-2.61],[140.97,-2.61]],[[124.89,1.0],[124.43,0.47],[123.75,0.31],[123.27,0.33],[123.0,0.49],[121.01,0.44],[120.58,0.53],[120.19,0.27],[120.01,-0.2],[120.06,-0.55],[120.67,-1.37],[121.15,-1.34],[121.58,-0.83],[121.97,-0.93],[122.28,-0.76],[122.89,-0.75],[122.83,-0.66],[123.17,-0.57],[123.43,-0.78],[123.38,-1.0],[122.9,-0.9],[122.25,-1.55],[121.65,-1.9],[121.36,-1.88],[122.29,-2.91],[122.4,-3.2],[122.25,-3.62],[122.69,-4.08],[122.85,-4.07],[122.87,-4.39],[122.12,-4.54],[122.04,-4.83],[121.59,-4.76],[121.49,-4.58],[121.62,-4.09],[120.89,-3.52],[121.05,-3.17],[121.05,-2.75],[120.65,-2.67],[120.26,-2.95],[120.44,-3.71],[120.42,-4.62],[120.28,-5.15],[120.43,-5.59],[119.95,-5.58],[119.72,-5.69],[119.56,-5.61],[119.36,-5.32],[119.62,-4.03],[119.47,-3.51],[118.92,-3.48],[118.78,-2.72],[119.09,-2.48],[119.32,-1.93],[119.31,-1.41],[119.51,-0.91],[119.71,-0.68],[119.84,-0.86],[119.72,-0.09],[120.27,0.97],[120.6,0.85],[120.87,1.25],[121.08,1.33],[121.59,1.07],[122.44,1.02],[122.84,0.85],[123.07,0.94],[123.85,0.84],[124.28,1.02],[124.95,1.67],[125.11,1.69],[125.23,1.5],[124.89,1.0]],[[107.37,-6.01],[107.67,-6.22],[108.33,-6.29],[108.68,-6.79],[110.43,-6.95],[110.84,-6.42],[111.18,-6.69],[111.54,-6.65],[112.09,-6.89],[112.54,-6.93],[112.79,-7.3],[112.79,-7.55],[113.01,-7.66],[114.07,-7.63],[114.41,-7.79],[114.39,-8.41],[114.58,-8.77],[113.25,-8.29],[112.68,-8.41],[111.51,-8.3],[110.61,-8.15],[109.28,-7.71],[108.74,-7.67],[108.45,-7.8],[107.92,-7.72],[107.29,-7.47],[106.45,-7.37],[106.52,-7.05],[106.2,-6.93],[105.26,-6.84],[105.37,-6.66],[105.48,-6.78],[105.66,-6.47],[105.79,-6.46],[105.87,-6.12],[106.07,-5.91],[106.83,-6.1],[107.05,-5.9],[107.37,-6.01]],[[127.73,0.85],[127.88,0.83],[128.22,1.4],[128.69,1.57],[128.7,1.11],[128.3,0.88],[128.26,0.73],[128.9,0.22],[127.98,0.47],[127.89,0.3],[127.98,-0.25],[128.43,-0.89],[128.05,-0.71],[127.69,-0.24],[127.71,0.29],[127.54,0.61],[127.61,0.85],[127.43,1.14],[127.63,1.84],[128.04,2.2],[127.89,1.83],[128.01,1.7],[128.01,1.33],[127.65,1.01],[127.73,0.85]],[[129.75,-2.87],[130.57,-3.13],[130.86,-3.57],[130.81,-3.86],[129.84,-3.33],[129.51,-3.33],[129.47,-3.45],[128.86,-3.24],[128.52,-3.45],[128.13,-3.16],[127.9,-3.5],[127.88,-3.22],[128.2,-2.87],[129.75,-2.87]],[[118.24,-8.32],[118.61,-8.28],[118.71,-8.42],[118.93,-8.3],[119.13,-8.67],[118.48,-8.86],[118.38,-8.67],[118.19,-8.84],[117.06,-9.1],[116.79,-9.01],[116.83,-8.53],[117.16,-8.37],[117.57,-8.43],[117.81,-8.71],[117.97,-8.73],[118.23,-8.59],[117.82,-8.34],[117.76,-8.15],[118.12,-8.12],[118.24,-8.32]],[[122.78,-8.61],[121.04,-8.93],[120.55,-8.8],[119.91,-8.86],[119.81,-8.7],[119.88,-8.42],[120.61,-8.24],[121.45,-8.58],[121.97,-8.46],[122.32,-8.63],[122.85,-8.3],[122.92,-8.22],[122.76,-8.19],[122.92,-8.1],[123.0,-8.33],[122.78,-8.61]],[[124.92,-8.94],[124.94,-9.05],[125.15,-9.04],[124.96,-9.21],[125.07,-9.51],[124.96,-9.67],[124.43,-10.15],[123.65,-10.31],[123.72,-10.08],[123.59,-9.97],[123.71,-9.62],[124.04,-9.34],[124.32,-9.41],[124.44,-9.19],[124.92,-8.94]],[[106.04,-1.67],[106.36,-2.46],[106.82,-2.57],[106.61,-2.9],[106.67,-3.07],[106.0,-2.83],[105.79,-2.18],[105.13,-2.04],[105.46,-1.57],[105.58,-1.53],[105.7,-1.73],[105.72,-1.53],[105.91,-1.5],[106.04,-1.67]],[[120.01,-9.38],[120.29,-9.65],[120.56,-9.72],[120.8,-10.11],[120.44,-10.29],[120.25,-10.24],[119.6,-9.77],[119.08,-9.71],[118.96,-9.52],[119.3,-9.37],[120.01,-9.38]],[[138.53,-8.27],[138.3,-8.41],[137.65,-8.39],[138.08,-7.57],[138.77,-7.39],[138.99,-7.7],[138.53,-8.27]],[[126.86,-3.09],[127.23,-3.39],[127.23,-3.63],[126.69,-3.82],[126.06,-3.42],[126.09,-3.11],[126.86,-3.09]]],"India":[[[68.16,23.86],[68.72,23.96],[68.78,24.31],[69.81,24.17],[70.49,24.41],[70.72,24.24],[71.04,24.4],[71.05,24.69],[70.65,25.42],[70.65,25.67],[70.26,25.71],[70.1,25.91],[70.15,26.51],[69.51,26.74],[69.54,27.12],[70.4,28.02],[70.8,27.71],[71.87,27.96],[72.34,28.75],[72.95,29.09],[73.38,29.93],[73.81,30.09],[73.93,30.22],[73.9,30.43],[74.63,31.04],[74.52,31.19],[74.55,31.82],[75.33,32.22],[75.24,32.37],[74.68,32.49],[74.66,32.76],[74.35,32.77],[74.3,32.99],[74.0,33.19],[74.15,33.51],[73.98,33.72],[74.25,33.95],[73.9,34.07],[73.97,34.24],[73.8,34.38],[73.96,34.65],[74.3,34.77],[75.71,34.5],[76.6,34.74],[77.8,35.5],[78.04,35.48],[78.01,35.25],[78.33,34.61],[78.97,34.3],[78.73,34.01],[78.8,33.5],[79.13,33.17],[79.22,32.5],[78.92,32.36],[78.7,32.6],[78.39,32.52],[78.73,31.96],[78.74,31.32],[79.11,31.4],[79.49,30.99],[80.15,30.79],[80.19,30.57],[80.68,30.42],[81.01,30.16],[80.4,29.73],[80.07,28.83],[80.42,28.61],[80.59,28.65],[81.85,27.87],[82.68,27.67],[82.73,27.52],[83.29,27.37],[84.09,27.49],[84.61,27.3],[84.69,27.04],[85.24,26.75],[85.65,26.83],[85.79,26.6],[86.01,26.65],[86.7,26.43],[87.01,26.56],[87.29,26.36],[87.99,26.38],[88.16,26.72],[87.98,27.13],[88.14,27.95],[88.58,28.09],[88.8,28.01],[88.75,27.52],[88.89,27.32],[88.74,27.18],[88.86,26.96],[89.15,26.82],[89.77,26.7],[90.34,26.89],[90.74,26.77],[92.0,26.85],[92.08,27.29],[91.99,27.45],[91.59,27.56],[91.63,27.76],[92.55,27.88],[93.25,28.63],[93.76,28.73],[94.62,29.31],[95.39,29.04],[96.04,29.45],[96.36,29.25],[96.12,29.08],[96.14,28.92],[96.44,29.05],[96.58,28.76],[96.28,28.41],[96.6,28.46],[97.32,28.22],[97.34,27.94],[96.88,27.59],[97.1,27.12],[96.73,27.33],[96.19,27.26],[95.13,26.6],[95.05,26.35],[95.13,26.04],[94.58,25.32],[94.71,25.05],[94.13,23.88],[93.33,24.06],[93.37,23.13],[93.16,23.03],[93.08,22.72],[93.15,22.23],[92.91,21.99],[92.72,22.13],[92.57,21.98],[92.25,23.68],[91.93,23.69],[91.75,23.05],[91.62,22.98],[91.44,23.2],[91.32,23.11],[91.17,23.58],[91.37,24.09],[91.88,24.2],[92.1,24.41],[92.23,24.88],[92.44,24.85],[92.47,24.94],[92.05,25.17],[90.44,25.16],[89.83,25.29],[89.82,25.94],[89.67,26.21],[89.55,26.01],[89.37,26.01],[89.02,26.41],[88.92,26.38],[88.97,26.25],[88.83,26.25],[88.37,26.56],[88.44,26.37],[88.08,25.89],[88.95,25.26],[88.45,25.19],[88.02,24.63],[88.72,24.28],[88.57,23.67],[88.72,23.25],[88.93,23.19],[88.85,23.04],[89.05,22.28],[88.95,21.94],[89.05,21.65],[88.86,21.74],[88.75,21.58],[88.64,22.12],[88.58,21.66],[88.45,21.61],[88.29,21.76],[88.25,21.62],[88.12,21.64],[88.2,22.14],[87.94,22.37],[88.16,22.12],[87.95,21.83],[87.1,21.5],[86.86,21.24],[86.98,20.7],[86.75,20.31],[86.38,20.01],[86.24,20.05],[86.22,19.9],[85.57,19.69],[85.5,19.89],[85.25,19.76],[85.18,19.59],[85.44,19.63],[84.77,19.13],[84.11,18.29],[82.36,17.1],[82.26,16.56],[81.76,16.33],[81.29,16.34],[80.98,15.76],[80.65,15.9],[80.29,15.71],[80.05,15.07],[80.31,13.49],[80.16,13.71],[80.06,13.61],[80.34,13.36],[80.23,12.69],[79.86,11.99],[79.69,11.31],[79.84,11.27],[79.84,10.32],[79.31,10.26],[78.94,9.57],[79.02,9.33],[79.41,9.19],[78.98,9.27],[78.42,9.1],[78.19,8.89],[78.06,8.38],[77.52,8.08],[77.06,8.32],[76.55,8.9],[76.33,9.45],[76.24,9.93],[76.46,9.54],[76.35,9.92],[75.72,11.36],[74.94,12.56],[74.38,14.49],[73.95,15.07],[73.8,15.4],[73.93,15.4],[73.77,15.57],[73.83,15.66],[73.68,15.71],[73.34,16.46],[72.87,18.64],[73.01,19.02],[72.97,19.15],[72.83,18.98],[72.8,19.08],[72.81,19.3],[72.99,19.28],[72.79,19.36],[72.67,19.83],[72.9,20.67],[72.81,21.12],[72.63,21.37],[72.73,21.47],[72.61,21.46],[73.11,21.75],[72.54,21.7],[72.7,21.97],[72.52,21.98],[72.55,22.16],[72.81,22.23],[72.18,22.27],[72.28,22.09],[72.04,21.82],[72.21,21.73],[72.25,21.53],[72.02,21.16],[71.02,20.74],[70.48,20.84],[68.97,22.29],[69.05,22.44],[69.28,22.29],[70.18,22.57],[70.49,23.09],[70.34,22.94],[69.67,22.76],[69.24,22.85],[68.64,23.19],[68.42,23.57],[68.78,23.85],[68.23,23.6],[68.16,23.86]],[[92.72,11.54],[92.53,11.87],[92.79,12.23],[92.72,12.54],[92.86,13.36],[93.06,13.54],[93.07,13.22],[92.89,12.94],[92.99,12.54],[92.75,11.99],[92.72,11.54]]],"Iceland":[[[-15.54,66.23],[-14.6,66.38],[-15.11,66.1],[-14.7,66.02],[-14.83,65.76],[-14.39,65.79],[-14.32,65.68],[-14.47,65.57],[-14.17,65.64],[-13.62,65.52],[-13.8,65.35],[-13.57,65.07],[-13.85,64.99],[-13.85,64.86],[-14.05,64.74],[-14.38,64.74],[-14.43,64.54],[-14.63,64.42],[-15.83,64.18],[-16.64,63.86],[-17.81,63.71],[-17.95,63.53],[-18.65,63.41],[-20.2,63.56],[-20.49,63.69],[-20.41,63.81],[-20.65,63.74],[-21.15,63.94],[-22.65,63.83],[-22.7,64.08],[-22.51,63.99],[-22.06,64.07],[-21.46,64.38],[-22.05,64.31],[-21.9,64.39],[-22.0,64.41],[-21.95,64.52],[-21.59,64.63],[-22.16,64.54],[-22.33,64.63],[-22.25,64.73],[-22.47,64.8],[-23.82,64.74],[-24.02,64.86],[-21.89,65.05],[-21.78,65.19],[-22.51,65.2],[-21.84,65.45],[-22.9,65.58],[-23.9,65.41],[-24.47,65.52],[-24.25,65.61],[-23.86,65.54],[-24.09,65.78],[-23.61,65.68],[-23.29,65.75],[-23.83,65.85],[-23.52,65.88],[-23.78,66.02],[-23.43,66.02],[-23.6,66.11],[-23.45,66.18],[-23.02,65.98],[-22.66,66.03],[-22.62,65.87],[-22.44,65.91],[-22.44,66.07],[-22.95,66.21],[-22.48,66.27],[-23.12,66.34],[-22.89,66.44],[-22.43,66.43],[-21.41,66.03],[-21.52,65.97],[-21.31,65.9],[-21.38,65.74],[-21.66,65.72],[-21.36,65.58],[-21.43,65.47],[-21.13,65.27],[-20.8,65.64],[-20.45,65.57],[-20.36,66.03],[-20.21,66.1],[-19.49,65.77],[-19.38,66.08],[-18.84,66.18],[-18.14,65.73],[-18.3,66.16],[-17.91,66.14],[-17.55,65.96],[-17.15,66.2],[-16.49,66.2],[-16.54,66.45],[-16.25,66.52],[-15.99,66.51],[-15.54,66.23]]],"Hungary":[[[22.13,48.41],[22.77,48.11],[22.88,47.95],[22.0,47.5],[21.26,46.41],[20.66,46.15],[19.61,46.17],[18.44,45.77],[17.81,45.79],[16.52,46.5],[16.28,46.86],[16.09,46.86],[16.45,47.01],[16.44,47.4],[16.68,47.54],[16.42,47.67],[17.07,47.71],[17.15,48.01],[17.76,47.77],[18.73,47.79],[18.79,48.0],[19.63,48.22],[19.9,48.13],[20.33,48.3],[20.49,48.53],[21.45,48.55],[21.72,48.35],[22.13,48.41]]],"Honduras":[[[-83.16,14.99],[-83.54,14.98],[-84.46,14.64],[-84.86,14.81],[-84.98,14.75],[-85.18,14.34],[-85.73,13.86],[-86.04,14.05],[-86.33,13.77],[-86.76,13.75],[-86.71,13.31],[-87.06,12.99],[-87.34,12.98],[-87.49,13.35],[-87.81,13.4],[-87.72,13.81],[-87.8,13.89],[-88.15,13.99],[-88.48,13.85],[-89.06,14.33],[-89.36,14.42],[-89.17,14.61],[-89.14,15.07],[-88.23,15.73],[-87.7,15.91],[-86.91,15.76],[-86.36,15.78],[-85.93,15.95],[-85.99,16.02],[-85.48,15.9],[-84.97,15.99],[-84.56,15.8],[-84.26,15.82],[-83.76,15.41],[-83.97,15.52],[-84.1,15.4],[-83.5,15.22],[-83.65,15.37],[-83.16,14.99]]],"Haiti":[[[-71.78,19.72],[-71.65,19.16],[-71.81,18.99],[-71.74,18.73],[-72.0,18.6],[-71.76,18.34],[-71.77,18.04],[-72.06,18.23],[-72.88,18.15],[-73.38,18.25],[-73.75,18.19],[-73.89,18.04],[-74.46,18.39],[-74.39,18.62],[-74.23,18.66],[-72.79,18.44],[-72.38,18.57],[-72.35,18.67],[-72.81,19.07],[-72.7,19.44],[-73.4,19.66],[-73.32,19.86],[-72.88,19.93],[-71.78,19.72]]],"Guyana":[[[-60.74,5.2],[-61.39,5.94],[-61.13,6.21],[-61.14,6.69],[-60.72,6.77],[-60.35,7.0],[-60.32,7.13],[-60.63,7.21],[-60.72,7.54],[-60.51,7.81],[-59.85,8.25],[-60.02,8.55],[-59.2,8.07],[-58.51,7.4],[-58.48,7.04],[-58.67,6.39],[-58.3,6.88],[-57.98,6.79],[-57.23,6.18],[-57.2,5.55],[-57.32,5.34],[-57.21,5.19],[-57.33,5.02],[-57.88,4.88],[-58.06,4.1],[-57.65,3.39],[-57.3,3.38],[-57.2,2.85],[-56.71,2.04],[-56.48,1.94],[-57.32,1.96],[-57.54,1.73],[-57.98,1.65],[-58.03,1.52],[-58.34,1.59],[-58.51,1.29],[-58.79,1.21],[-59.23,1.38],[-59.74,1.87],[-59.76,2.27],[-59.99,2.69],[-59.86,3.59],[-59.55,3.93],[-59.74,4.23],[-59.7,4.38],[-60.15,4.53],[-59.99,5.08],[-60.14,5.24],[-60.74,5.2]]],"Guinea-Bissau":[[[-16.71,12.35],[-15.58,12.49],[-15.2,12.68],[-13.73,12.67],[-13.71,12.31],[-13.95,12.22],[-13.74,12.01],[-13.73,11.74],[-14.68,11.51],[-15.04,10.94],[-15.05,11.14],[-15.22,11.03],[-15.22,11.16],[-15.39,11.22],[-15.36,11.4],[-15.48,11.41],[-15.07,11.6],[-15.5,11.72],[-15.47,11.84],[-15.08,11.97],[-15.94,11.79],[-15.92,11.94],[-16.33,12.05],[-16.25,12.24],[-16.71,12.35]]],"Guinea":[[[-10.28,8.48],[-10.71,8.34],[-10.5,8.69],[-10.61,9.06],[-10.75,9.1],[-10.69,9.31],[-11.21,9.98],[-12.43,9.9],[-13.03,9.1],[-13.29,9.05],[-13.44,9.42],[-13.69,9.54],[-13.69,9.93],[-13.82,9.89],[-14.05,10.14],[-14.43,10.25],[-14.61,10.55],[-14.59,10.77],[-14.68,10.69],[-14.78,10.93],[-15.05,10.84],[-14.68,11.51],[-13.73,11.74],[-13.74,12.01],[-13.95,12.22],[-13.71,12.31],[-13.73,12.67],[-13.08,12.63],[-13.06,12.49],[-12.4,12.34],[-11.39,12.4],[-11.5,12.2],[-11.31,12.02],[-10.93,12.2],[-10.71,11.9],[-10.28,12.21],[-9.75,12.03],[-9.36,12.26],[-9.39,12.47],[-9.04,12.4],[-8.82,11.67],[-8.4,11.37],[-8.67,11.01],[-8.34,10.99],[-8.27,10.49],[-7.99,10.28],[-8.16,9.97],[-8.14,9.5],[-7.9,9.42],[-7.92,9.19],[-7.78,9.08],[-7.94,8.98],[-7.95,8.79],[-7.72,8.64],[-7.68,8.41],[-8.21,8.48],[-8.26,8.25],[-8.01,8.08],[-8.21,7.59],[-8.49,7.56],[-8.66,7.69],[-8.89,7.26],[-9.12,7.22],[-9.46,7.42],[-9.37,7.7],[-9.52,8.35],[-9.78,8.54],[-10.28,8.48]]],"Guatemala":[[[-92.23,14.54],[-92.08,15.07],[-92.21,15.28],[-91.74,16.07],[-90.45,16.07],[-90.42,16.39],[-91.41,17.26],[-90.99,17.25],[-90.99,17.82],[-89.16,17.82],[-89.24,15.89],[-88.6,15.76],[-88.6,15.95],[-88.23,15.73],[-89.17,15.04],[-89.17,14.61],[-89.57,14.39],[-89.55,14.24],[-90.05,13.9],[-90.1,13.74],[-90.61,13.93],[-91.38,13.99],[-92.23,14.54]]],"Greece":[[[26.32,41.72],[26.58,41.6],[26.62,41.4],[26.33,41.24],[26.35,41.0],[26.11,40.75],[25.1,40.99],[24.79,40.86],[24.48,40.95],[24.08,40.72],[23.76,40.75],[23.87,40.42],[24.21,40.33],[24.34,40.15],[23.91,40.36],[23.73,40.33],[23.97,40.11],[23.95,39.97],[23.66,40.22],[23.43,40.26],[23.47,40.07],[23.68,39.96],[23.39,39.99],[23.31,40.22],[22.9,40.4],[22.92,40.59],[22.63,40.5],[22.59,40.04],[23.33,39.18],[23.15,39.1],[23.16,39.26],[22.92,39.31],[22.89,39.17],[23.07,39.04],[22.57,38.87],[23.97,38.27],[24.05,37.71],[23.5,38.03],[23.03,37.88],[23.49,37.44],[23.16,37.33],[22.73,37.54],[23.16,36.45],[22.72,36.79],[22.43,36.48],[22.08,37.03],[21.95,36.99],[21.89,36.74],[21.74,36.86],[21.58,37.08],[21.68,37.39],[21.12,37.89],[21.4,38.2],[21.95,38.32],[22.92,37.96],[22.89,38.05],[23.18,38.13],[22.42,38.44],[21.47,38.32],[21.33,38.49],[21.18,38.35],[20.77,38.87],[21.11,38.9],[21.12,39.03],[20.78,39.01],[20.3,39.33],[20.0,39.71],[20.25,39.68],[20.38,39.8],[20.31,39.98],[20.66,40.12],[21.03,40.62],[20.96,40.85],[21.58,40.87],[21.99,41.13],[22.49,41.12],[22.73,41.18],[22.78,41.33],[24.06,41.53],[24.52,41.55],[24.77,41.36],[25.25,41.24],[25.92,41.31],[26.16,41.44],[26.08,41.7],[26.32,41.72]],[[23.85,35.53],[24.17,35.6],[24.11,35.49],[24.31,35.36],[25.73,35.35],[25.79,35.12],[26.32,35.31],[26.17,35.02],[24.8,34.93],[24.46,35.16],[23.59,35.26],[23.57,35.53],[23.74,35.65],[23.85,35.53]],[[23.42,38.96],[23.52,38.81],[24.13,38.65],[24.28,38.22],[24.56,38.15],[24.58,38.02],[24.36,38.02],[24.04,38.39],[23.65,38.44],[23.25,38.8],[22.87,38.87],[23.26,39.03],[23.42,38.96]]],"Ghana":[[[-0.07,11.12],[0.01,11.02],[-0.08,10.67],[0.38,10.29],[0.26,9.64],[0.34,9.6],[0.23,9.46],[0.53,9.4],[0.49,8.85],[0.37,8.76],[0.69,8.35],[0.5,7.55],[0.64,7.35],[0.52,6.85],[0.74,6.45],[1.19,6.09],[0.95,5.81],[0.26,5.76],[-2.0,4.76],[-3.11,5.09],[-2.82,5.15],[-2.76,5.43],[-3.0,5.71],[-3.23,6.81],[-2.99,7.21],[-2.79,7.93],[-2.51,8.21],[-2.75,9.05],[-2.77,10.24],[-2.91,10.59],[-2.83,11.0],[-0.63,10.93],[-0.3,11.17],[-0.07,11.12]]],"Germany":[[[9.52,47.52],[8.57,47.78],[8.4,47.69],[8.56,47.62],[8.43,47.59],[7.57,47.61],[7.62,48.16],[8.13,48.97],[7.45,49.15],[6.73,49.16],[6.35,49.45],[6.49,49.8],[6.26,49.87],[6.11,50.09],[6.36,50.32],[6.34,50.45],[5.86,51.03],[6.13,51.15],[6.19,51.41],[5.95,51.8],[6.74,51.91],[6.72,52.08],[6.98,52.21],[7.04,52.38],[6.69,52.53],[6.75,52.63],[7.01,52.63],[7.18,52.97],[7.2,53.28],[7.05,53.38],[7.21,53.66],[8.01,53.69],[8.17,53.54],[8.11,53.47],[8.25,53.45],[8.33,53.61],[8.49,53.39],[8.62,53.88],[9.21,53.86],[9.78,53.55],[8.98,53.93],[8.91,54.26],[8.65,54.29],[8.96,54.54],[8.67,54.9],[9.62,54.85],[10.02,54.67],[9.87,54.47],[10.73,54.32],[11.01,54.38],[11.01,54.18],[10.81,54.08],[10.92,54.0],[11.4,53.95],[12.11,54.17],[12.58,54.47],[13.03,54.41],[13.45,54.14],[13.73,54.15],[13.87,53.85],[14.26,53.73],[14.41,53.22],[14.13,52.88],[14.62,52.53],[14.55,52.36],[14.75,52.08],[14.6,51.83],[14.73,51.52],[14.93,51.43],[14.96,51.09],[14.77,50.82],[14.32,51.04],[14.37,50.9],[13.56,50.7],[12.94,50.41],[12.55,50.39],[12.28,50.18],[12.09,50.27],[12.51,49.9],[12.39,49.74],[12.63,49.46],[13.77,48.82],[13.79,48.59],[13.49,48.58],[13.38,48.36],[12.76,48.11],[12.95,47.89],[12.9,47.72],[13.06,47.66],[13.02,47.48],[12.68,47.67],[12.21,47.72],[12.18,47.62],[11.04,47.39],[10.44,47.55],[10.18,47.28],[9.97,47.5],[9.52,47.52]]],"Georgia":[[[43.44,41.11],[42.76,41.58],[42.47,41.44],[41.51,41.52],[41.76,41.97],[41.49,42.66],[39.98,43.42],[40.15,43.57],[40.65,43.53],[41.58,43.22],[42.76,43.17],[43.78,42.75],[43.83,42.57],[44.51,42.75],[44.77,42.62],[44.87,42.76],[45.16,42.68],[45.34,42.53],[45.7,42.5],[45.64,42.2],[46.43,41.89],[46.19,41.62],[46.67,41.29],[46.46,41.07],[45.28,41.45],[44.84,41.21],[43.44,41.11]]],"Gambia":[[[-16.56,13.59],[-15.51,13.59],[-15.43,13.73],[-15.11,13.81],[-14.41,13.5],[-13.98,13.54],[-13.83,13.41],[-14.25,13.24],[-15.15,13.56],[-15.29,13.4],[-15.81,13.32],[-15.83,13.16],[-16.76,13.06],[-16.82,13.34],[-16.67,13.48],[-16.41,13.27],[-15.43,13.47],[-16.35,13.34],[-16.56,13.59]]],"Gabon":[[[13.29,2.16],[13.19,1.28],[14.18,1.37],[14.43,0.9],[14.32,0.62],[13.95,0.35],[13.86,-0.2],[14.47,-0.57],[14.38,-1.89],[14.16,-2.22],[14.2,-2.35],[14.0,-2.49],[13.73,-2.14],[13.47,-2.4],[12.99,-2.31],[12.63,-1.83],[12.43,-1.93],[12.45,-2.33],[11.6,-2.34],[11.54,-2.84],[11.94,-3.32],[11.88,-3.67],[11.69,-3.68],[11.5,-3.52],[11.13,-3.92],[9.72,-2.47],[10.06,-2.55],[9.62,-2.37],[9.3,-1.9],[9.48,-1.9],[9.26,-1.83],[9.04,-1.31],[9.32,-1.63],[9.5,-1.55],[9.3,-1.51],[9.35,-1.33],[9.06,-1.3],[8.7,-0.59],[8.95,-0.69],[9.3,-0.35],[9.35,0.34],[9.47,0.16],[9.8,0.04],[10.0,0.2],[9.55,0.3],[9.33,0.55],[9.5,0.67],[9.62,0.58],[9.59,1.03],[11.33,1.0],[11.35,2.3],[13.22,2.26],[13.29,2.16]]],"France":[[[7.62,47.59],[7.34,47.43],[6.97,47.45],[6.9,47.39],[7.0,47.32],[6.46,46.95],[5.97,46.21],[6.2,46.19],[6.43,46.43],[6.78,46.41],[6.77,46.16],[7.02,45.93],[6.79,45.74],[7.16,45.4],[7.08,45.24],[6.63,45.07],[6.99,44.83],[7.03,44.72],[6.84,44.51],[6.9,44.34],[7.32,44.14],[7.64,44.16],[7.49,43.77],[6.57,43.2],[6.11,43.07],[5.41,43.23],[5.06,43.44],[4.71,43.37],[3.91,43.56],[3.26,43.19],[3.05,42.91],[3.21,42.43],[2.03,42.35],[1.7,42.5],[1.71,42.6],[0.77,42.84],[0.63,42.69],[-0.04,42.69],[-1.48,43.07],[-1.41,43.24],[-1.79,43.41],[-1.49,43.56],[-1.24,44.56],[-1.08,44.69],[-1.15,44.76],[-1.24,44.67],[-1.08,45.53],[-0.55,45.0],[-0.79,45.47],[-1.2,45.71],[-1.03,45.74],[-1.15,46.31],[-1.79,46.52],[-2.06,46.81],[-2.02,47.04],[-2.2,47.16],[-2.03,47.27],[-1.74,47.22],[-2.5,47.31],[-2.43,47.47],[-2.77,47.51],[-2.79,47.63],[-4.31,47.82],[-4.68,48.04],[-4.33,48.17],[-4.58,48.29],[-4.24,48.3],[-4.76,48.45],[-4.53,48.62],[-3.23,48.84],[-2.69,48.54],[-2.45,48.65],[-2.0,48.58],[-1.91,48.7],[-1.38,48.65],[-1.56,48.8],[-1.58,49.2],[-1.86,49.68],[-1.26,49.68],[-1.14,49.39],[-0.16,49.3],[0.42,49.45],[0.13,49.51],[0.19,49.7],[1.24,50.0],[1.59,50.25],[1.67,50.88],[2.53,51.1],[2.76,50.75],[3.11,50.78],[3.27,50.53],[3.59,50.48],[3.69,50.31],[4.17,50.25],[4.15,49.97],[4.55,49.96],[4.82,50.15],[4.87,49.79],[5.51,49.51],[6.24,49.49],[6.54,49.4],[6.73,49.16],[7.45,49.15],[8.13,48.97],[7.62,48.16],[7.53,47.67],[7.62,47.59]],[[-54.62,2.33],[-54.2,2.82],[-54.2,3.14],[-53.99,3.59],[-54.35,4.05],[-54.47,4.92],[-53.92,5.77],[-52.9,5.43],[-52.29,4.94],[-52.32,4.77],[-52.22,4.86],[-52.06,4.72],[-52.0,4.35],[-51.83,4.64],[-51.65,4.06],[-52.33,3.18],[-52.7,2.36],[-53.01,2.18],[-53.33,2.34],[-53.51,2.25],[-53.77,2.35],[-54.13,2.12],[-54.62,2.33]],[[9.48,42.81],[9.56,42.16],[9.19,41.39],[8.81,41.59],[8.89,41.7],[8.62,41.93],[8.7,42.1],[8.57,42.36],[8.81,42.61],[9.32,42.71],[9.36,43.02],[9.48,42.81]],[[55.8,-21.34],[55.36,-21.27],[55.23,-21.06],[55.31,-20.9],[55.66,-20.91],[55.84,-21.14],[55.8,-21.34]]],"New Caledonia":[[[164.2,-20.25],[165.19,-20.77],[165.66,-21.27],[166.94,-22.09],[166.97,-22.32],[166.47,-22.26],[164.93,-21.29],[164.17,-20.48],[164.06,-20.14],[164.2,-20.25]]],"Finland":[[[24.15,65.81],[23.7,66.25],[23.7,66.48],[23.99,66.81],[23.64,67.13],[23.73,67.42],[23.46,67.46],[23.5,67.87],[23.64,67.95],[22.85,68.37],[22.0,68.52],[20.62,69.04],[21.07,69.04],[21.07,69.21],[21.59,69.27],[22.41,68.72],[23.32,68.65],[24.0,68.8],[24.94,68.59],[25.75,68.99],[25.77,69.28],[26.01,69.65],[26.53,69.91],[27.89,70.06],[29.14,69.67],[29.33,69.47],[28.85,69.18],[28.96,69.02],[28.41,68.9],[28.77,68.84],[28.47,68.49],[28.69,68.19],[29.34,68.06],[29.99,67.67],[29.06,66.89],[30.09,65.79],[30.09,65.68],[29.72,65.63],[29.82,65.57],[29.61,65.25],[29.83,65.15],[29.6,64.97],[30.11,64.73],[29.99,64.52],[30.49,64.24],[30.53,64.08],[29.99,63.73],[31.18,63.21],[31.53,62.89],[30.94,62.32],[27.8,60.54],[26.53,60.41],[26.57,60.63],[26.38,60.42],[25.95,60.47],[26.04,60.34],[25.76,60.27],[25.66,60.33],[24.45,60.02],[23.46,59.99],[22.96,59.83],[23.2,60.02],[22.87,60.22],[22.79,60.08],[22.46,60.03],[22.58,60.38],[21.44,60.6],[21.36,60.97],[21.57,61.48],[21.5,61.55],[21.61,61.59],[21.26,61.99],[21.34,62.28],[21.11,62.62],[21.47,63.03],[21.65,63.04],[21.54,63.21],[22.32,63.31],[22.24,63.44],[22.53,63.65],[23.6,64.04],[24.56,64.8],[25.29,64.86],[25.35,65.48],[24.68,65.67],[24.63,65.86],[24.15,65.81]]],"Fiji":[[[178.28,-17.37],[178.59,-17.65],[178.67,-18.08],[177.96,-18.26],[177.32,-18.08],[177.26,-17.86],[177.51,-17.54],[177.82,-17.39],[178.28,-17.37]],[[180.0,-16.17],[179.56,-16.64],[179.57,-16.75],[179.93,-16.52],[179.93,-16.74],[179.42,-16.81],[179.2,-16.71],[178.71,-16.98],[178.5,-16.79],[178.59,-16.62],[180.0,-16.17]]],"Ethiopia":[[[35.27,5.49],[34.98,5.86],[34.71,6.66],[33.9,7.51],[33.08,7.82],[33.01,7.95],[33.28,8.44],[33.95,8.44],[34.09,8.58],[34.08,9.51],[34.31,10.19],[34.27,10.53],[34.57,10.88],[34.77,10.75],[34.93,10.86],[35.11,11.82],[35.67,12.62],[36.12,12.76],[36.52,14.26],[37.02,14.27],[37.26,14.45],[37.57,14.15],[37.88,14.85],[38.43,14.43],[39.07,14.63],[39.2,14.48],[40.14,14.46],[40.82,14.11],[42.38,12.47],[41.79,11.69],[41.8,10.98],[42.56,11.08],[42.92,11.0],[42.66,10.6],[42.84,10.2],[43.48,9.38],[43.98,9.01],[46.98,8.0],[47.98,8.0],[44.94,4.91],[43.99,4.95],[43.54,4.84],[43.02,4.56],[42.86,4.33],[42.03,4.14],[41.88,3.98],[41.14,3.96],[40.77,4.27],[39.84,3.85],[39.49,3.46],[38.09,3.65],[36.91,4.41],[36.02,4.47],[35.76,4.81],[35.75,5.34],[35.33,5.36],[35.27,5.49]]],"Estonia":[[[27.35,57.53],[26.46,57.54],[25.99,57.84],[25.28,58.05],[24.32,57.87],[24.53,58.35],[24.11,58.27],[23.77,58.36],[23.51,58.66],[23.68,58.79],[23.5,58.79],[23.43,58.92],[23.5,59.19],[24.08,59.29],[24.05,59.37],[24.38,59.47],[25.44,59.52],[25.51,59.64],[26.97,59.45],[28.01,59.48],[28.15,59.37],[27.9,59.28],[27.43,58.79],[27.5,58.22],[27.78,57.87],[27.54,57.8],[27.35,57.53]],[[22.62,58.62],[23.32,58.45],[22.37,58.22],[22.0,57.93],[22.19,58.16],[21.88,58.26],[21.98,58.39],[21.86,58.5],[22.62,58.62]]],"Eritrea":[[[36.52,14.26],[36.43,15.13],[36.91,16.3],[37.01,17.06],[37.41,17.06],[37.55,17.32],[38.22,17.56],[38.61,18.0],[39.03,17.09],[39.3,15.92],[39.79,15.12],[39.86,15.47],[40.2,15.01],[41.18,14.62],[41.66,13.98],[42.24,13.59],[42.4,13.21],[42.52,13.22],[42.8,12.86],[42.97,12.81],[43.0,12.9],[43.12,12.71],[42.87,12.62],[42.71,12.38],[42.38,12.47],[40.82,14.11],[40.14,14.46],[39.2,14.48],[39.02,14.63],[38.43,14.43],[37.88,14.85],[37.57,14.15],[37.26,14.45],[37.02,14.27],[36.52,14.26]]],"Eq. Guinea":[[[11.33,2.17],[11.33,1.0],[9.91,0.96],[9.39,1.14],[9.81,1.93],[9.8,2.3],[9.98,2.17],[11.33,2.17]]],"El Salvador":[[[-89.36,14.42],[-89.06,14.33],[-88.48,13.85],[-88.15,13.99],[-87.73,13.84],[-87.82,13.28],[-88.18,13.16],[-88.69,13.28],[-88.51,13.18],[-90.1,13.74],[-90.05,13.9],[-89.55,14.24],[-89.57,14.39],[-89.36,14.42]]],"Egypt":[[[36.87,22.0],[31.43,22.0],[31.4,22.2],[31.21,21.99],[24.98,22.0],[24.98,29.18],[24.7,30.2],[24.98,30.78],[24.85,31.34],[25.15,31.65],[25.38,31.51],[25.89,31.62],[27.25,31.38],[29.07,30.83],[30.22,31.26],[30.4,31.46],[30.92,31.57],[30.56,31.42],[31.0,31.46],[31.08,31.6],[31.52,31.46],[31.89,31.54],[32.14,31.34],[31.89,31.48],[31.77,31.29],[32.1,31.09],[32.28,31.2],[32.21,31.29],[32.6,31.07],[33.67,31.13],[34.2,31.32],[34.9,29.48],[34.73,29.27],[34.4,28.02],[34.22,27.76],[33.25,28.57],[32.56,29.97],[32.36,29.63],[32.9,28.56],[33.55,27.9],[33.55,27.61],[33.85,27.18],[33.96,26.65],[35.2,24.47],[35.78,23.94],[35.54,23.92],[35.51,23.78],[35.7,22.95],[36.23,22.63],[36.87,22.0]]],"Ecuador":[[[-75.29,-0.11],[-75.63,-0.12],[-75.26,-0.59],[-75.25,-0.95],[-75.41,-0.92],[-75.57,-1.53],[-76.09,-2.13],[-76.68,-2.56],[-77.86,-2.98],[-78.18,-3.35],[-78.16,-3.46],[-78.35,-3.4],[-78.69,-4.56],[-79.03,-4.97],[-79.33,-4.93],[-79.64,-4.46],[-80.14,-4.3],[-80.48,-4.43],[-80.35,-4.21],[-80.49,-4.17],[-80.49,-4.01],[-80.18,-3.88],[-80.33,-3.39],[-79.96,-3.16],[-79.73,-2.58],[-79.84,-2.07],[-79.93,-2.55],[-80.03,-2.56],[-80.01,-2.35],[-80.29,-2.71],[-80.93,-2.27],[-80.76,-1.94],[-80.9,-1.08],[-80.55,-0.85],[-80.46,-0.59],[-80.28,-0.62],[-80.48,-0.37],[-80.05,0.16],[-80.03,0.83],[-78.9,1.21],[-78.86,1.46],[-78.18,0.97],[-77.7,0.84],[-77.4,0.39],[-76.5,0.23],[-76.27,0.44],[-75.29,-0.11]],[[-91.27,0.02],[-90.8,-0.75],[-91.13,-1.02],[-91.37,-1.02],[-91.5,-0.86],[-91.12,-0.56],[-91.37,-0.29],[-91.43,-0.02],[-91.6,0.0],[-91.36,0.13],[-91.27,0.02]]],"Dominican Rep.":[[[-71.77,18.04],[-71.76,18.34],[-72.0,18.6],[-71.74,18.73],[-71.81,18.99],[-71.65,19.2],[-71.78,19.72],[-71.56,19.9],[-70.95,19.91],[-70.2,19.64],[-69.96,19.67],[-69.74,19.3],[-69.23,19.27],[-69.62,19.12],[-68.68,18.9],[-68.34,18.61],[-68.69,18.21],[-68.94,18.41],[-69.27,18.44],[-69.77,18.44],[-70.48,18.22],[-70.65,18.34],[-71.03,18.27],[-71.44,17.63],[-71.77,18.04]]],"Djibouti":[[[43.25,11.5],[42.92,11.0],[42.56,11.08],[41.8,10.98],[41.79,11.69],[42.45,12.52],[42.71,12.38],[42.87,12.62],[43.12,12.71],[43.35,12.37],[43.38,12.09],[42.52,11.57],[43.25,11.5]]],"Greenland":[[[-29.95,83.56],[-25.8,83.26],[-31.99,83.09],[-32.03,82.98],[-25.12,83.16],[-24.47,82.88],[-22.52,82.79],[-21.52,82.6],[-23.12,82.33],[-29.58,82.16],[-29.89,82.05],[-29.54,81.94],[-27.84,82.05],[-25.15,82.0],[-24.29,81.7],[-23.5,81.77],[-22.94,82.03],[-21.34,82.07],[-21.13,81.93],[-21.14,81.7],[-21.5,81.44],[-23.07,80.93],[-23.2,80.85],[-23.12,80.78],[-19.63,81.64],[-17.45,81.4],[-16.27,81.75],[-15.45,81.84],[-12.43,81.68],[-11.42,81.48],[-13.13,81.09],[-14.45,80.99],[-14.23,80.87],[-14.5,80.76],[-16.76,80.57],[-15.94,80.43],[-16.49,80.25],[-18.07,80.17],[-19.43,80.26],[-20.15,80.01],[-20.07,79.77],[-19.35,79.73],[-19.41,79.35],[-18.99,79.18],[-21.13,78.66],[-20.95,78.55],[-21.73,77.71],[-21.38,77.7],[-20.86,77.91],[-19.49,77.72],[-19.29,77.59],[-20.16,77.69],[-20.68,77.62],[-20.23,77.37],[-19.3,77.22],[-18.44,77.26],[-18.29,77.13],[-18.34,76.92],[-18.61,76.76],[-20.49,76.92],[-21.62,76.69],[-22.33,76.79],[-22.61,76.68],[-21.88,76.57],[-21.49,76.27],[-20.89,76.3],[-19.86,76.12],[-19.96,76.0],[-19.51,75.76],[-19.4,75.49],[-19.37,75.3],[-19.52,75.18],[-20.49,75.31],[-21.65,75.02],[-22.23,75.12],[-21.7,74.96],[-20.99,75.07],[-20.78,74.89],[-21.04,74.65],[-20.86,74.64],[-20.42,74.98],[-19.99,74.98],[-19.29,74.55],[-19.27,74.34],[-21.13,74.11],[-21.95,74.24],[-21.76,74.48],[-21.98,74.57],[-21.97,74.39],[-22.33,74.29],[-22.2,74.21],[-22.34,74.06],[-22.13,73.99],[-20.37,73.85],[-20.51,73.49],[-20.64,73.46],[-22.35,73.27],[-23.23,73.4],[-24.16,73.77],[-24.68,73.6],[-25.52,73.85],[-24.78,73.54],[-26.06,73.25],[-27.27,73.44],[-26.54,73.25],[-27.56,73.14],[-27.35,73.07],[-25.06,73.4],[-24.13,73.41],[-22.04,72.92],[-22.07,72.4],[-22.28,72.35],[-22.29,72.12],[-24.07,72.5],[-24.63,73.04],[-26.66,72.72],[-24.81,72.9],[-24.7,72.51],[-25.2,72.39],[-24.57,72.42],[-21.96,71.74],[-22.47,71.53],[-22.48,71.38],[-22.42,71.25],[-22.3,71.43],[-21.75,71.48],[-21.52,70.53],[-22.38,70.46],[-22.44,70.86],[-22.69,70.44],[-23.33,70.45],[-23.97,70.65],[-24.56,71.22],[-25.89,71.57],[-27.09,71.63],[-27.11,71.53],[-25.84,71.48],[-25.67,71.27],[-26.72,70.95],[-28.4,70.99],[-27.98,70.84],[-28.15,70.66],[-29.07,70.44],[-26.51,70.4],[-27.33,70.22],[-27.63,70.03],[-27.38,69.99],[-27.03,70.2],[-25.53,70.35],[-22.21,70.11],[-23.09,69.88],[-23.05,69.79],[-23.87,69.74],[-23.74,69.59],[-24.3,69.58],[-24.29,69.44],[-25.19,69.26],[-25.09,69.16],[-26.48,68.68],[-30.2,68.2],[-30.72,68.25],[-30.61,68.12],[-30.98,68.06],[-32.33,68.44],[-32.18,68.26],[-32.37,68.21],[-32.16,67.99],[-33.16,67.63],[-34.1,66.73],[-34.63,66.43],[-35.19,66.25],[-35.87,66.44],[-35.63,66.14],[-36.38,65.83],[-36.53,66.01],[-36.66,65.79],[-37.06,65.87],[-37.76,65.59],[-38.0,65.71],[-37.28,66.3],[-38.15,66.39],[-37.75,66.26],[-38.14,65.9],[-38.52,66.01],[-38.22,65.84],[-38.2,65.71],[-40.17,65.56],[-39.58,65.34],[-40.25,65.05],[-41.09,65.03],[-40.97,64.87],[-40.66,64.92],[-40.18,64.48],[-40.78,64.22],[-41.58,64.3],[-41.03,64.12],[-40.62,64.13],[-40.55,63.73],[-40.78,63.53],[-41.05,63.51],[-41.11,63.27],[-41.39,63.06],[-42.18,63.21],[-41.64,62.97],[-41.91,62.74],[-42.94,62.72],[-42.15,62.57],[-42.32,62.15],[-42.11,61.86],[-42.59,61.72],[-42.32,61.68],[-42.72,60.77],[-43.04,60.52],[-43.92,60.6],[-43.21,60.39],[-43.12,60.06],[-43.32,59.93],[-43.95,60.02],[-43.66,59.86],[-43.91,59.81],[-44.41,59.92],[-44.46,60.01],[-44.22,60.27],[-44.61,60.02],[-45.38,60.2],[-45.37,60.37],[-44.97,60.46],[-44.76,60.67],[-45.38,60.44],[-46.05,60.61],[-46.14,60.78],[-45.87,61.22],[-46.87,60.82],[-48.18,60.77],[-48.21,60.86],[-47.77,61.0],[-48.39,61.01],[-48.43,61.19],[-48.92,61.28],[-49.05,61.52],[-49.29,61.59],[-49.19,61.69],[-49.38,61.89],[-48.83,62.08],[-49.62,62.0],[-49.67,62.15],[-49.55,62.23],[-50.32,62.47],[-50.3,62.72],[-49.79,63.05],[-50.39,62.82],[-51.47,63.64],[-51.55,64.01],[-50.26,64.21],[-50.49,64.21],[-50.44,64.31],[-51.54,64.1],[-51.71,64.2],[-51.23,64.56],[-50.83,64.56],[-50.68,64.68],[-50.36,64.68],[-50.01,64.45],[-50.12,64.7],[-50.52,64.77],[-50.96,65.2],[-50.72,64.8],[-51.22,64.63],[-51.14,64.79],[-51.26,64.76],[-51.92,64.22],[-52.09,64.42],[-52.26,65.15],[-52.54,65.33],[-51.62,65.71],[-51.09,65.78],[-51.72,65.72],[-52.55,65.46],[-52.76,65.59],[-53.2,65.59],[-53.11,65.98],[-53.39,66.05],[-51.23,66.88],[-53.04,66.2],[-53.61,66.15],[-53.64,66.41],[-53.42,66.65],[-53.04,66.83],[-52.39,66.88],[-53.69,66.99],[-53.88,67.14],[-53.8,67.42],[-52.51,67.76],[-50.61,67.53],[-51.17,67.69],[-50.89,67.78],[-50.97,67.81],[-51.77,67.74],[-52.35,67.84],[-53.74,67.55],[-53.15,68.21],[-51.6,68.06],[-51.17,68.39],[-52.2,68.22],[-53.38,68.3],[-53.04,68.61],[-52.61,68.71],[-51.62,68.53],[-51.13,68.6],[-50.8,68.79],[-51.25,68.74],[-51.09,69.13],[-50.3,69.17],[-51.08,69.21],[-50.81,69.66],[-50.35,69.8],[-50.5,69.94],[-50.32,70.03],[-52.26,70.06],[-53.02,70.3],[-54.01,70.42],[-54.53,70.7],[-54.16,70.82],[-52.8,70.75],[-51.53,70.44],[-50.68,70.4],[-51.32,70.59],[-51.26,70.85],[-51.77,71.01],[-51.02,71.0],[-51.38,71.12],[-53.01,71.18],[-53.12,71.31],[-52.75,71.5],[-51.78,71.68],[-53.44,71.58],[-53.15,71.81],[-53.33,71.79],[-53.42,72.0],[-53.81,72.29],[-53.65,72.36],[-53.93,72.32],[-53.48,71.85],[-54.02,71.66],[-53.96,71.46],[-54.82,71.37],[-55.59,71.55],[-55.67,71.69],[-55.32,72.11],[-54.84,72.38],[-55.58,72.18],[-55.64,72.3],[-55.29,72.35],[-55.6,72.45],[-54.92,72.57],[-54.74,72.7],[-54.74,72.87],[-55.07,73.02],[-55.67,73.01],[-55.69,73.11],[-55.29,73.33],[-55.45,73.46],[-55.74,73.38],[-56.1,73.56],[-55.84,73.76],[-56.23,74.13],[-57.23,74.12],[-56.71,74.22],[-56.72,74.43],[-56.26,74.53],[-58.57,75.35],[-58.25,75.51],[-58.52,75.69],[-61.19,76.16],[-63.29,76.35],[-65.37,76.13],[-65.95,76.24],[-66.47,76.14],[-67.08,76.2],[-66.67,75.98],[-66.83,75.97],[-68.32,76.09],[-69.48,76.4],[-68.11,76.65],[-69.89,76.83],[-69.69,76.99],[-70.61,76.82],[-71.16,77.07],[-70.6,77.19],[-68.98,77.2],[-68.14,77.38],[-66.39,77.28],[-66.45,77.39],[-66.27,77.51],[-66.82,77.69],[-67.69,77.52],[-68.62,77.6],[-69.35,77.47],[-70.56,77.72],[-70.12,77.84],[-71.27,77.81],[-72.82,78.19],[-72.58,78.28],[-72.72,78.36],[-72.47,78.48],[-71.65,78.62],[-68.99,78.86],[-69.03,78.94],[-68.38,79.04],[-65.82,79.17],[-65.29,79.44],[-64.79,80.0],[-64.18,80.1],[-66.84,80.08],[-67.19,80.28],[-66.61,80.53],[-64.51,81.0],[-63.72,81.06],[-63.06,80.89],[-63.24,81.08],[-62.99,81.21],[-61.44,81.13],[-61.1,81.4],[-61.2,81.75],[-60.43,81.92],[-59.28,81.88],[-56.62,81.36],[-59.27,81.98],[-54.55,82.35],[-53.67,82.16],[-53.56,81.65],[-53.04,81.87],[-52.93,82.04],[-53.1,82.12],[-53.02,82.32],[-50.9,81.89],[-49.54,81.92],[-50.71,82.24],[-50.99,82.46],[-50.04,82.47],[-48.86,82.41],[-44.73,81.78],[-44.53,81.85],[-44.64,82.1],[-44.24,82.37],[-44.33,82.47],[-45.56,82.75],[-41.37,82.75],[-46.14,82.86],[-46.48,82.95],[-46.17,83.06],[-45.42,83.02],[-43.01,83.26],[-41.3,83.1],[-40.36,83.33],[-38.15,83.0],[-37.94,83.16],[-38.75,83.37],[-36.61,83.54],[-29.95,83.56]],[[-52.73,69.94],[-52.04,69.81],[-51.9,69.6],[-53.75,69.26],[-54.18,69.4],[-53.66,69.47],[-53.83,69.54],[-54.92,69.71],[-54.79,69.95],[-54.32,69.94],[-54.83,70.13],[-54.37,70.32],[-53.3,70.2],[-52.73,69.94]],[[-25.43,70.92],[-25.4,70.65],[-26.22,70.45],[-26.61,70.55],[-28.04,70.49],[-27.62,70.91],[-26.62,70.88],[-25.82,71.04],[-25.43,70.92]],[[-44.87,82.08],[-46.75,82.35],[-47.35,82.6],[-46.4,82.69],[-44.92,82.48],[-44.75,82.4],[-44.87,82.08]],[[-17.61,79.83],[-18.66,79.72],[-19.14,79.85],[-18.55,80.01],[-17.47,80.03],[-17.4,79.94],[-17.61,79.83]],[[-18.0,75.41],[-17.89,75.2],[-17.39,75.04],[-18.89,75.07],[-18.86,75.32],[-18.0,75.41]],[[-18.58,76.04],[-18.7,76.02],[-19.09,76.43],[-19.06,76.7],[-18.73,76.64],[-18.58,76.04]]],"Denmark":[[[9.74,54.83],[8.67,54.9],[8.62,55.42],[8.13,55.6],[8.16,56.61],[8.67,56.5],[8.89,56.73],[9.2,56.7],[9.25,57.01],[9.11,57.04],[8.77,56.72],[8.47,56.66],[8.27,56.81],[8.62,57.11],[9.43,57.17],[9.96,57.58],[10.61,57.74],[10.46,57.62],[10.52,57.24],[10.29,57.0],[10.28,56.62],[10.93,56.44],[10.76,56.24],[10.37,56.25],[10.18,55.87],[9.91,55.84],[10.02,55.76],[9.59,55.49],[9.67,55.27],[9.46,55.04],[9.69,55.0],[9.74,54.83]],[[12.57,55.79],[12.22,55.47],[12.41,55.29],[12.09,55.19],[12.05,54.81],[11.86,54.77],[11.66,55.19],[11.29,55.2],[10.98,55.72],[11.32,55.75],[11.63,55.96],[11.69,55.73],[11.82,55.7],[11.87,55.97],[12.22,56.12],[12.58,56.06],[12.57,55.79]],[[10.64,55.61],[10.82,55.32],[10.78,55.13],[10.63,55.05],[9.99,55.16],[9.86,55.36],[9.86,55.52],[10.64,55.61]]],"Czechia":[[[18.83,49.51],[18.16,49.26],[18.08,49.07],[17.76,48.89],[17.13,48.84],[16.95,48.6],[16.54,48.8],[16.06,48.75],[14.99,49.0],[14.92,48.77],[14.69,48.6],[14.19,48.58],[12.68,49.41],[12.39,49.74],[12.51,49.9],[12.09,50.3],[12.28,50.18],[12.55,50.39],[12.94,50.41],[13.56,50.7],[14.37,50.9],[14.28,51.03],[14.55,50.99],[14.72,50.82],[14.98,50.89],[14.99,51.01],[16.01,50.61],[16.36,50.62],[16.21,50.42],[16.64,50.1],[16.99,50.24],[16.88,50.43],[17.42,50.25],[17.7,50.31],[17.63,50.12],[18.56,49.88],[18.83,49.51]]],"N. Cyprus":[[[34.0,35.06],[33.47,35.0],[33.38,35.16],[32.92,35.09],[32.71,35.17],[32.88,35.18],[32.94,35.39],[33.61,35.35],[34.55,35.66],[33.94,35.29],[34.0,35.06]]],"Cyprus":[[[32.71,35.17],[32.92,35.09],[33.38,35.16],[33.47,35.0],[33.87,35.09],[34.05,34.99],[33.7,34.97],[32.94,34.58],[32.45,34.73],[32.32,34.95],[32.3,35.08],[32.71,35.17]]],"Cuba":[[[-81.84,23.16],[-80.65,23.1],[-80.37,22.94],[-79.82,22.89],[-79.27,22.41],[-78.69,22.37],[-77.64,21.8],[-77.5,21.87],[-77.14,21.64],[-77.37,21.61],[-77.25,21.48],[-77.1,21.59],[-76.87,21.33],[-75.72,21.11],[-75.6,20.99],[-75.72,20.71],[-74.88,20.65],[-74.17,20.29],[-74.16,20.17],[-75.12,19.9],[-75.15,20.01],[-75.29,19.89],[-76.16,19.99],[-77.72,19.86],[-77.1,20.41],[-77.23,20.64],[-78.12,20.76],[-78.49,21.05],[-78.73,21.59],[-79.36,21.58],[-80.23,21.87],[-80.48,22.12],[-81.04,22.07],[-81.19,22.27],[-81.28,22.11],[-81.85,22.21],[-82.08,22.39],[-81.71,22.5],[-81.84,22.67],[-82.74,22.69],[-83.38,22.22],[-83.9,22.17],[-84.03,21.94],[-84.5,21.78],[-84.5,21.93],[-84.89,21.86],[-84.33,22.07],[-84.36,22.38],[-84.04,22.67],[-83.26,22.97],[-81.84,23.16]]],"Croatia":[[[13.58,45.52],[14.37,45.48],[14.57,45.66],[14.79,45.48],[15.34,45.47],[15.28,45.73],[15.67,45.9],[15.61,46.17],[16.23,46.37],[16.32,46.53],[16.75,46.42],[17.81,45.79],[18.36,45.75],[18.91,45.93],[18.84,45.84],[19.06,45.52],[19.01,45.4],[19.4,45.19],[19.14,45.2],[19.09,44.93],[18.94,44.87],[18.66,45.08],[17.81,45.08],[16.92,45.28],[16.53,45.22],[16.29,45.01],[15.96,45.21],[15.79,45.18],[15.74,44.77],[16.1,44.52],[16.3,44.12],[17.27,43.45],[17.65,43.01],[17.58,42.94],[16.9,43.39],[15.99,43.52],[15.19,44.17],[15.12,44.26],[15.47,44.27],[14.98,44.6],[14.86,45.08],[14.55,45.3],[14.31,45.34],[13.86,44.84],[13.63,45.11],[13.58,45.52]]],"C\u00f4te d'Ivoire":[[[-7.99,10.16],[-7.5,10.44],[-7.36,10.26],[-7.02,10.14],[-6.95,10.34],[-6.69,10.35],[-6.65,10.66],[-6.42,10.56],[-6.26,10.72],[-6.24,10.26],[-6.12,10.2],[-5.56,10.44],[-5.1,10.24],[-4.97,9.93],[-4.62,9.71],[-4.33,9.65],[-3.79,9.92],[-3.22,9.9],[-2.82,9.43],[-2.69,9.48],[-2.75,9.05],[-2.51,8.21],[-2.79,7.93],[-3.25,6.65],[-3.0,5.71],[-2.8,5.6],[-2.82,5.15],[-3.17,5.2],[-3.2,5.35],[-3.35,5.13],[-4.12,5.31],[-4.61,5.24],[-4.04,5.23],[-5.28,5.21],[-5.37,5.15],[-5.06,5.13],[-5.91,5.01],[-7.54,4.35],[-7.45,5.84],[-7.8,5.98],[-7.89,6.23],[-8.6,6.51],[-8.3,6.98],[-8.49,7.56],[-8.23,7.56],[-8.01,8.08],[-8.26,8.25],[-8.24,8.45],[-7.68,8.41],[-7.72,8.64],[-7.95,8.79],[-7.94,8.98],[-7.78,9.08],[-7.92,9.19],[-7.9,9.42],[-8.14,9.5],[-8.16,9.97],[-7.99,10.16]]],"Costa Rica":[[[-82.57,9.58],[-82.8,9.59],[-82.94,9.45],[-82.94,9.06],[-82.73,8.92],[-82.92,8.74],[-82.86,8.45],[-83.03,8.34],[-82.88,8.07],[-83.29,8.67],[-83.47,8.71],[-83.29,8.41],[-83.61,8.48],[-83.74,8.61],[-83.61,8.8],[-83.74,9.15],[-84.58,9.57],[-84.71,9.9],[-85.02,10.12],[-85.26,10.26],[-84.89,9.82],[-85.11,9.58],[-85.32,9.81],[-85.63,9.9],[-85.85,10.29],[-85.67,10.74],[-85.91,10.9],[-85.59,11.19],[-84.91,10.95],[-84.7,11.05],[-84.35,10.98],[-84.17,10.78],[-83.92,10.74],[-83.64,10.92],[-83.35,10.32],[-82.57,9.58]]],"Dem. Rep. Congo":[[[30.75,-8.19],[28.9,-8.48],[28.87,-8.79],[28.4,-9.22],[28.63,-9.83],[28.64,-10.67],[28.36,-11.48],[28.48,-11.81],[29.06,-12.35],[29.49,-12.42],[29.51,-12.23],[29.8,-12.15],[29.77,-13.44],[29.55,-13.25],[29.11,-13.39],[28.55,-12.84],[28.41,-12.52],[27.53,-12.19],[27.16,-11.58],[26.83,-11.97],[26.03,-11.89],[25.35,-11.62],[25.29,-11.21],[24.38,-11.42],[24.37,-11.13],[23.97,-10.87],[23.83,-11.01],[22.56,-11.06],[22.28,-11.19],[22.18,-10.89],[22.31,-10.69],[22.28,-10.26],[21.81,-9.47],[21.9,-8.69],[21.78,-7.31],[20.61,-7.28],[20.59,-6.92],[19.87,-6.99],[19.53,-7.14],[19.34,-7.97],[18.56,-7.94],[17.58,-8.1],[16.98,-7.26],[16.7,-6.16],[16.43,-5.9],[13.0,-5.84],[12.52,-6.0],[12.21,-5.76],[12.5,-5.7],[12.45,-5.07],[12.83,-4.74],[13.14,-4.6],[13.42,-4.84],[13.66,-4.72],[13.72,-4.45],[13.94,-4.49],[14.36,-4.3],[14.41,-4.83],[14.71,-4.88],[15.99,-3.77],[16.22,-3.03],[16.22,-2.18],[16.88,-1.23],[17.75,-0.55],[18.07,2.01],[18.62,3.3],[18.57,4.26],[19.07,4.89],[19.69,5.12],[20.23,4.83],[20.56,4.46],[22.42,4.14],[22.87,4.72],[23.42,4.66],[24.32,4.99],[25.07,4.97],[25.53,5.31],[26.82,5.06],[27.11,5.2],[27.4,5.11],[28.19,4.35],[28.43,4.33],[28.73,4.51],[29.22,4.39],[29.47,4.61],[29.68,4.59],[30.2,3.98],[30.89,3.46],[30.73,2.46],[31.28,2.15],[30.94,1.68],[29.94,0.82],[29.94,0.5],[29.72,0.1],[29.58,-1.39],[29.2,-1.72],[29.13,-2.2],[28.86,-2.45],[29.22,-3.05],[29.21,-3.83],[29.4,-4.45],[29.32,-4.9],[29.61,-5.72],[29.48,-6.03],[29.54,-6.31],[29.71,-6.62],[30.21,-7.04],[30.75,-8.19]]],"Congo":[[[11.13,-3.92],[11.5,-3.52],[11.69,-3.68],[11.88,-3.67],[11.94,-3.32],[11.54,-2.84],[11.6,-2.34],[12.45,-2.33],[12.43,-1.93],[12.63,-1.83],[12.99,-2.31],[13.47,-2.4],[13.73,-2.14],[14.0,-2.49],[14.2,-2.35],[14.16,-2.22],[14.38,-1.89],[14.47,-0.57],[13.86,-0.2],[13.95,0.35],[14.32,0.62],[14.43,0.9],[14.18,1.37],[13.19,1.28],[13.29,2.16],[14.58,2.2],[14.9,2.01],[15.74,1.92],[16.06,1.68],[16.08,2.11],[16.47,2.83],[16.61,3.51],[17.49,3.69],[18.16,3.5],[18.5,3.6],[18.62,3.3],[18.07,2.01],[17.75,-0.55],[16.88,-1.23],[16.22,-2.18],[16.15,-3.46],[15.87,-3.93],[15.53,-4.09],[14.71,-4.88],[14.41,-4.83],[14.36,-4.3],[13.94,-4.49],[13.72,-4.45],[13.66,-4.72],[13.42,-4.84],[12.8,-4.43],[12.39,-4.62],[12.02,-5.0],[11.78,-4.57],[11.13,-3.92]]],"Colombia":[[[-71.32,11.86],[-71.96,11.67],[-72.25,11.2],[-72.69,10.84],[-73.01,9.79],[-73.37,9.19],[-73.06,9.26],[-72.8,9.11],[-72.36,8.15],[-72.47,7.52],[-72.21,7.37],[-72.01,7.03],[-71.13,6.99],[-70.74,7.09],[-70.13,6.95],[-69.43,6.12],[-67.86,6.29],[-67.48,6.18],[-67.47,5.93],[-67.83,5.27],[-67.86,4.51],[-67.66,3.86],[-67.31,3.42],[-67.86,2.79],[-67.62,2.79],[-67.21,2.39],[-66.88,1.36],[-66.88,1.22],[-67.08,1.18],[-67.09,1.62],[-67.4,2.12],[-67.93,1.75],[-68.19,1.99],[-68.18,1.72],[-69.85,1.71],[-69.85,1.06],[-69.31,1.05],[-69.15,0.64],[-69.47,0.73],[-70.05,0.58],[-70.07,-0.14],[-69.63,-0.51],[-69.4,-1.2],[-69.96,-4.24],[-70.34,-3.82],[-70.74,-3.78],[-70.09,-2.66],[-70.97,-2.21],[-71.4,-2.33],[-71.75,-2.15],[-72.22,-2.4],[-72.94,-2.39],[-73.15,-2.28],[-73.2,-1.83],[-73.5,-1.69],[-73.67,-1.25],[-74.25,-0.97],[-74.42,-0.58],[-74.8,-0.2],[-75.78,0.09],[-76.27,0.44],[-76.5,0.23],[-77.4,0.39],[-77.7,0.84],[-78.31,1.05],[-79.03,1.62],[-78.79,1.85],[-78.58,1.77],[-78.59,2.36],[-78.06,2.51],[-77.81,2.72],[-77.08,3.91],[-77.26,3.89],[-77.28,4.06],[-77.36,3.94],[-77.41,4.25],[-77.52,4.21],[-77.29,4.72],[-77.37,5.32],[-77.54,5.54],[-77.25,5.78],[-77.47,6.18],[-77.37,6.57],[-77.9,7.23],[-77.76,7.7],[-77.54,7.57],[-77.2,7.97],[-77.48,8.5],[-77.39,8.64],[-76.79,7.93],[-76.77,8.31],[-76.92,8.57],[-76.28,8.99],[-76.03,9.37],[-75.64,9.45],[-75.54,10.2],[-75.71,10.14],[-75.45,10.61],[-74.84,11.11],[-74.33,11.0],[-74.52,10.86],[-74.4,10.77],[-74.14,11.32],[-73.31,11.3],[-72.28,11.89],[-72.14,12.19],[-71.71,12.42],[-71.26,12.33],[-71.14,12.05],[-71.32,11.86]]],"China":[[[107.97,21.51],[107.76,21.66],[107.35,21.61],[106.97,21.92],[106.66,21.98],[106.55,22.5],[106.78,22.78],[106.15,22.97],[105.84,22.92],[105.27,23.34],[104.86,23.14],[104.69,22.82],[104.37,22.7],[104.14,22.8],[103.94,22.54],[103.62,22.78],[103.49,22.59],[103.3,22.76],[103.01,22.45],[102.47,22.75],[102.13,22.38],[101.71,22.49],[101.52,22.25],[101.74,21.83],[101.73,21.16],[101.25,21.2],[101.08,21.76],[100.6,21.47],[100.15,21.48],[99.94,21.76],[99.92,22.03],[99.17,22.15],[99.51,22.96],[98.86,23.19],[98.83,23.62],[98.68,23.91],[98.83,24.12],[98.21,24.11],[97.56,23.91],[97.71,24.23],[97.53,24.63],[97.74,24.87],[97.82,25.25],[98.01,25.29],[98.14,25.57],[98.33,25.59],[98.66,25.86],[98.56,26.07],[98.69,26.19],[98.74,26.7],[98.65,27.57],[98.45,27.66],[98.3,27.55],[98.1,28.14],[97.66,28.5],[97.54,28.51],[97.32,28.22],[96.6,28.46],[96.28,28.41],[96.58,28.76],[96.44,29.05],[96.14,28.92],[96.12,29.08],[96.36,29.25],[96.04,29.45],[95.39,29.04],[94.62,29.31],[93.76,28.73],[93.25,28.63],[92.55,27.88],[91.98,27.73],[91.63,27.76],[91.64,27.92],[91.27,28.08],[91.02,27.97],[89.9,28.29],[89.48,28.06],[88.89,27.32],[88.75,27.52],[88.8,28.01],[88.62,28.09],[87.62,27.81],[87.14,27.84],[86.62,28.1],[86.41,27.93],[86.14,28.12],[86.0,27.91],[85.68,28.28],[85.12,28.32],[85.16,28.59],[84.8,28.56],[84.23,28.91],[84.1,29.22],[83.58,29.18],[83.16,29.61],[82.22,30.06],[82.04,30.33],[81.42,30.34],[81.11,30.04],[80.68,30.42],[80.19,30.57],[80.15,30.79],[79.49,30.99],[79.11,31.4],[78.76,31.3],[78.73,31.96],[78.39,32.52],[78.7,32.6],[78.92,32.36],[79.22,32.5],[79.13,33.17],[78.8,33.5],[78.73,34.01],[78.97,34.3],[78.28,34.65],[78.01,35.25],[78.04,35.48],[77.09,35.55],[76.63,35.73],[76.55,35.89],[76.18,35.81],[75.91,36.05],[75.97,36.38],[75.84,36.65],[75.42,36.74],[75.35,36.91],[74.37,37.14],[75.12,37.39],[74.89,37.6],[74.84,38.4],[74.28,38.66],[73.97,38.53],[73.8,38.61],[73.63,39.45],[73.91,39.58],[73.83,39.8],[73.99,40.04],[74.83,40.33],[74.84,40.48],[75.24,40.48],[75.52,40.63],[75.68,40.31],[76.26,40.43],[76.32,40.35],[76.91,41.02],[78.12,41.08],[78.36,41.37],[78.74,41.56],[80.24,42.04],[80.16,42.67],[80.54,42.87],[80.39,43.04],[80.79,43.16],[80.35,44.1],[80.35,44.55],[80.48,44.71],[79.87,44.88],[81.69,45.35],[81.87,45.18],[82.52,45.13],[82.61,45.42],[82.32,45.6],[83.03,47.19],[84.02,46.97],[84.67,46.97],[84.79,46.83],[85.48,47.06],[85.66,47.25],[85.52,47.92],[85.65,48.25],[85.75,48.38],[86.55,48.53],[86.89,49.09],[87.81,49.16],[87.87,49.0],[87.74,48.88],[88.06,48.71],[87.98,48.55],[88.52,48.38],[88.58,48.22],[89.05,48.0],[89.48,48.03],[90.31,47.68],[91.03,46.57],[90.91,46.27],[91.0,46.04],[90.66,45.53],[90.88,45.2],[93.52,44.94],[94.71,44.35],[95.35,44.28],[95.33,44.04],[95.53,43.95],[95.86,43.28],[96.3,42.93],[96.39,42.72],[97.21,42.79],[99.47,42.57],[99.98,42.68],[101.49,42.54],[102.16,42.16],[103.07,42.01],[103.71,41.75],[104.5,41.88],[104.5,41.66],[104.98,41.6],[106.77,42.29],[109.34,42.44],[110.4,42.77],[111.01,43.34],[111.93,43.71],[111.4,44.37],[111.62,44.83],[111.9,45.06],[112.41,45.06],[112.71,44.88],[113.59,44.75],[114.08,44.97],[114.56,45.39],[115.68,45.46],[116.2,45.74],[116.56,46.29],[117.33,46.36],[117.44,46.59],[117.74,46.52],[118.84,46.76],[119.33,46.61],[119.87,46.67],[119.9,46.86],[119.71,47.15],[118.5,47.98],[117.77,47.99],[117.35,47.65],[116.76,47.87],[116.23,47.86],[115.9,47.69],[115.62,47.87],[115.52,48.13],[115.79,48.25],[115.82,48.58],[116.68,49.82],[117.87,49.51],[118.45,49.84],[119.26,50.07],[119.35,50.28],[119.16,50.41],[120.07,51.6],[120.75,52.1],[120.66,52.57],[120.17,52.6],[120.05,52.72],[120.98,53.28],[123.61,53.55],[124.81,53.13],[125.07,53.2],[125.65,53.04],[126.34,52.36],[126.92,51.1],[127.31,50.71],[127.34,50.35],[127.59,50.21],[127.55,49.8],[128.0,49.57],[128.7,49.6],[129.07,49.37],[129.5,49.39],[130.2,48.89],[130.55,48.86],[130.55,48.6],[130.81,48.34],[130.73,48.02],[131.0,47.69],[132.48,47.71],[132.71,47.95],[133.15,48.11],[133.47,48.1],[134.29,48.37],[134.66,48.25],[134.57,48.02],[134.75,47.71],[134.17,47.3],[134.2,47.13],[133.87,46.5],[133.86,46.25],[133.51,45.88],[133.44,45.61],[133.19,45.49],[133.11,45.13],[132.94,45.03],[131.85,45.33],[131.45,44.98],[130.98,44.85],[131.26,44.07],[131.17,43.7],[131.26,43.38],[131.07,42.9],[130.42,42.73],[130.58,42.62],[130.53,42.54],[130.29,42.69],[130.24,42.89],[129.9,43.0],[129.7,42.45],[129.32,42.41],[128.92,42.04],[128.04,41.99],[128.29,41.61],[128.15,41.39],[127.18,41.53],[126.9,41.78],[126.72,41.72],[125.99,40.9],[124.89,40.46],[124.27,39.92],[123.65,39.88],[122.84,39.6],[121.98,39.05],[121.68,39.0],[121.65,38.86],[121.16,38.73],[121.11,38.92],[121.68,39.11],[121.63,39.22],[121.82,39.39],[121.28,39.39],[121.27,39.55],[121.52,39.64],[121.52,39.85],[121.8,39.95],[122.26,40.5],[121.83,40.97],[121.73,40.85],[121.18,40.9],[120.48,40.23],[119.39,39.75],[118.98,39.18],[118.3,39.07],[118.04,39.23],[117.78,39.13],[117.55,38.69],[117.65,38.42],[118.01,38.18],[118.94,38.04],[119.09,37.7],[118.95,37.33],[119.11,37.2],[119.76,37.15],[120.26,37.68],[120.75,37.83],[121.64,37.46],[122.06,37.53],[122.67,37.4],[122.45,37.07],[122.52,36.95],[122.34,36.83],[121.93,36.96],[121.05,36.61],[120.81,36.63],[120.89,36.44],[120.71,36.41],[120.64,36.13],[120.39,36.05],[120.33,36.23],[120.18,36.2],[120.1,36.12],[120.29,35.98],[119.43,35.3],[119.17,34.85],[120.27,34.27],[120.87,33.02],[120.86,32.66],[121.34,32.43],[121.45,32.15],[121.83,31.9],[121.87,31.7],[121.76,31.7],[120.97,31.87],[120.52,32.11],[120.03,31.94],[120.71,31.98],[120.79,31.82],[121.66,31.32],[121.83,31.06],[121.88,30.92],[121.42,30.79],[120.82,30.35],[120.45,30.39],[120.2,30.24],[120.5,30.3],[120.63,30.13],[121.26,30.3],[121.68,29.98],[122.08,29.87],[121.51,29.48],[121.89,29.63],[121.97,29.49],[121.92,29.13],[121.72,29.26],[121.45,29.13],[121.68,28.95],[121.54,28.93],[121.66,28.85],[121.47,28.64],[121.61,28.29],[121.27,28.22],[121.15,28.33],[120.96,28.04],[120.75,28.01],[120.83,27.89],[120.59,27.58],[120.61,27.41],[120.28,27.1],[120.04,26.63],[119.88,26.61],[119.83,26.85],[119.71,26.73],[119.59,26.79],[119.88,26.33],[119.46,26.05],[119.14,26.12],[119.33,25.95],[119.62,26.0],[119.54,25.59],[119.62,25.39],[119.18,25.45],[119.29,25.23],[118.98,25.21],[118.91,24.93],[118.64,24.84],[118.66,24.62],[118.09,24.63],[118.01,24.48],[117.84,24.47],[118.06,24.25],[117.63,23.84],[117.47,23.84],[117.37,23.59],[117.29,23.71],[117.08,23.58],[116.91,23.65],[116.86,23.45],[116.63,23.35],[116.7,23.28],[116.47,22.95],[115.64,22.85],[115.5,22.72],[115.2,22.82],[114.85,22.62],[114.65,22.75],[114.55,22.53],[114.01,22.51],[113.62,22.86],[113.62,23.13],[113.52,23.1],[113.33,22.91],[113.55,22.59],[113.55,22.22],[113.15,22.08],[113.09,22.21],[112.95,21.91],[112.81,21.95],[112.59,21.78],[112.36,21.98],[112.3,21.74],[111.94,21.85],[111.6,21.56],[111.02,21.51],[110.57,21.21],[110.41,21.34],[110.16,20.94],[110.36,20.84],[110.31,20.67],[110.51,20.52],[110.35,20.29],[109.88,20.36],[109.97,20.45],[109.66,20.92],[109.93,21.48],[109.69,21.53],[109.57,21.69],[109.54,21.54],[109.15,21.43],[109.1,21.59],[108.77,21.63],[108.48,21.9],[108.5,21.63],[108.32,21.69],[108.25,21.56],[107.97,21.51]],[[110.89,19.99],[111.01,19.66],[110.64,19.29],[110.45,18.75],[110.02,18.42],[109.52,18.22],[108.7,18.54],[108.67,19.3],[109.28,19.76],[109.18,19.77],[109.26,19.88],[110.21,20.06],[110.59,19.98],[110.65,20.14],[110.89,19.99]]],"Chile":[[[-70.42,-18.35],[-69.93,-18.21],[-69.8,-17.99],[-69.85,-17.7],[-69.51,-17.51],[-69.31,-17.94],[-69.09,-18.05],[-68.97,-18.97],[-68.46,-19.43],[-68.7,-19.72],[-68.56,-19.97],[-68.76,-20.09],[-68.76,-20.42],[-68.49,-20.63],[-68.56,-20.9],[-68.2,-21.3],[-67.88,-22.82],[-67.2,-22.82],[-67.01,-23.0],[-67.35,-24.03],[-68.25,-24.39],[-68.56,-24.75],[-68.38,-25.09],[-68.59,-25.42],[-68.41,-26.15],[-68.59,-26.47],[-68.32,-26.97],[-68.85,-27.15],[-69.17,-27.92],[-69.66,-28.41],[-69.83,-29.1],[-70.03,-29.32],[-69.96,-30.08],[-69.84,-30.17],[-69.96,-30.36],[-70.15,-30.36],[-70.31,-31.02],[-70.52,-31.15],[-70.58,-31.57],[-70.25,-31.96],[-70.36,-32.08],[-70.02,-32.88],[-70.08,-33.2],[-69.82,-33.28],[-69.85,-34.22],[-70.05,-34.3],[-70.39,-35.15],[-70.56,-35.25],[-70.41,-35.52],[-70.4,-36.06],[-71.06,-36.52],[-71.19,-36.84],[-71.17,-37.76],[-70.85,-38.54],[-70.95,-38.74],[-71.4,-38.93],[-71.54,-39.6],[-71.72,-39.64],[-71.66,-40.02],[-71.82,-40.18],[-71.7,-40.34],[-71.94,-40.79],[-71.91,-41.65],[-71.75,-42.05],[-72.11,-42.25],[-72.14,-42.58],[-72.1,-43.07],[-71.75,-43.24],[-71.91,-43.35],[-71.68,-43.93],[-71.82,-44.38],[-71.21,-44.44],[-71.16,-44.56],[-71.26,-44.76],[-72.06,-44.77],[-72.04,-44.9],[-71.6,-44.98],[-71.35,-45.23],[-71.51,-45.51],[-71.75,-45.58],[-71.63,-45.95],[-71.88,-46.16],[-71.7,-46.65],[-71.94,-46.83],[-71.91,-47.2],[-72.34,-47.49],[-72.52,-47.88],[-72.29,-48.23],[-72.61,-48.52],[-72.61,-48.79],[-73.03,-49.01],[-73.14,-49.3],[-73.46,-49.31],[-73.58,-49.58],[-73.5,-50.12],[-73.15,-50.74],[-72.51,-50.61],[-72.34,-50.68],[-72.3,-51.3],[-72.41,-51.54],[-71.97,-51.96],[-69.96,-52.01],[-68.46,-52.29],[-69.24,-52.21],[-69.62,-52.46],[-70.8,-52.77],[-70.99,-53.78],[-71.3,-53.88],[-72.18,-53.63],[-72.41,-53.35],[-71.94,-53.23],[-71.83,-53.4],[-71.89,-53.52],[-71.79,-53.48],[-71.74,-53.23],[-71.29,-53.03],[-71.16,-52.89],[-71.23,-52.81],[-71.39,-52.76],[-72.28,-53.13],[-72.55,-53.46],[-73.05,-53.24],[-72.73,-52.76],[-72.45,-52.81],[-72.12,-52.65],[-71.51,-52.61],[-72.71,-52.54],[-73.12,-53.07],[-73.64,-52.84],[-73.24,-52.71],[-73.12,-52.49],[-73.59,-52.69],[-74.01,-52.64],[-74.04,-52.4],[-74.3,-52.12],[-73.83,-52.23],[-73.68,-52.08],[-73.26,-52.16],[-72.79,-51.95],[-72.57,-52.2],[-72.72,-52.36],[-72.52,-52.25],[-72.63,-52.01],[-72.5,-51.85],[-72.54,-51.71],[-73.17,-51.45],[-72.6,-51.8],[-73.52,-52.04],[-73.75,-51.79],[-74.19,-51.68],[-73.93,-51.62],[-73.94,-51.27],[-74.81,-51.06],[-75.09,-50.68],[-74.68,-50.66],[-74.77,-50.47],[-74.64,-50.36],[-74.36,-50.49],[-74.14,-50.82],[-73.81,-50.94],[-73.62,-50.65],[-73.65,-50.49],[-73.98,-50.83],[-74.2,-50.61],[-74.18,-50.49],[-73.95,-50.51],[-74.63,-50.19],[-74.34,-49.98],[-73.96,-49.99],[-74.32,-49.78],[-74.29,-49.6],[-73.83,-49.61],[-74.09,-49.43],[-73.94,-49.02],[-74.22,-49.5],[-74.37,-49.4],[-74.34,-48.6],[-74.01,-48.48],[-74.48,-48.46],[-74.58,-48.0],[-73.39,-48.15],[-73.61,-47.99],[-73.72,-47.66],[-73.94,-47.93],[-74.23,-47.97],[-74.66,-47.7],[-74.53,-47.57],[-74.24,-47.68],[-74.13,-47.59],[-74.48,-47.43],[-74.16,-47.18],[-74.15,-46.97],[-74.31,-46.79],[-74.45,-46.77],[-74.51,-46.89],[-75.0,-46.74],[-74.98,-46.51],[-75.54,-46.7],[-75.43,-46.93],[-75.71,-46.7],[-74.93,-46.16],[-75.07,-45.88],[-74.16,-45.77],[-74.12,-45.5],[-73.96,-45.4],[-73.82,-45.45],[-74.02,-46.06],[-74.39,-46.22],[-73.97,-46.15],[-73.88,-45.85],[-73.73,-45.81],[-73.71,-46.07],[-73.95,-46.53],[-73.85,-46.57],[-73.59,-45.9],[-73.78,-45.63],[-73.73,-45.48],[-73.27,-45.35],[-72.93,-45.45],[-73.45,-45.24],[-73.41,-45.1],[-73.36,-44.98],[-72.74,-44.73],[-72.68,-44.59],[-72.66,-44.44],[-73.27,-44.17],[-73.22,-43.9],[-73.07,-43.86],[-73.0,-43.63],[-73.08,-43.32],[-72.76,-43.04],[-72.85,-42.67],[-72.77,-42.51],[-72.63,-42.51],[-72.77,-42.26],[-72.63,-42.2],[-72.41,-42.39],[-72.5,-41.98],[-72.82,-41.91],[-72.36,-41.65],[-72.32,-41.5],[-72.54,-41.69],[-72.95,-41.51],[-73.24,-41.78],[-73.73,-41.74],[-73.62,-41.58],[-73.86,-41.45],[-73.98,-40.97],[-73.67,-39.96],[-73.41,-39.79],[-73.23,-39.22],[-73.52,-38.51],[-73.46,-38.04],[-73.66,-37.7],[-73.66,-37.34],[-73.6,-37.19],[-73.22,-37.17],[-73.12,-36.69],[-72.59,-35.76],[-72.63,-35.59],[-72.22,-35.1],[-72.0,-34.17],[-71.66,-33.65],[-71.74,-33.09],[-71.45,-32.66],[-71.71,-30.76],[-71.67,-30.33],[-71.4,-30.14],[-71.31,-29.65],[-71.52,-28.93],[-71.19,-28.38],[-70.65,-26.33],[-70.71,-25.78],[-70.45,-25.25],[-70.57,-24.64],[-70.39,-23.57],[-70.59,-23.25],[-70.56,-23.06],[-70.33,-22.85],[-70.09,-21.49],[-70.16,-19.71],[-70.42,-18.35]],[[-68.63,-52.65],[-68.65,-54.85],[-69.49,-54.86],[-69.72,-54.71],[-70.5,-54.81],[-71.9,-54.6],[-71.8,-54.43],[-71.57,-54.5],[-70.8,-54.33],[-70.7,-54.49],[-70.31,-54.53],[-70.86,-54.11],[-70.87,-53.88],[-70.65,-53.82],[-70.7,-53.73],[-70.53,-53.63],[-70.38,-53.99],[-70.63,-54.0],[-70.53,-54.14],[-70.17,-54.38],[-69.74,-54.31],[-69.25,-54.56],[-69.04,-54.41],[-69.99,-54.11],[-70.15,-53.89],[-70.09,-53.72],[-69.36,-53.42],[-70.33,-53.38],[-70.44,-53.09],[-70.13,-52.94],[-70.38,-52.75],[-69.94,-52.82],[-69.41,-52.49],[-69.17,-52.67],[-68.79,-52.58],[-68.63,-52.65]],[[-73.77,-43.35],[-74.39,-43.23],[-74.21,-42.88],[-74.04,-41.8],[-73.53,-41.9],[-73.42,-42.19],[-73.53,-42.31],[-73.47,-42.47],[-73.79,-42.59],[-73.44,-42.94],[-73.75,-43.16],[-73.77,-43.35]],[[-74.48,-49.15],[-74.46,-49.69],[-74.59,-50.01],[-74.76,-50.01],[-74.88,-49.73],[-74.72,-49.42],[-74.96,-49.53],[-75.03,-49.84],[-75.55,-49.79],[-75.52,-49.62],[-75.34,-49.63],[-75.31,-49.49],[-75.47,-49.36],[-75.09,-49.27],[-75.21,-49.15],[-74.95,-48.96],[-74.9,-48.73],[-74.55,-48.77],[-74.48,-49.15]],[[-69.7,-54.92],[-68.46,-54.96],[-68.4,-55.04],[-68.61,-55.16],[-68.28,-55.25],[-68.05,-55.64],[-68.87,-55.45],[-68.89,-55.24],[-69.19,-55.17],[-69.36,-55.3],[-69.18,-55.48],[-69.46,-55.42],[-69.98,-55.15],[-69.89,-54.88],[-69.7,-54.92]],[[-72.92,-53.48],[-72.88,-53.58],[-72.48,-53.59],[-72.2,-53.81],[-72.41,-54.0],[-72.87,-54.13],[-72.96,-54.07],[-72.76,-53.86],[-73.04,-53.83],[-73.08,-54.0],[-73.21,-53.99],[-73.31,-53.73],[-73.85,-53.55],[-73.45,-53.41],[-72.92,-53.48]],[[-73.73,-44.39],[-74.0,-44.59],[-73.75,-45.27],[-74.1,-45.32],[-74.09,-45.2],[-74.62,-44.65],[-74.5,-44.47],[-74.1,-44.39],[-73.99,-44.14],[-73.7,-44.27],[-73.73,-44.39]],[[-71.39,-54.03],[-71.02,-54.11],[-71.01,-54.25],[-71.14,-54.37],[-71.47,-54.23],[-71.95,-54.3],[-72.21,-54.05],[-72.0,-53.88],[-71.39,-54.03]],[[-74.57,-48.59],[-74.92,-48.63],[-75.2,-47.97],[-74.83,-47.85],[-74.57,-48.59]],[[-67.08,-55.15],[-67.34,-55.29],[-67.5,-55.18],[-68.07,-55.22],[-68.3,-54.98],[-67.25,-54.98],[-67.08,-55.15]],[[-75.51,-48.76],[-75.62,-48.77],[-75.65,-48.59],[-75.52,-48.33],[-75.56,-48.07],[-75.39,-48.02],[-75.16,-48.62],[-75.51,-48.76]],[[-72.99,-44.78],[-73.23,-44.86],[-73.4,-44.77],[-73.45,-44.64],[-73.26,-44.35],[-72.78,-44.51],[-72.99,-44.78]]],"Chad":[[[23.98,19.5],[23.97,15.72],[23.11,15.7],[22.93,15.53],[22.93,15.16],[22.67,14.72],[22.38,14.55],[22.54,14.16],[22.11,13.8],[22.23,13.33],[21.83,12.79],[21.93,12.68],[22.35,12.66],[22.42,12.55],[22.59,11.58],[22.92,11.35],[22.86,10.92],[22.49,11.0],[21.77,10.64],[21.63,10.24],[20.34,9.13],[18.96,8.94],[18.89,8.84],[19.11,8.66],[18.56,8.05],[17.65,7.98],[16.79,7.55],[16.54,7.86],[15.96,7.51],[15.48,7.52],[15.55,7.79],[15.11,8.56],[14.33,9.2],[13.98,9.69],[14.24,9.98],[15.65,10.01],[15.13,10.65],[15.03,11.11],[15.08,11.85],[14.85,12.5],[14.46,13.02],[14.06,13.08],[13.61,13.7],[13.45,14.38],[14.37,15.75],[15.47,16.91],[15.73,19.9],[15.96,20.35],[15.59,20.73],[15.61,20.95],[15.18,21.52],[14.98,23.0],[15.98,23.45],[23.98,19.5]]],"Central African Rep.":[[[24.15,8.67],[24.29,8.29],[24.85,8.14],[25.2,7.81],[25.28,7.43],[26.36,6.64],[26.31,6.46],[26.51,6.07],[27.14,5.72],[27.4,5.11],[27.07,5.2],[26.82,5.06],[25.53,5.31],[25.07,4.97],[24.32,4.99],[23.42,4.66],[22.87,4.72],[22.42,4.14],[20.56,4.46],[20.23,4.83],[19.81,5.09],[19.5,5.13],[19.07,4.89],[18.59,4.35],[18.61,3.48],[18.47,3.62],[18.16,3.5],[17.49,3.69],[16.61,3.51],[16.47,2.83],[16.18,2.27],[16.07,2.91],[15.13,3.83],[15.06,4.29],[14.73,4.6],[14.56,5.28],[14.62,5.86],[14.44,6.09],[14.74,6.28],[15.48,7.52],[15.96,7.51],[16.54,7.86],[16.79,7.55],[17.65,7.98],[18.56,8.05],[19.11,8.66],[18.89,8.89],[19.15,9.02],[20.34,9.13],[20.63,9.3],[21.63,10.24],[21.71,10.57],[22.04,10.82],[22.49,11.0],[22.86,10.92],[23.65,9.82],[23.62,9.34],[23.47,9.11],[23.54,8.82],[24.15,8.67]]],"Canada":[[[-130.02,55.89],[-130.1,56.11],[-131.82,56.59],[-131.87,56.79],[-132.11,56.86],[-132.03,57.03],[-132.34,57.08],[-132.23,57.2],[-133.4,58.41],[-134.95,59.29],[-135.05,59.58],[-135.47,59.79],[-136.32,59.6],[-136.28,59.48],[-136.46,59.46],[-136.58,59.15],[-137.44,58.9],[-137.59,59.23],[-139.19,60.08],[-139.08,60.34],[-139.68,60.33],[-139.97,60.18],[-141.0,60.3],[-141.0,69.65],[-139.18,69.52],[-137.26,68.96],[-135.26,68.68],[-135.44,68.84],[-135.9,68.93],[-135.58,69.03],[-135.91,69.11],[-135.69,69.31],[-135.29,69.31],[-135.14,69.47],[-134.46,69.48],[-134.41,69.68],[-133.88,69.51],[-134.18,69.25],[-133.16,69.43],[-132.84,69.65],[-132.4,69.66],[-132.54,69.73],[-131.14,69.91],[-130.67,70.13],[-129.95,70.09],[-129.68,70.19],[-129.54,70.11],[-130.83,69.65],[-131.94,69.53],[-132.69,69.26],[-133.42,68.84],[-133.2,68.74],[-133.34,68.83],[-132.58,68.85],[-132.74,68.92],[-132.72,69.08],[-131.92,69.29],[-131.79,69.43],[-131.32,69.36],[-131.06,69.45],[-130.97,69.21],[-130.12,69.72],[-128.9,69.97],[-129.16,69.8],[-129.06,69.7],[-128.85,69.75],[-128.28,70.11],[-127.68,70.26],[-128.17,70.42],[-127.99,70.57],[-127.23,70.3],[-126.61,69.73],[-125.73,69.38],[-125.17,69.43],[-125.34,69.66],[-124.77,69.99],[-124.99,70.03],[-124.56,70.15],[-124.44,70.11],[-124.41,69.77],[-124.12,69.69],[-124.48,69.43],[-124.34,69.36],[-123.53,69.39],[-123.21,69.54],[-123.03,69.81],[-121.74,69.8],[-120.14,69.38],[-117.23,68.91],[-116.06,68.84],[-116.24,68.97],[-115.44,68.94],[-114.62,68.75],[-113.96,68.4],[-114.1,68.27],[-114.76,68.27],[-115.43,67.9],[-115.13,67.82],[-112.43,67.68],[-110.99,67.79],[-110.07,67.99],[-109.63,67.73],[-109.04,67.69],[-108.85,67.42],[-108.61,67.6],[-107.99,67.26],[-107.91,67.16],[-107.99,67.1],[-108.5,67.09],[-107.29,66.4],[-107.71,66.74],[-107.75,66.96],[-107.16,66.88],[-107.96,67.82],[-107.76,67.91],[-107.8,68.04],[-106.43,68.2],[-106.4,68.32],[-105.75,68.59],[-106.46,68.52],[-106.61,68.36],[-107.62,68.33],[-107.73,68.17],[-108.32,68.15],[-108.72,68.3],[-108.34,68.6],[-106.16,68.92],[-105.68,68.83],[-105.38,68.41],[-104.65,68.23],[-104.49,68.06],[-103.47,68.11],[-102.32,67.74],[-98.41,67.81],[-98.7,67.97],[-98.63,68.07],[-97.93,67.71],[-97.45,67.62],[-97.14,67.8],[-97.55,67.96],[-98.19,67.92],[-98.65,68.36],[-98.22,68.32],[-97.79,68.39],[-97.93,68.52],[-97.41,68.5],[-96.98,68.26],[-96.43,68.31],[-96.72,68.04],[-95.97,68.25],[-96.37,67.51],[-96.14,67.27],[-95.72,67.32],[-95.78,67.18],[-95.53,67.21],[-95.42,67.01],[-96.42,67.04],[-95.79,66.62],[-96.04,66.94],[-95.4,66.95],[-95.26,67.26],[-95.65,67.74],[-95.46,68.02],[-94.74,68.07],[-93.45,68.62],[-93.64,68.63],[-93.68,68.89],[-93.85,69.0],[-94.06,68.78],[-94.6,68.8],[-94.09,69.12],[-94.25,69.15],[-94.25,69.31],[-93.62,69.42],[-93.75,69.23],[-93.43,69.37],[-93.53,69.48],[-94.27,69.45],[-94.63,69.65],[-94.82,69.58],[-95.96,69.8],[-96.55,70.21],[-96.3,70.51],[-95.88,70.55],[-95.99,70.62],[-95.89,70.69],[-96.26,70.64],[-96.55,70.81],[-96.45,71.24],[-96.06,71.41],[-95.56,71.34],[-95.41,71.49],[-95.87,71.57],[-95.2,71.9],[-94.61,71.99],[-94.31,71.77],[-93.75,71.74],[-93.76,71.64],[-93.03,71.34],[-92.88,71.07],[-92.98,70.85],[-92.36,70.64],[-92.05,70.3],[-91.76,70.33],[-91.57,70.18],[-92.32,70.24],[-92.51,70.1],[-91.98,70.04],[-92.89,69.67],[-92.31,69.67],[-91.91,69.53],[-91.2,69.65],[-91.44,69.53],[-90.42,69.46],[-90.89,69.27],[-91.24,69.29],[-90.48,68.88],[-90.58,68.48],[-90.25,68.27],[-89.9,68.49],[-89.67,69.02],[-89.28,69.26],[-89.06,69.27],[-88.04,68.81],[-87.81,68.35],[-87.89,68.25],[-88.35,68.29],[-88.31,67.95],[-87.36,67.18],[-86.56,67.48],[-86.4,67.8],[-85.95,68.07],[-85.69,68.67],[-84.87,68.77],[-85.11,68.84],[-84.86,69.07],[-85.39,69.23],[-85.51,69.85],[-82.37,69.64],[-82.76,69.49],[-82.31,69.41],[-82.23,69.25],[-81.38,69.19],[-81.33,69.12],[-81.96,68.88],[-81.38,68.85],[-81.25,68.74],[-81.91,68.46],[-82.55,68.45],[-82.22,68.15],[-82.01,68.19],[-82.06,67.93],[-81.29,67.5],[-81.47,67.07],[-83.41,66.37],[-84.54,66.97],[-84.85,67.03],[-85.11,66.91],[-84.74,66.93],[-84.22,66.68],[-83.83,66.29],[-83.87,66.21],[-84.29,66.29],[-84.63,66.21],[-85.6,66.57],[-86.71,66.52],[-86.68,66.36],[-85.96,66.12],[-87.08,65.44],[-87.45,65.34],[-87.97,65.35],[-89.75,65.94],[-91.43,65.95],[-89.92,65.78],[-88.97,65.35],[-87.03,65.2],[-87.28,64.83],[-88.11,64.18],[-88.82,63.99],[-89.2,64.11],[-89.13,63.97],[-89.62,64.03],[-89.81,64.18],[-90.04,64.14],[-89.86,63.96],[-90.17,63.98],[-90.01,63.8],[-90.15,63.69],[-90.81,63.58],[-92.55,63.83],[-93.7,64.15],[-93.56,63.86],[-93.27,63.84],[-93.38,63.95],[-92.16,63.69],[-92.47,63.56],[-91.84,63.7],[-90.71,63.3],[-90.78,62.97],[-91.45,62.8],[-92.36,62.82],[-91.94,62.59],[-92.55,62.55],[-92.77,62.35],[-92.53,62.17],[-93.21,62.36],[-92.9,62.22],[-93.35,62.03],[-93.33,61.93],[-93.58,61.94],[-93.31,61.77],[-93.91,61.48],[-93.89,61.34],[-94.09,61.3],[-94.07,61.14],[-94.51,60.6],[-94.76,60.5],[-94.65,60.42],[-94.79,59.95],[-94.79,59.27],[-94.96,59.07],[-94.29,58.72],[-94.33,58.3],[-94.12,58.74],[-93.18,58.73],[-92.43,57.32],[-92.8,56.92],[-91.11,57.24],[-90.59,57.22],[-88.83,56.81],[-88.08,56.47],[-87.48,56.02],[-85.68,55.6],[-85.22,55.35],[-85.37,55.08],[-85.06,55.29],[-83.91,55.31],[-82.39,55.07],[-82.22,54.81],[-82.42,54.24],[-82.14,53.82],[-82.16,53.26],[-82.29,53.03],[-81.6,52.43],[-81.83,52.22],[-81.47,52.2],[-80.66,51.76],[-80.44,51.39],[-80.85,51.12],[-80.48,51.31],[-80.1,51.28],[-79.35,50.76],[-79.71,51.12],[-79.69,51.35],[-79.3,51.62],[-78.9,51.2],[-78.73,51.5],[-78.98,51.78],[-78.45,52.26],[-78.75,52.66],[-78.72,52.86],[-79.1,53.66],[-78.94,53.84],[-79.08,53.93],[-79.01,54.02],[-79.24,54.1],[-79.14,54.17],[-79.71,54.67],[-77.78,55.29],[-76.76,56.0],[-76.55,56.36],[-76.57,57.18],[-76.89,57.76],[-77.16,58.02],[-78.51,58.68],[-78.43,58.9],[-77.76,59.38],[-77.86,59.48],[-77.73,59.68],[-77.35,59.58],[-77.49,59.68],[-77.29,60.02],[-77.59,60.09],[-77.45,60.15],[-77.68,60.43],[-77.5,60.54],[-77.79,60.64],[-77.6,60.82],[-78.18,60.82],[-77.73,61.21],[-77.74,61.44],[-77.51,61.56],[-78.02,61.83],[-78.13,62.28],[-77.37,62.57],[-75.67,62.25],[-75.79,62.18],[-75.34,62.31],[-74.63,62.11],[-74.64,62.21],[-73.71,62.47],[-72.69,62.13],[-72.77,61.84],[-72.51,61.92],[-72.23,61.83],[-72.04,61.68],[-72.21,61.59],[-71.87,61.69],[-71.64,61.62],[-71.85,61.44],[-71.65,61.41],[-71.74,61.34],[-71.42,61.16],[-70.28,61.07],[-69.99,60.86],[-69.47,61.01],[-69.4,60.85],[-69.75,60.49],[-69.67,60.08],[-70.66,60.03],[-69.73,59.92],[-69.58,59.68],[-69.68,59.34],[-69.35,59.3],[-69.53,58.87],[-69.65,58.82],[-69.78,58.96],[-70.16,58.76],[-69.79,58.69],[-69.27,58.88],[-68.7,58.9],[-68.38,58.74],[-68.23,58.48],[-68.36,58.16],[-69.04,57.9],[-68.41,58.05],[-68.02,58.48],[-67.89,58.3],[-68.06,58.14],[-67.75,58.4],[-67.68,57.99],[-67.57,58.21],[-66.72,58.49],[-66.36,58.79],[-66.09,58.66],[-66.0,58.43],[-65.92,58.57],[-66.04,58.82],[-65.72,59.02],[-65.38,59.06],[-65.7,59.21],[-65.41,59.31],[-65.48,59.47],[-65.04,59.39],[-65.41,59.54],[-65.43,59.78],[-65.03,59.77],[-65.17,59.91],[-64.82,60.33],[-64.5,60.27],[-64.42,60.17],[-64.77,60.01],[-64.28,60.06],[-64.18,59.97],[-64.23,59.74],[-64.06,59.82],[-63.75,59.51],[-63.95,59.38],[-63.78,59.28],[-63.54,59.33],[-63.42,59.19],[-63.97,59.05],[-63.25,59.07],[-63.28,58.87],[-63.05,58.88],[-62.87,58.67],[-63.54,58.33],[-62.61,58.5],[-62.81,58.2],[-63.26,58.01],[-62.49,58.15],[-62.3,57.97],[-61.96,57.91],[-61.97,57.61],[-62.49,57.49],[-61.92,57.42],[-61.85,57.37],[-61.98,57.25],[-61.33,57.01],[-61.37,56.68],[-62.5,56.8],[-61.74,56.53],[-61.94,56.42],[-61.43,56.36],[-61.71,56.23],[-61.36,56.22],[-61.3,56.05],[-61.45,56.0],[-61.09,55.87],[-60.74,55.94],[-60.56,55.73],[-60.34,55.79],[-60.41,55.65],[-60.19,55.48],[-60.62,55.06],[-59.76,55.31],[-59.44,55.18],[-59.84,54.81],[-59.26,55.2],[-59.0,55.15],[-58.78,54.84],[-58.4,54.77],[-57.96,54.88],[-57.4,54.59],[-57.7,54.39],[-58.43,54.23],[-58.63,54.05],[-59.82,53.83],[-60.14,53.6],[-60.4,53.65],[-60.1,53.49],[-60.33,53.27],[-58.65,53.98],[-57.93,54.1],[-58.32,54.11],[-58.31,54.2],[-57.42,54.16],[-57.13,53.79],[-57.52,53.61],[-57.33,53.47],[-56.84,53.74],[-56.53,53.77],[-55.96,53.47],[-55.8,53.21],[-55.89,53.0],[-55.8,52.64],[-56.32,52.54],[-55.74,52.47],[-55.78,52.36],[-56.01,52.39],[-55.67,52.19],[-56.98,51.46],[-58.51,51.29],[-60.08,50.25],[-61.72,50.1],[-61.92,50.23],[-62.71,50.3],[-66.41,50.22],[-66.94,49.99],[-67.37,49.35],[-68.28,49.2],[-69.67,48.2],[-71.02,48.46],[-69.77,48.1],[-69.99,47.74],[-71.27,46.8],[-72.2,46.56],[-72.98,46.21],[-73.47,45.74],[-74.04,45.5],[-74.31,45.53],[-73.98,45.35],[-75.4,44.77],[-76.46,44.06],[-76.82,43.63],[-78.85,43.58],[-79.17,43.47],[-78.91,42.91],[-79.04,42.8],[-80.25,42.37],[-81.28,42.21],[-82.44,41.68],[-82.69,41.68],[-83.03,41.83],[-83.15,42.14],[-82.55,42.62],[-82.14,43.57],[-82.55,45.35],[-83.59,45.82],[-83.47,45.99],[-83.62,46.12],[-83.98,46.08],[-84.15,46.54],[-84.56,46.46],[-84.88,46.9],[-88.38,48.3],[-89.46,48.0],[-90.92,48.21],[-91.52,48.06],[-92.0,48.3],[-92.41,48.28],[-92.5,48.44],[-93.0,48.61],[-93.71,48.53],[-94.62,48.74],[-94.86,49.3],[-95.15,49.37],[-95.16,48.99],[-122.79,48.99],[-122.96,49.07],[-123.08,48.98],[-123.23,49.26],[-122.88,49.4],[-123.28,49.34],[-123.19,49.68],[-123.53,49.4],[-124.03,49.6],[-123.99,49.74],[-123.82,49.59],[-123.58,49.68],[-123.88,49.74],[-123.83,50.15],[-123.95,50.18],[-123.86,50.07],[-123.98,49.88],[-124.28,49.77],[-124.78,50.02],[-125.06,50.42],[-124.86,50.64],[-124.86,50.87],[-125.06,50.51],[-125.48,50.5],[-125.54,50.65],[-125.64,50.47],[-126.09,50.5],[-126.45,50.59],[-125.91,50.7],[-126.51,50.68],[-126.37,50.84],[-126.52,50.87],[-126.52,51.06],[-126.63,50.92],[-127.06,50.87],[-127.71,51.15],[-127.69,51.34],[-127.42,51.61],[-126.69,51.7],[-127.34,51.71],[-127.71,51.49],[-127.87,51.78],[-127.73,51.99],[-127.86,51.99],[-127.8,52.19],[-127.24,52.39],[-126.71,52.06],[-127.19,52.46],[-126.95,52.72],[-127.02,52.84],[-127.07,52.65],[-127.84,52.25],[-128.1,51.79],[-128.36,52.16],[-128.04,52.32],[-127.94,52.55],[-128.27,52.36],[-128.05,52.91],[-128.36,52.83],[-128.52,53.14],[-129.08,53.37],[-129.17,53.53],[-128.85,53.7],[-128.9,53.56],[-127.93,53.28],[-128.21,53.48],[-128.67,53.55],[-128.76,53.75],[-128.53,53.86],[-128.96,53.84],[-129.21,53.64],[-129.26,53.42],[-129.56,53.25],[-130.33,53.72],[-130.04,54.13],[-129.62,54.23],[-130.09,54.18],[-130.43,54.42],[-130.35,54.66],[-129.56,55.46],[-129.79,55.56],[-130.05,55.06],[-130.02,55.89]],[[-86.59,71.01],[-85.64,71.15],[-85.1,71.15],[-84.82,71.03],[-84.7,71.63],[-85.34,71.7],[-85.91,71.99],[-85.32,72.23],[-84.28,72.04],[-84.84,72.31],[-84.62,72.38],[-85.34,72.42],[-85.65,72.72],[-85.26,72.95],[-84.26,72.8],[-85.46,73.11],[-84.42,73.46],[-83.78,73.42],[-83.9,73.53],[-83.41,73.63],[-81.6,73.7],[-81.34,73.6],[-81.15,73.31],[-80.6,73.12],[-80.59,72.93],[-80.28,72.77],[-81.23,72.31],[-80.61,72.45],[-80.94,72.21],[-80.69,72.1],[-80.92,72.07],[-80.95,71.92],[-80.18,72.21],[-79.88,72.18],[-80.11,72.33],[-79.83,72.45],[-79.0,72.27],[-79.01,72.04],[-78.58,71.88],[-78.86,72.1],[-78.7,72.35],[-77.52,72.18],[-78.29,72.36],[-78.48,72.47],[-78.42,72.57],[-77.25,72.74],[-75.7,72.57],[-75.07,72.32],[-75.05,72.23],[-75.92,71.72],[-75.15,72.06],[-74.27,72.04],[-74.32,71.84],[-75.21,71.71],[-74.7,71.68],[-75.0,71.22],[-74.49,71.65],[-73.87,71.77],[-73.71,71.72],[-74.2,71.4],[-73.71,71.59],[-73.18,71.28],[-73.28,71.54],[-72.9,71.68],[-71.64,71.52],[-71.19,71.28],[-72.63,70.83],[-71.74,71.05],[-70.67,71.05],[-70.64,70.9],[-70.76,70.79],[-71.89,70.43],[-71.28,70.5],[-71.43,70.13],[-70.98,70.58],[-70.08,70.83],[-68.5,70.61],[-68.36,70.52],[-68.48,70.41],[-70.06,70.04],[-68.78,70.2],[-69.01,69.98],[-68.74,69.94],[-68.23,70.11],[-68.33,70.18],[-68.12,70.31],[-67.86,70.28],[-67.36,70.03],[-67.19,69.76],[-68.02,69.77],[-69.25,69.51],[-68.51,69.58],[-67.24,69.46],[-66.68,69.26],[-66.8,69.15],[-67.94,69.25],[-69.04,69.1],[-68.31,69.17],[-67.75,69.04],[-67.88,68.78],[-69.32,68.86],[-68.21,68.7],[-67.94,68.52],[-66.71,68.45],[-67.03,68.33],[-66.83,68.22],[-66.92,68.07],[-66.73,68.13],[-66.66,68.03],[-66.63,68.21],[-66.21,68.28],[-66.27,68.04],[-66.53,67.85],[-65.94,68.07],[-65.98,67.96],[-65.86,67.92],[-65.51,67.97],[-65.54,67.77],[-65.4,67.68],[-65.41,67.88],[-64.98,68.04],[-64.83,67.99],[-65.02,67.79],[-64.64,67.84],[-63.85,67.57],[-64.08,67.5],[-64.01,67.35],[-64.7,67.35],[-64.59,67.32],[-63.84,67.26],[-63.59,67.38],[-63.04,67.23],[-63.7,66.82],[-62.96,66.95],[-62.38,66.91],[-62.12,67.05],[-61.3,66.65],[-61.53,66.56],[-62.12,66.64],[-61.58,66.41],[-61.86,66.31],[-62.55,66.41],[-62.4,66.32],[-62.53,66.23],[-61.99,66.03],[-62.59,66.03],[-62.38,65.83],[-62.66,65.64],[-63.17,65.66],[-63.46,65.85],[-63.42,65.71],[-63.65,65.66],[-63.34,65.62],[-63.36,65.23],[-63.61,64.93],[-63.9,65.11],[-64.35,65.17],[-64.27,65.4],[-64.55,65.12],[-65.4,65.76],[-64.45,66.32],[-65.0,66.08],[-65.82,66.0],[-65.86,66.09],[-65.66,66.2],[-66.06,66.13],[-66.99,66.63],[-67.08,66.53],[-67.31,66.57],[-67.23,66.31],[-67.88,66.47],[-67.18,66.03],[-67.35,65.93],[-67.83,65.97],[-68.46,66.25],[-68.75,66.2],[-68.22,66.08],[-68.19,65.87],[-67.87,65.77],[-67.94,65.56],[-67.57,65.64],[-67.12,65.44],[-67.34,65.35],[-66.83,65.07],[-66.7,64.82],[-66.63,65.0],[-66.22,64.85],[-66.3,64.78],[-66.21,64.72],[-65.94,64.89],[-65.43,64.73],[-65.27,64.63],[-65.53,64.51],[-65.08,64.44],[-65.21,64.3],[-65.58,64.29],[-65.17,64.03],[-64.68,64.03],[-64.8,63.92],[-64.58,63.9],[-64.41,63.71],[-64.56,63.68],[-64.51,63.26],[-64.67,63.24],[-65.19,63.76],[-65.05,63.23],[-64.67,62.92],[-65.16,62.93],[-65.11,62.63],[-66.22,63.11],[-66.23,62.99],[-66.42,63.03],[-66.66,63.26],[-66.63,63.08],[-66.72,63.08],[-67.89,63.73],[-67.72,63.42],[-68.49,63.73],[-68.91,63.7],[-68.14,63.17],[-67.68,63.09],[-67.74,63.01],[-66.65,62.6],[-65.98,62.21],[-66.13,62.1],[-66.06,61.91],[-66.33,61.87],[-67.44,62.15],[-68.63,62.28],[-69.13,62.42],[-69.6,62.77],[-70.23,62.76],[-71.11,63.0],[-70.95,63.12],[-71.35,63.07],[-71.99,63.42],[-71.38,63.58],[-72.29,63.73],[-72.18,63.89],[-72.5,63.82],[-73.45,64.4],[-73.27,64.58],[-73.91,64.58],[-74.07,64.43],[-74.13,64.61],[-74.46,64.64],[-74.68,64.83],[-74.92,64.77],[-74.64,64.56],[-74.7,64.5],[-75.71,64.52],[-75.77,64.39],[-76.86,64.24],[-77.79,64.37],[-78.17,64.62],[-78.05,64.98],[-77.36,65.2],[-77.46,65.36],[-77.33,65.45],[-75.83,65.23],[-75.52,65.06],[-75.59,64.9],[-75.45,64.84],[-75.36,65.01],[-75.8,65.3],[-73.55,65.48],[-73.74,65.77],[-74.42,66.17],[-73.03,66.73],[-72.79,67.03],[-72.22,67.26],[-73.33,68.27],[-73.28,68.36],[-73.82,68.36],[-73.85,68.7],[-74.12,68.7],[-73.99,68.55],[-74.42,68.58],[-74.7,68.81],[-74.91,68.82],[-74.74,68.91],[-74.95,68.96],[-74.72,69.04],[-74.85,69.07],[-76.59,68.7],[-76.56,69.01],[-75.96,69.03],[-75.65,69.21],[-76.52,69.52],[-76.23,69.66],[-77.09,69.64],[-76.86,69.78],[-77.59,69.85],[-77.77,70.24],[-78.28,70.23],[-79.07,70.6],[-79.4,70.4],[-78.81,70.18],[-78.82,70.01],[-79.09,69.93],[-81.65,70.1],[-80.92,69.85],[-80.84,69.77],[-80.92,69.73],[-81.56,69.94],[-82.3,69.84],[-83.15,70.01],[-85.78,70.04],[-86.32,70.15],[-86.5,70.35],[-86.4,70.47],[-87.9,70.25],[-88.85,70.52],[-89.46,71.06],[-87.85,70.94],[-87.14,71.01],[-89.69,71.42],[-89.84,71.49],[-90.02,71.95],[-89.66,72.17],[-89.86,72.25],[-89.82,72.47],[-89.36,72.8],[-89.23,73.11],[-88.71,73.4],[-87.72,73.72],[-86.77,73.83],[-85.01,73.78],[-84.97,73.69],[-86.09,73.26],[-86.67,72.76],[-86.32,72.46],[-86.22,71.9],[-85.02,71.35],[-86.59,71.01]],[[-69.49,83.02],[-66.42,82.93],[-68.47,82.65],[-64.9,82.9],[-64.5,82.78],[-63.5,82.79],[-63.64,82.71],[-63.09,82.56],[-63.25,82.45],[-61.7,82.49],[-61.21,82.34],[-62.18,82.04],[-64.44,81.74],[-66.62,81.62],[-66.92,81.49],[-68.69,81.29],[-64.78,81.49],[-69.55,80.38],[-70.71,80.54],[-70.26,80.23],[-72.06,80.12],[-70.56,80.07],[-71.35,79.91],[-71.11,79.85],[-71.39,79.76],[-72.44,79.69],[-74.39,79.87],[-74.66,79.84],[-73.47,79.76],[-73.2,79.6],[-75.5,79.41],[-76.9,79.51],[-75.6,79.24],[-74.48,79.23],[-74.53,79.05],[-78.58,79.08],[-77.88,78.94],[-76.25,79.01],[-74.43,78.72],[-74.88,78.54],[-76.42,78.51],[-75.19,78.33],[-75.97,77.99],[-78.01,77.95],[-78.08,77.52],[-78.49,77.37],[-80.57,77.32],[-81.66,77.53],[-81.28,77.37],[-82.06,77.3],[-81.76,77.2],[-79.5,77.2],[-79.34,77.16],[-79.22,76.94],[-78.29,76.98],[-78.0,76.85],[-77.98,76.75],[-78.28,76.57],[-80.8,76.17],[-81.0,76.21],[-80.83,76.37],[-80.97,76.47],[-81.72,76.49],[-82.53,76.72],[-82.23,76.47],[-83.89,76.45],[-84.22,76.67],[-84.28,76.36],[-85.68,76.35],[-86.45,76.58],[-86.68,76.38],[-87.35,76.45],[-87.49,76.59],[-87.5,76.39],[-88.4,76.41],[-88.49,76.77],[-88.61,76.65],[-88.54,76.42],[-89.57,76.49],[-89.5,76.83],[-88.56,77.07],[-86.81,77.19],[-87.68,77.44],[-88.09,77.72],[-88.02,77.78],[-86.76,77.86],[-85.59,77.46],[-84.49,77.37],[-83.61,77.44],[-82.9,77.73],[-82.59,77.99],[-83.78,77.53],[-84.86,77.5],[-85.29,77.56],[-85.29,77.76],[-85.55,77.93],[-84.62,78.2],[-84.22,78.18],[-84.91,78.24],[-84.78,78.53],[-85.59,78.11],[-86.22,78.08],[-85.92,78.34],[-86.91,78.13],[-87.55,78.18],[-87.49,78.42],[-86.81,78.77],[-85.0,78.91],[-83.27,78.77],[-81.75,78.98],[-84.41,79.0],[-84.57,79.07],[-83.58,79.05],[-85.27,79.66],[-86.42,79.84],[-86.62,80.12],[-86.5,80.26],[-83.72,80.23],[-81.69,79.69],[-80.48,79.61],[-80.12,79.67],[-81.01,79.69],[-82.99,80.32],[-76.86,80.87],[-78.72,80.95],[-78.29,81.17],[-76.88,81.43],[-79.2,81.12],[-79.76,80.84],[-81.01,80.66],[-82.89,80.58],[-82.22,80.77],[-82.5,80.76],[-85.15,80.52],[-86.62,80.63],[-85.25,80.99],[-83.29,81.15],[-85.78,81.04],[-87.71,80.66],[-89.26,80.91],[-86.48,81.04],[-84.94,81.29],[-89.62,81.03],[-89.98,81.12],[-89.21,81.25],[-89.68,81.33],[-89.43,81.39],[-87.6,81.53],[-88.48,81.57],[-90.31,81.4],[-90.61,81.43],[-89.82,81.63],[-91.68,81.64],[-90.94,81.83],[-88.06,82.1],[-87.02,81.96],[-86.63,82.05],[-85.05,81.98],[-86.62,82.22],[-84.9,82.45],[-83.59,82.33],[-82.63,82.08],[-82.33,82.09],[-82.75,82.2],[-82.54,82.25],[-79.43,81.85],[-82.45,82.39],[-81.68,82.52],[-82.12,82.63],[-80.81,82.59],[-81.18,82.75],[-81.01,82.78],[-78.75,82.68],[-80.16,82.91],[-79.89,82.94],[-77.48,82.88],[-76.01,82.54],[-75.57,82.61],[-77.13,83.01],[-74.41,83.01],[-72.66,82.72],[-73.44,82.95],[-72.07,83.11],[-70.94,82.9],[-71.42,83.02],[-69.97,83.12],[-69.49,83.02]],[[-114.52,72.59],[-113.58,72.65],[-113.45,72.86],[-113.08,73.0],[-111.27,72.71],[-111.89,72.36],[-111.67,72.3],[-110.21,72.66],[-110.2,72.76],[-110.66,73.01],[-110.01,72.98],[-108.76,72.55],[-108.19,71.72],[-107.81,71.63],[-107.3,71.9],[-107.7,72.15],[-108.24,73.15],[-107.93,73.22],[-108.08,73.28],[-108.03,73.35],[-106.48,73.2],[-105.41,72.79],[-104.88,71.98],[-104.38,71.58],[-104.51,71.06],[-103.59,70.63],[-103.08,70.51],[-103.05,70.65],[-101.64,70.27],[-101.56,70.14],[-101.09,70.14],[-100.91,69.81],[-101.04,69.67],[-101.48,69.85],[-101.65,69.7],[-102.24,69.84],[-102.6,69.72],[-102.62,69.55],[-103.43,69.67],[-103.05,69.47],[-103.12,69.2],[-102.15,69.49],[-101.98,69.43],[-102.04,69.26],[-101.79,69.18],[-101.86,69.02],[-102.89,68.82],[-105.1,68.92],[-105.02,69.08],[-106.14,69.16],[-106.34,69.22],[-106.42,69.41],[-106.66,69.44],[-107.44,69.0],[-108.37,68.94],[-109.47,68.68],[-113.02,68.48],[-113.55,68.77],[-113.69,69.19],[-116.51,69.43],[-117.1,69.8],[-117.19,70.05],[-114.59,70.31],[-112.64,70.23],[-111.63,70.31],[-113.76,70.69],[-117.59,70.63],[-118.38,70.97],[-117.81,71.16],[-115.3,71.49],[-117.94,71.39],[-118.23,71.47],[-117.74,71.66],[-118.58,71.65],[-118.99,71.76],[-118.94,71.99],[-118.21,72.26],[-118.48,72.43],[-118.37,72.53],[-116.57,73.06],[-114.64,73.37],[-114.21,73.3],[-114.08,72.91],[-114.52,72.59]],[[-67.12,45.17],[-67.37,45.17],[-67.47,45.28],[-67.43,45.6],[-67.8,45.73],[-67.81,47.08],[-68.31,47.36],[-68.94,47.21],[-69.05,47.43],[-69.24,47.46],[-70.01,46.71],[-70.3,45.91],[-70.86,45.27],[-71.33,45.29],[-71.52,45.01],[-74.71,45.0],[-73.56,45.42],[-73.16,46.01],[-72.11,46.55],[-70.52,47.03],[-69.47,47.97],[-68.82,48.37],[-66.6,49.13],[-65.52,49.27],[-64.57,49.11],[-64.22,48.87],[-64.51,48.84],[-64.24,48.69],[-64.26,48.55],[-65.26,48.02],[-65.93,48.19],[-66.7,48.02],[-66.36,48.06],[-65.85,47.91],[-65.61,47.67],[-65.0,47.85],[-64.7,47.73],[-64.91,47.37],[-65.32,47.1],[-64.83,47.06],[-64.91,46.89],[-64.54,46.24],[-63.92,46.17],[-63.83,46.11],[-64.06,46.02],[-63.29,45.75],[-62.7,45.74],[-62.75,45.65],[-62.48,45.62],[-61.95,45.87],[-61.77,45.66],[-61.49,45.69],[-61.35,45.57],[-61.28,45.44],[-61.46,45.37],[-61.03,45.29],[-63.3,44.64],[-63.6,44.68],[-63.61,44.48],[-64.0,44.65],[-64.1,44.49],[-64.29,44.55],[-64.28,44.33],[-65.48,43.52],[-65.74,43.56],[-65.89,43.79],[-66.13,43.81],[-66.19,44.14],[-65.87,44.57],[-66.15,44.44],[-66.09,44.5],[-64.45,45.34],[-64.14,45.02],[-64.09,45.22],[-63.37,45.36],[-64.87,45.36],[-64.32,45.84],[-64.48,45.81],[-64.63,45.95],[-64.59,45.81],[-64.78,45.64],[-65.89,45.22],[-66.11,45.32],[-66.03,45.42],[-66.44,45.1],[-67.12,45.17]],[[-119.74,74.11],[-119.21,74.2],[-119.12,74.02],[-118.54,74.24],[-117.51,74.23],[-115.39,73.5],[-118.96,72.68],[-119.51,72.3],[-120.18,72.21],[-120.44,71.63],[-120.62,71.51],[-121.75,71.44],[-122.84,71.1],[-123.31,71.17],[-124.01,71.68],[-125.3,71.97],[-125.84,71.98],[-125.63,72.25],[-124.99,72.59],[-124.97,72.84],[-124.57,72.94],[-124.8,73.13],[-123.8,73.77],[-124.19,73.9],[-124.7,74.35],[-121.5,74.54],[-119.56,74.23],[-119.74,74.11]],[[-91.89,81.13],[-90.64,80.59],[-89.24,80.51],[-89.14,80.44],[-89.2,80.26],[-88.86,80.17],[-88.2,80.11],[-88.61,80.26],[-88.66,80.35],[-88.52,80.42],[-87.67,80.37],[-87.63,80.19],[-87.92,80.1],[-87.2,80.04],[-86.98,79.89],[-87.3,79.58],[-86.34,79.63],[-86.01,79.48],[-85.65,79.61],[-85.04,79.28],[-86.96,78.97],[-87.62,78.68],[-87.92,78.75],[-87.96,78.89],[-87.83,79.05],[-88.04,79.0],[-88.25,78.67],[-87.98,78.54],[-88.74,78.58],[-88.61,78.39],[-88.79,78.19],[-90.04,78.61],[-89.49,78.17],[-90.46,78.33],[-90.65,78.31],[-90.33,78.19],[-91.41,78.19],[-92.85,78.46],[-91.87,78.54],[-93.27,78.61],[-93.64,78.75],[-93.16,78.78],[-94.17,78.97],[-92.55,79.28],[-91.3,79.37],[-92.82,79.45],[-93.93,79.29],[-94.11,79.4],[-95.1,79.29],[-95.73,79.42],[-95.66,79.53],[-94.4,79.74],[-95.86,79.67],[-96.46,79.85],[-96.77,80.14],[-94.65,80.05],[-94.26,80.2],[-95.41,80.13],[-96.39,80.32],[-95.55,80.37],[-96.15,80.55],[-96.13,80.69],[-95.93,80.72],[-93.93,80.56],[-95.51,80.84],[-95.27,81.0],[-93.24,81.13],[-94.19,81.24],[-94.18,81.34],[-93.03,81.35],[-91.89,81.13]],[[-94.29,76.91],[-93.21,76.75],[-93.53,76.45],[-92.99,76.62],[-91.31,76.68],[-90.54,76.5],[-91.41,76.46],[-89.29,76.3],[-89.22,76.26],[-89.41,76.19],[-91.41,76.22],[-89.28,75.79],[-89.2,75.74],[-89.65,75.57],[-88.92,75.45],[-88.8,75.5],[-88.85,75.62],[-88.65,75.66],[-88.2,75.51],[-87.73,75.58],[-87.54,75.49],[-87.26,75.62],[-85.95,75.4],[-86.07,75.5],[-83.93,75.82],[-82.15,75.83],[-79.66,75.45],[-79.51,75.26],[-80.38,75.03],[-79.4,74.92],[-80.35,74.9],[-80.15,74.8],[-80.28,74.58],[-81.94,74.47],[-82.93,74.57],[-83.12,74.69],[-83.1,74.82],[-83.52,74.9],[-83.34,74.77],[-83.53,74.59],[-84.43,74.51],[-85.06,74.61],[-85.13,74.52],[-85.47,74.6],[-85.81,74.5],[-88.42,74.49],[-88.56,74.57],[-88.34,74.78],[-88.53,74.83],[-88.85,74.69],[-88.94,74.79],[-89.19,74.74],[-89.2,74.64],[-89.56,74.56],[-90.55,74.61],[-90.97,74.71],[-90.88,74.82],[-91.13,74.65],[-91.51,74.65],[-91.96,74.79],[-92.17,75.05],[-92.08,75.12],[-92.39,75.26],[-92.41,75.41],[-92.07,75.66],[-92.18,75.85],[-93.09,76.35],[-95.27,76.26],[-96.04,76.49],[-95.65,76.58],[-96.9,76.75],[-96.4,76.8],[-96.76,76.97],[-95.85,77.07],[-94.29,76.91]],[[-55.46,51.54],[-55.58,51.39],[-56.03,51.33],[-56.0,51.2],[-55.8,51.17],[-55.8,51.03],[-56.7,50.06],[-56.82,49.61],[-56.18,50.12],[-56.16,49.94],[-55.5,49.98],[-56.14,49.62],[-55.87,49.67],[-56.09,49.45],[-55.38,49.49],[-55.35,49.37],[-55.23,49.51],[-55.35,49.08],[-54.5,49.53],[-54.45,49.33],[-53.96,49.44],[-53.62,49.32],[-53.57,49.14],[-54.16,48.79],[-53.85,48.81],[-53.97,48.71],[-53.71,48.66],[-54.11,48.39],[-53.03,48.63],[-53.13,48.4],[-53.87,48.02],[-53.64,48.02],[-53.86,47.8],[-53.67,47.65],[-53.28,48.0],[-52.86,48.11],[-53.15,47.73],[-53.17,47.51],[-52.94,47.55],[-52.78,47.77],[-52.65,47.55],[-53.07,46.68],[-53.59,46.64],[-53.6,47.15],[-54.01,46.84],[-54.18,46.88],[-53.85,47.44],[-53.99,47.76],[-54.19,47.86],[-54.49,47.4],[-54.56,47.37],[-54.47,47.55],[-54.86,47.38],[-55.32,46.91],[-55.79,46.87],[-55.95,46.93],[-55.92,47.02],[-55.49,47.16],[-54.78,47.66],[-55.37,47.66],[-55.58,47.46],[-56.13,47.5],[-55.87,47.59],[-55.86,47.82],[-56.77,47.57],[-58.34,47.73],[-58.94,47.58],[-59.26,47.63],[-59.34,47.93],[-58.33,48.52],[-59.17,48.56],[-58.84,48.75],[-58.91,48.65],[-58.71,48.6],[-58.41,49.08],[-57.99,48.99],[-58.1,49.08],[-57.98,49.23],[-58.19,49.26],[-58.21,49.39],[-58.02,49.54],[-57.79,49.49],[-57.93,49.7],[-57.43,50.51],[-57.18,50.62],[-57.3,50.7],[-57.05,50.86],[-57.04,51.01],[-56.68,51.33],[-56.03,51.57],[-55.46,51.54]],[[-108.29,76.06],[-107.72,76.0],[-108.02,75.8],[-107.21,75.89],[-106.91,75.68],[-106.69,75.81],[-106.86,75.93],[-106.68,76.02],[-105.9,76.01],[-105.61,75.93],[-105.48,75.7],[-105.86,75.19],[-106.09,75.09],[-107.15,74.93],[-108.47,74.95],[-108.83,75.07],[-112.52,74.42],[-113.51,74.43],[-114.38,74.67],[-112.84,74.98],[-111.67,75.02],[-111.03,75.23],[-113.71,75.07],[-113.85,75.11],[-113.85,75.26],[-113.47,75.42],[-114.01,75.43],[-114.17,75.24],[-114.52,75.28],[-114.36,75.17],[-114.45,75.09],[-115.02,74.98],[-115.41,75.12],[-115.73,74.97],[-116.48,75.17],[-117.6,75.27],[-117.26,75.46],[-116.08,75.49],[-115.14,75.68],[-117.16,75.65],[-116.8,75.77],[-114.99,75.9],[-116.66,75.96],[-116.59,76.1],[-116.21,76.19],[-114.78,76.17],[-115.83,76.3],[-115.0,76.5],[-114.19,76.45],[-113.82,76.21],[-112.7,76.2],[-111.87,75.94],[-112.06,75.83],[-111.55,75.82],[-111.05,75.55],[-109.09,75.51],[-108.92,75.67],[-109.87,75.93],[-109.43,76.11],[-110.31,76.4],[-109.34,76.76],[-108.83,76.82],[-108.47,76.74],[-108.63,76.59],[-108.12,76.23],[-108.41,76.08],[-108.29,76.06]],[[-100.0,73.95],[-99.16,73.73],[-97.67,73.89],[-97.11,73.79],[-97.0,73.67],[-97.63,73.5],[-97.27,73.39],[-97.8,73.29],[-98.43,72.96],[-97.63,73.03],[-97.08,72.76],[-97.13,72.63],[-96.54,72.7],[-96.47,72.43],[-96.8,72.32],[-96.59,72.2],[-96.77,72.05],[-96.61,71.83],[-97.58,71.63],[-98.18,71.66],[-98.32,71.85],[-98.46,71.77],[-98.2,71.44],[-98.66,71.3],[-99.17,71.37],[-100.59,72.15],[-101.72,72.32],[-102.71,72.77],[-102.55,72.98],[-102.2,73.08],[-101.92,73.06],[-101.27,72.72],[-100.49,72.77],[-100.4,72.98],[-100.13,72.91],[-100.24,73.1],[-100.54,73.2],[-99.82,73.21],[-100.37,73.36],[-100.89,73.28],[-101.52,73.49],[-100.98,73.6],[-100.52,73.45],[-100.99,73.77],[-99.99,73.79],[-99.91,73.85],[-100.23,73.89],[-100.0,73.95]],[[-84.92,65.26],[-84.5,65.46],[-84.08,65.22],[-82.05,64.64],[-81.68,64.21],[-81.89,64.02],[-80.83,64.09],[-80.57,63.93],[-80.67,63.9],[-80.26,63.8],[-81.05,63.46],[-82.38,63.71],[-82.47,63.93],[-83.3,64.14],[-84.63,63.31],[-85.39,63.12],[-85.77,63.7],[-87.18,63.6],[-86.93,63.9],[-86.25,64.14],[-86.37,64.57],[-86.08,65.53],[-85.81,65.83],[-85.55,65.92],[-85.24,65.8],[-85.11,65.62],[-85.24,65.51],[-84.92,65.26]],[[-93.17,74.16],[-92.22,73.97],[-91.09,74.01],[-90.36,73.87],[-91.25,73.3],[-91.55,73.24],[-91.42,73.2],[-92.12,72.75],[-94.21,72.76],[-93.77,72.67],[-93.54,72.44],[-94.14,72.0],[-95.19,72.03],[-95.25,72.5],[-95.6,72.88],[-95.63,73.7],[-94.7,73.66],[-95.15,73.91],[-94.97,74.04],[-93.17,74.16]],[[-115.55,77.36],[-115.47,77.31],[-116.33,77.14],[-115.81,76.94],[-116.25,76.9],[-115.94,76.71],[-117.0,76.53],[-117.23,76.28],[-117.99,76.41],[-117.78,76.78],[-117.88,76.8],[-118.79,76.51],[-118.62,76.37],[-118.99,76.15],[-119.58,76.33],[-119.74,76.12],[-119.54,75.98],[-119.91,75.86],[-120.41,75.83],[-120.85,76.18],[-121.22,75.98],[-122.4,75.94],[-122.64,76.01],[-122.59,76.16],[-122.9,76.13],[-122.42,76.39],[-121.56,76.45],[-119.09,77.3],[-116.84,77.34],[-116.7,77.38],[-117.04,77.46],[-116.51,77.55],[-115.55,77.36]]],"Cameroon":[[[8.56,4.76],[9.0,5.92],[9.78,6.76],[10.14,7.0],[10.2,6.89],[10.48,6.89],[10.61,7.06],[11.01,6.74],[11.11,6.46],[11.24,6.45],[11.86,7.12],[11.77,7.27],[12.02,7.59],[12.23,8.28],[12.4,8.6],[12.78,8.82],[12.88,9.3],[13.2,9.56],[13.53,10.61],[13.89,11.14],[14.56,11.49],[14.62,12.15],[14.52,12.3],[14.2,12.38],[14.06,13.08],[14.46,13.02],[14.85,12.5],[15.08,11.85],[15.03,11.11],[15.13,10.65],[15.65,10.01],[14.24,9.98],[13.98,9.69],[14.33,9.2],[15.11,8.56],[15.56,7.74],[14.77,6.32],[14.43,6.04],[14.62,5.86],[14.56,5.28],[14.71,4.67],[15.06,4.29],[15.06,3.95],[16.07,2.91],[16.14,1.72],[15.6,1.95],[14.9,2.01],[14.58,2.2],[13.29,2.16],[13.22,2.26],[11.56,2.3],[11.35,2.3],[11.33,2.17],[9.98,2.17],[9.8,2.3],[9.92,3.24],[9.67,3.54],[9.77,3.62],[9.64,3.61],[9.56,3.8],[9.74,3.85],[9.69,4.06],[9.48,4.07],[9.43,3.92],[9.0,4.09],[8.92,4.55],[8.66,4.67],[8.69,4.55],[8.57,4.53],[8.56,4.76]]],"Cambodia":[[[107.52,14.7],[107.33,14.13],[107.61,13.44],[107.47,13.03],[107.54,12.43],[107.39,12.26],[107.21,12.3],[106.93,12.08],[106.42,11.95],[106.4,11.69],[106.0,11.76],[105.85,11.64],[105.86,11.3],[106.16,11.04],[106.16,10.8],[105.76,10.99],[105.31,10.85],[105.05,10.91],[105.05,10.7],[104.85,10.53],[104.43,10.41],[103.87,10.65],[103.59,10.55],[103.54,10.67],[103.72,10.89],[103.53,11.15],[103.36,10.92],[103.15,10.91],[103.12,11.46],[102.74,12.09],[102.75,12.43],[102.5,12.67],[102.32,13.54],[102.55,13.58],[103.03,14.25],[103.55,14.42],[104.78,14.43],[105.03,14.23],[105.18,14.35],[105.35,14.11],[105.53,14.16],[106.07,13.92],[106.12,14.05],[105.98,14.34],[106.22,14.48],[106.5,14.58],[106.94,14.33],[107.52,14.7]]],"Myanmar":[[[100.12,20.32],[99.89,20.42],[99.46,20.36],[99.49,20.15],[99.07,20.1],[98.92,19.77],[98.02,19.75],[97.82,19.46],[97.75,18.59],[97.38,18.52],[97.63,18.29],[97.71,17.8],[98.44,16.98],[98.66,16.33],[98.89,16.35],[98.59,16.05],[98.56,15.37],[98.19,15.2],[98.2,14.98],[99.14,13.72],[99.13,13.03],[99.41,12.55],[99.61,11.78],[98.76,10.66],[98.7,10.19],[98.56,10.03],[98.47,10.68],[98.68,10.99],[98.74,11.59],[98.88,11.72],[98.64,11.74],[98.7,12.23],[98.6,12.24],[98.68,12.35],[98.57,13.16],[98.2,13.98],[98.11,13.71],[98.1,14.16],[97.91,14.65],[98.02,14.65],[97.81,14.86],[97.71,15.88],[97.58,16.02],[97.72,16.57],[97.38,16.52],[97.2,17.1],[96.85,17.4],[96.91,17.03],[96.77,16.71],[96.43,16.5],[96.19,16.77],[96.32,16.44],[95.76,16.17],[95.39,15.72],[95.3,15.76],[95.35,16.1],[95.18,15.83],[94.94,15.82],[94.89,16.18],[94.66,15.9],[94.7,16.51],[94.44,16.1],[94.23,16.02],[94.59,17.57],[94.25,18.74],[94.07,18.89],[94.05,19.29],[93.93,18.9],[93.49,19.37],[93.83,19.24],[94.0,19.44],[93.61,19.78],[93.71,19.91],[93.25,20.07],[93.13,19.86],[93.0,20.07],[93.07,20.38],[92.88,20.15],[92.79,20.21],[92.85,20.41],[92.71,20.56],[92.72,20.3],[92.38,20.72],[92.18,21.29],[92.33,21.44],[92.6,21.27],[92.57,21.98],[92.69,22.13],[92.97,22.0],[93.15,22.23],[93.08,22.72],[93.16,23.03],[93.35,23.08],[93.41,23.53],[93.33,24.06],[94.13,23.88],[94.71,25.05],[94.58,25.32],[95.13,26.04],[95.05,26.35],[95.13,26.6],[96.19,27.26],[96.73,27.33],[97.1,27.12],[96.88,27.59],[97.34,27.94],[97.32,28.22],[97.54,28.51],[98.1,28.14],[98.3,27.55],[98.45,27.66],[98.65,27.57],[98.74,26.79],[98.69,26.19],[98.56,26.07],[98.66,25.86],[98.33,25.59],[98.14,25.57],[98.01,25.29],[97.82,25.25],[97.74,24.87],[97.58,24.78],[97.53,24.49],[97.71,24.23],[97.56,23.91],[98.21,24.11],[98.83,24.12],[98.68,23.91],[98.83,23.62],[98.86,23.19],[99.51,22.96],[99.19,22.13],[99.92,22.03],[99.94,21.76],[100.22,21.46],[100.6,21.47],[101.13,21.74],[101.08,21.47],[100.76,21.31],[100.54,20.99],[100.62,20.86],[100.25,20.73],[100.12,20.32]]],"Burundi":[[[30.56,-2.4],[30.43,-2.87],[30.78,-2.99],[30.79,-3.28],[30.43,-3.59],[29.95,-4.31],[29.72,-4.46],[29.4,-4.45],[29.21,-3.83],[29.22,-3.05],[29.03,-2.66],[29.1,-2.6],[29.39,-2.81],[29.7,-2.79],[29.87,-2.72],[29.93,-2.34],[30.56,-2.4]]],"Burkina Faso":[[[0.9,10.99],[0.49,10.95],[-0.3,11.17],[-0.63,10.93],[-2.83,11.0],[-2.91,10.59],[-2.77,10.24],[-2.77,9.43],[-3.22,9.9],[-3.79,9.92],[-4.33,9.65],[-4.62,9.71],[-4.97,9.93],[-5.1,10.24],[-5.52,10.43],[-5.49,11.04],[-5.25,11.37],[-5.29,11.83],[-4.7,12.08],[-4.43,12.34],[-4.48,12.67],[-4.23,12.79],[-4.33,13.12],[-4.15,13.31],[-3.95,13.4],[-3.47,13.2],[-3.3,13.28],[-3.25,13.66],[-2.95,13.65],[-2.87,13.95],[-2.59,14.23],[-2.12,14.17],[-1.97,14.46],[-0.67,15.07],[0.22,14.91],[0.16,14.5],[0.38,14.25],[0.43,13.97],[0.62,13.7],[1.2,13.36],[0.99,13.36],[0.99,13.04],[1.56,12.64],[2.08,12.71],[2.21,12.54],[2.22,12.43],[2.06,12.36],[2.39,11.9],[2.29,11.69],[1.98,11.42],[1.43,11.45],[0.9,10.99]]],"Bulgaria":[[[28.01,41.97],[27.53,41.92],[27.24,42.09],[26.62,41.97],[26.32,41.72],[26.11,41.73],[26.13,41.39],[25.92,41.31],[25.25,41.24],[24.49,41.56],[22.92,41.34],[23.0,41.74],[22.84,41.99],[22.34,42.31],[22.52,42.44],[22.47,42.84],[22.71,42.88],[22.98,43.19],[22.5,43.52],[22.4,43.97],[22.7,44.24],[23.03,44.08],[22.87,43.95],[22.92,43.83],[25.5,43.67],[26.22,44.01],[27.09,44.17],[28.59,43.74],[28.46,43.39],[28.13,43.4],[27.93,43.19],[27.89,42.75],[27.48,42.47],[28.01,41.97]]],"Brunei":[[[115.03,4.9],[114.75,4.72],[114.84,4.39],[114.66,4.04],[114.07,4.59],[114.43,4.66],[114.99,5.02],[115.03,4.9]]],"Brazil":[[[-66.88,1.22],[-66.35,0.77],[-65.68,0.98],[-65.47,0.69],[-65.1,1.11],[-64.2,1.53],[-64.01,1.93],[-63.43,2.16],[-63.39,2.41],[-64.05,2.5],[-64.22,3.59],[-64.79,4.28],[-64.58,4.14],[-64.19,4.13],[-64.02,3.93],[-63.34,3.94],[-62.86,3.59],[-62.71,4.02],[-62.47,4.14],[-62.15,4.1],[-61.56,4.29],[-61.28,4.52],[-61.0,4.54],[-60.63,4.89],[-60.74,5.2],[-60.65,5.22],[-60.14,5.24],[-59.99,5.08],[-60.15,4.53],[-59.7,4.38],[-59.74,4.23],[-59.55,3.93],[-59.86,3.59],[-59.99,2.69],[-59.76,2.27],[-59.67,1.75],[-58.86,1.2],[-58.51,1.29],[-58.34,1.59],[-58.03,1.52],[-57.98,1.65],[-57.6,1.7],[-57.12,2.01],[-56.84,1.88],[-55.96,1.86],[-55.91,2.04],[-56.14,2.26],[-55.96,2.52],[-55.73,2.41],[-54.98,2.6],[-54.66,2.33],[-54.13,2.12],[-53.77,2.35],[-52.97,2.18],[-52.65,2.43],[-52.33,3.18],[-51.46,4.31],[-51.22,4.09],[-50.72,2.13],[-50.46,1.83],[-49.96,1.66],[-49.9,1.16],[-50.76,0.22],[-51.28,-0.08],[-51.98,-1.37],[-52.66,-1.55],[-51.95,-1.59],[-50.9,-0.94],[-50.69,-1.76],[-50.4,-2.01],[-50.0,-1.83],[-49.72,-1.93],[-49.32,-1.73],[-49.64,-2.66],[-49.21,-1.92],[-48.71,-1.49],[-48.46,-1.61],[-48.35,-1.48],[-48.47,-1.39],[-48.45,-1.15],[-48.12,-0.74],[-47.56,-0.67],[-47.42,-0.77],[-47.44,-0.65],[-47.27,-0.65],[-45.46,-1.36],[-45.33,-1.72],[-45.08,-1.47],[-44.72,-1.73],[-44.78,-1.8],[-44.65,-1.75],[-44.54,-2.05],[-44.76,-2.26],[-44.66,-2.37],[-44.44,-2.17],[-44.38,-2.37],[-44.59,-2.57],[-44.72,-3.2],[-44.44,-2.94],[-44.23,-2.47],[-44.11,-2.49],[-44.19,-2.81],[-43.38,-2.38],[-42.25,-2.79],[-41.88,-2.75],[-41.48,-2.92],[-40.47,-2.8],[-39.97,-2.86],[-38.48,-3.72],[-37.18,-4.91],[-36.59,-5.1],[-35.55,-5.13],[-35.24,-5.57],[-34.81,-7.29],[-34.97,-8.41],[-35.16,-8.93],[-35.6,-9.54],[-35.89,-9.69],[-35.89,-9.85],[-36.4,-10.48],[-36.94,-10.82],[-37.36,-11.4],[-37.36,-11.25],[-37.69,-12.1],[-38.24,-12.84],[-38.5,-12.96],[-38.69,-12.62],[-38.85,-12.79],[-38.76,-12.91],[-39.09,-13.59],[-38.99,-13.61],[-39.05,-14.04],[-38.94,-14.03],[-39.06,-14.65],[-38.88,-15.86],[-39.2,-17.18],[-39.16,-17.7],[-39.65,-18.25],[-39.78,-19.57],[-40.0,-19.74],[-40.39,-20.57],[-40.79,-20.91],[-40.96,-21.24],[-41.0,-22.0],[-41.7,-22.31],[-41.98,-22.58],[-42.04,-22.95],[-42.96,-22.97],[-43.16,-22.73],[-43.22,-22.99],[-43.9,-23.1],[-43.97,-23.06],[-43.68,-23.01],[-43.86,-22.91],[-44.64,-23.06],[-44.57,-23.27],[-45.33,-23.6],[-45.46,-23.8],[-45.97,-23.79],[-46.87,-24.24],[-47.99,-25.04],[-47.93,-25.17],[-48.2,-25.42],[-48.18,-25.31],[-48.4,-25.27],[-48.48,-25.44],[-48.73,-25.37],[-48.4,-25.6],[-48.67,-25.84],[-48.62,-26.18],[-48.75,-26.27],[-48.56,-27.2],[-48.62,-28.08],[-48.8,-28.58],[-49.75,-29.36],[-50.3,-30.43],[-50.92,-31.26],[-52.04,-32.12],[-52.06,-31.83],[-51.68,-31.78],[-51.27,-31.48],[-51.16,-31.12],[-50.98,-31.09],[-50.94,-30.9],[-50.69,-30.7],[-50.72,-30.43],[-50.58,-30.44],[-50.56,-30.25],[-51.03,-30.37],[-51.3,-30.04],[-51.16,-30.36],[-51.28,-30.75],[-51.36,-30.67],[-51.51,-31.11],[-51.97,-31.38],[-52.2,-31.89],[-52.13,-32.17],[-52.65,-33.14],[-53.37,-33.74],[-53.53,-33.66],[-53.53,-33.17],[-53.12,-32.74],[-53.6,-32.4],[-53.76,-32.06],[-54.22,-31.86],[-54.59,-31.49],[-55.17,-31.28],[-55.6,-30.85],[-56.0,-31.08],[-56.04,-30.78],[-56.83,-30.11],[-57.12,-30.15],[-57.21,-30.28],[-57.61,-30.19],[-55.89,-28.37],[-55.69,-28.38],[-55.73,-28.2],[-55.1,-27.87],[-54.83,-27.55],[-54.33,-27.42],[-53.84,-27.12],[-53.67,-26.29],[-53.89,-25.67],[-54.15,-25.52],[-54.61,-25.58],[-54.24,-24.05],[-54.63,-23.81],[-55.08,-24.0],[-55.42,-23.95],[-55.62,-22.67],[-55.8,-22.35],[-56.25,-22.27],[-56.45,-22.08],[-56.94,-22.27],[-57.96,-22.11],[-57.83,-21.0],[-58.16,-20.16],[-57.86,-19.98],[-58.13,-19.74],[-57.72,-19.04],[-57.78,-18.91],[-57.49,-18.22],[-57.83,-17.51],[-58.39,-17.23],[-58.48,-16.7],[-58.34,-16.28],[-60.18,-16.27],[-60.24,-15.48],[-60.58,-15.1],[-60.27,-15.09],[-60.51,-13.79],[-61.08,-13.49],[-61.79,-13.53],[-62.12,-13.16],[-62.76,-13.0],[-63.07,-12.67],[-63.35,-12.68],[-63.69,-12.48],[-64.42,-12.44],[-64.51,-12.25],[-64.99,-11.98],[-65.39,-11.25],[-65.32,-11.02],[-65.45,-10.51],[-65.3,-10.15],[-65.4,-9.71],[-66.57,-9.9],[-67.72,-10.68],[-68.07,-10.7],[-68.62,-11.11],[-69.23,-10.96],[-70.64,-11.01],[-70.54,-9.44],[-71.24,-9.97],[-72.18,-10.0],[-72.38,-9.51],[-73.21,-9.41],[-72.97,-8.99],[-73.55,-8.35],[-73.78,-7.94],[-73.72,-7.78],[-74.0,-7.56],[-73.96,-7.38],[-73.72,-7.31],[-73.76,-6.91],[-73.14,-6.47],[-73.24,-6.1],[-72.98,-5.63],[-72.89,-5.12],[-71.84,-4.5],[-70.97,-4.35],[-70.8,-4.17],[-70.4,-4.15],[-70.24,-4.3],[-69.97,-4.3],[-69.4,-1.2],[-69.63,-0.51],[-70.07,-0.14],[-70.05,0.58],[-69.47,0.73],[-69.15,0.64],[-69.31,1.05],[-69.85,1.06],[-69.85,1.71],[-68.18,1.72],[-68.19,1.99],[-67.93,1.75],[-67.4,2.12],[-67.09,1.62],[-67.08,1.18],[-66.88,1.22]],[[-49.63,-0.23],[-49.12,-0.16],[-48.39,-0.3],[-48.83,-1.39],[-49.04,-1.51],[-49.17,-1.41],[-49.23,-1.6],[-49.51,-1.51],[-49.59,-1.71],[-49.8,-1.79],[-50.07,-1.7],[-50.51,-1.79],[-50.76,-1.24],[-50.58,-1.1],[-50.79,-0.91],[-50.65,-0.27],[-50.25,-0.12],[-49.63,-0.23]],[[-51.83,-1.43],[-51.94,-1.45],[-51.55,-0.65],[-51.26,-0.54],[-51.16,-0.67],[-51.28,-1.02],[-51.83,-1.43]]],"Botswana":[[[25.26,-17.79],[25.24,-17.97],[25.94,-18.94],[26.17,-19.54],[27.18,-20.1],[27.28,-20.48],[27.7,-20.53],[27.67,-21.06],[28.01,-21.55],[29.03,-21.8],[29.04,-22.02],[29.36,-22.19],[28.21,-22.69],[27.76,-23.2],[27.08,-23.58],[26.84,-24.24],[26.4,-24.61],[25.91,-24.75],[25.44,-25.71],[24.75,-25.82],[24.33,-25.74],[23.39,-25.29],[23.15,-25.29],[22.88,-25.46],[22.6,-26.13],[21.7,-26.84],[20.68,-26.82],[20.63,-26.44],[20.81,-26.16],[20.79,-25.92],[20.43,-25.15],[19.98,-24.78],[19.98,-22.0],[20.97,-22.0],[20.98,-18.32],[23.22,-18.0],[23.6,-18.46],[24.36,-17.98],[24.53,-18.05],[24.91,-17.82],[25.26,-17.79]]],"Bosnia and Herz.":[[[19.19,43.53],[18.95,43.53],[19.03,43.29],[18.85,43.35],[18.62,43.03],[18.46,43.0],[18.55,42.64],[18.46,42.56],[17.67,42.9],[17.27,43.45],[16.3,44.12],[16.1,44.52],[15.74,44.77],[15.79,45.18],[15.96,45.21],[16.29,45.01],[16.53,45.22],[16.92,45.28],[17.81,45.08],[18.66,45.08],[18.84,44.88],[19.35,44.88],[19.12,44.36],[19.58,44.01],[19.24,43.96],[19.5,43.64],[19.19,43.53]]],"Bolivia":[[[-69.51,-17.51],[-69.63,-17.2],[-68.84,-16.34],[-69.22,-16.15],[-69.42,-15.64],[-69.17,-15.24],[-69.36,-14.8],[-68.87,-14.17],[-69.08,-13.68],[-68.98,-12.88],[-68.69,-12.5],[-69.58,-10.95],[-68.62,-11.11],[-68.07,-10.7],[-67.72,-10.68],[-66.57,-9.9],[-65.4,-9.71],[-65.3,-10.15],[-65.45,-10.51],[-65.32,-11.02],[-65.39,-11.25],[-64.99,-11.98],[-64.51,-12.25],[-64.42,-12.44],[-63.69,-12.48],[-63.35,-12.68],[-63.07,-12.67],[-62.76,-13.0],[-62.12,-13.16],[-61.79,-13.53],[-61.08,-13.49],[-60.51,-13.79],[-60.27,-15.09],[-60.58,-15.1],[-60.24,-15.48],[-60.18,-16.27],[-58.34,-16.28],[-58.48,-16.7],[-58.39,-17.23],[-57.83,-17.51],[-57.49,-18.22],[-57.78,-18.91],[-57.72,-19.04],[-58.13,-19.74],[-57.86,-19.98],[-58.09,-20.15],[-58.18,-19.82],[-59.09,-19.29],[-60.01,-19.3],[-61.76,-19.65],[-62.28,-20.56],[-62.28,-21.07],[-62.65,-22.23],[-62.83,-22.0],[-63.86,-22.01],[-64.32,-22.83],[-64.6,-22.23],[-65.77,-22.1],[-66.22,-21.8],[-66.36,-22.11],[-66.71,-22.22],[-67.2,-22.82],[-67.71,-22.89],[-67.88,-22.82],[-68.2,-21.3],[-68.56,-20.9],[-68.49,-20.63],[-68.76,-20.42],[-68.76,-20.09],[-68.56,-19.97],[-68.7,-19.72],[-68.47,-19.41],[-68.97,-18.97],[-69.09,-18.05],[-69.31,-17.94],[-69.51,-17.51]]],"Bhutan":[[[91.63,27.76],[91.59,27.56],[91.99,27.45],[92.08,27.29],[92.05,26.88],[90.74,26.77],[90.34,26.89],[89.77,26.7],[89.04,26.87],[88.74,27.18],[89.48,28.06],[89.98,28.31],[90.35,28.24],[90.35,28.08],[91.02,27.97],[91.27,28.08],[91.64,27.92],[91.63,27.76]]],"Benin":[[[1.62,6.22],[1.78,6.3],[1.53,6.99],[1.63,7.0],[1.6,9.05],[1.38,9.36],[1.33,10.0],[0.78,10.36],[0.79,10.71],[0.9,10.99],[1.43,11.45],[1.98,11.42],[2.36,11.84],[2.37,12.22],[2.81,12.38],[3.59,11.7],[3.49,11.4],[3.72,11.08],[3.84,10.61],[3.58,10.29],[3.56,9.91],[3.35,9.81],[3.14,9.45],[3.04,9.08],[2.77,9.05],[2.71,6.37],[1.62,6.22]]],"Belize":[[[-89.16,17.82],[-89.14,17.97],[-88.81,17.96],[-88.52,18.45],[-88.13,18.35],[-88.31,16.63],[-88.89,15.89],[-89.24,15.89],[-89.16,17.82]]],"Belgium":[[[4.22,51.39],[5.03,51.47],[5.21,51.28],[5.83,51.13],[5.64,50.84],[6.24,50.6],[6.18,50.52],[6.36,50.32],[6.12,50.12],[5.98,50.17],[5.74,49.92],[5.88,49.65],[5.82,49.55],[5.51,49.51],[4.87,49.79],[4.82,50.15],[4.55,49.96],[4.15,49.97],[4.17,50.25],[3.69,50.31],[3.59,50.48],[3.27,50.53],[3.11,50.78],[2.76,50.75],[2.53,51.1],[3.35,51.38],[3.43,51.25],[3.9,51.21],[4.22,51.39]]],"Belarus":[[[31.76,52.1],[31.08,52.08],[30.76,51.89],[30.53,51.6],[30.63,51.36],[30.54,51.26],[30.16,51.48],[29.35,51.38],[29.1,51.63],[28.73,51.43],[28.18,51.61],[27.7,51.48],[27.14,51.75],[25.79,51.92],[24.36,51.87],[23.98,51.59],[23.71,51.64],[23.6,51.52],[23.65,52.04],[23.18,52.29],[23.92,52.77],[23.48,53.94],[24.32,53.89],[25.46,54.29],[25.51,54.16],[25.75,54.16],[25.55,54.33],[25.78,54.83],[26.78,55.27],[26.46,55.34],[26.6,55.67],[27.05,55.83],[27.58,55.8],[28.12,56.15],[28.79,55.94],[29.09,56.02],[29.37,55.94],[29.35,55.78],[29.48,55.68],[30.23,55.84],[30.91,55.57],[30.81,55.28],[30.98,55.05],[30.8,54.78],[31.15,54.63],[31.07,54.49],[31.4,54.2],[31.83,54.03],[31.75,53.81],[32.45,53.69],[32.47,53.55],[32.71,53.42],[32.14,53.09],[31.42,53.2],[31.26,53.02],[31.56,52.76],[31.58,52.31],[31.76,52.1]]],"Bangladesh":[[[89.05,22.09],[88.85,23.04],[88.93,23.19],[88.72,23.25],[88.57,23.67],[88.72,24.28],[88.02,24.63],[88.45,25.19],[88.95,25.26],[88.08,25.89],[88.44,26.37],[88.37,26.56],[88.83,26.25],[88.97,26.25],[88.92,26.38],[89.02,26.41],[89.37,26.01],[89.55,26.01],[89.67,26.21],[89.82,25.94],[89.83,25.29],[90.44,25.16],[92.05,25.17],[92.49,24.9],[92.23,24.88],[92.1,24.41],[91.88,24.2],[91.37,24.09],[91.16,23.66],[91.32,23.11],[91.44,23.2],[91.62,22.98],[91.75,23.05],[91.93,23.69],[92.25,23.68],[92.49,22.68],[92.63,21.31],[92.33,21.44],[92.21,21.36],[92.32,20.79],[92.05,21.17],[91.86,22.35],[91.8,22.3],[91.48,22.88],[91.22,22.64],[90.95,22.6],[90.63,23.09],[90.6,23.59],[90.56,23.42],[90.27,23.46],[90.59,23.27],[90.43,22.75],[90.61,22.36],[90.23,21.83],[90.07,21.89],[90.21,22.16],[89.96,22.02],[89.92,22.12],[89.98,22.47],[89.81,21.98],[89.57,21.77],[89.48,22.28],[89.5,21.91],[89.35,21.72],[89.17,21.78],[89.05,22.09]]],"Bahamas":[[[-77.74,24.71],[-77.74,24.46],[-78.04,24.29],[-78.14,24.49],[-78.44,24.63],[-78.24,24.65],[-78.16,25.2],[-77.74,24.71]]],"Azerbaijan":[[[48.87,38.44],[48.59,38.41],[48.0,38.85],[48.29,39.02],[48.11,39.24],[48.32,39.4],[48.0,39.68],[46.49,38.91],[46.4,39.19],[46.59,39.22],[46.37,39.4],[46.48,39.56],[46.2,39.59],[45.58,39.98],[45.88,40.02],[45.96,40.23],[45.46,40.53],[45.38,40.67],[45.59,40.85],[45.07,41.08],[45.19,41.15],[45.0,41.29],[45.28,41.45],[46.54,41.09],[46.67,41.29],[46.18,41.66],[46.43,41.89],[46.75,41.81],[47.32,41.28],[47.79,41.2],[48.57,41.85],[48.66,41.79],[49.46,40.8],[49.78,40.58],[50.18,40.51],[50.37,40.28],[49.92,40.32],[49.55,40.19],[49.33,39.61],[49.36,39.35],[49.16,39.03],[49.01,39.13],[48.85,38.84],[48.87,38.44]],[[44.82,39.65],[45.03,39.77],[45.17,39.57],[45.78,39.55],[45.77,39.38],[45.98,39.24],[46.11,38.88],[45.48,39.01],[44.82,39.65]]],"Austria":[[[9.53,47.27],[9.62,47.47],[9.52,47.52],[9.75,47.58],[10.2,47.36],[10.18,47.28],[10.44,47.55],[11.04,47.39],[12.18,47.62],[12.21,47.72],[12.68,47.67],[13.02,47.48],[13.06,47.66],[12.9,47.72],[12.95,47.89],[12.76,48.08],[12.81,48.16],[13.38,48.36],[13.49,48.58],[13.73,48.54],[13.82,48.77],[14.05,48.6],[14.69,48.6],[14.92,48.77],[14.99,49.0],[16.88,48.7],[16.86,48.39],[17.15,48.01],[17.07,47.71],[16.42,47.67],[16.68,47.54],[16.44,47.4],[16.45,47.01],[16.04,46.84],[15.96,46.68],[14.89,46.61],[14.55,46.4],[12.48,46.67],[12.16,46.94],[12.17,47.08],[11.24,46.98],[10.99,46.78],[10.48,46.86],[10.35,46.99],[10.13,46.85],[9.58,47.06],[9.53,47.27]]],"Australia":[[[143.18,-11.96],[143.11,-12.3],[143.4,-12.64],[143.75,-14.35],[143.96,-14.46],[144.47,-14.23],[144.65,-14.49],[145.29,-14.94],[145.43,-16.41],[145.76,-16.88],[145.91,-16.91],[146.13,-17.64],[146.03,-18.27],[146.33,-18.55],[146.38,-18.98],[147.14,-19.39],[147.42,-19.38],[147.74,-19.77],[148.76,-20.29],[148.88,-20.48],[148.68,-20.58],[149.21,-21.12],[149.71,-22.44],[149.82,-22.39],[149.98,-22.55],[149.94,-22.31],[150.08,-22.16],[150.54,-22.56],[150.57,-22.38],[150.67,-22.42],[150.84,-23.46],[151.15,-23.78],[151.83,-24.12],[152.91,-25.43],[152.92,-25.69],[153.17,-25.96],[153.12,-27.19],[153.58,-28.24],[153.62,-28.67],[153.03,-30.56],[152.95,-31.43],[152.56,-32.05],[152.47,-32.44],[152.16,-32.76],[151.81,-32.9],[151.29,-33.58],[151.28,-33.93],[151.12,-34.01],[151.23,-34.03],[150.87,-34.5],[150.8,-35.01],[150.2,-35.83],[149.93,-37.53],[149.48,-37.77],[147.88,-37.93],[146.86,-38.66],[146.22,-38.73],[146.34,-38.89],[146.47,-38.84],[146.4,-39.15],[146.16,-38.87],[145.94,-38.9],[145.79,-38.67],[145.4,-38.54],[145.54,-38.39],[145.48,-38.24],[145.29,-38.24],[144.96,-38.5],[144.72,-38.34],[144.91,-38.34],[145.12,-38.09],[144.89,-37.9],[144.4,-38.14],[144.67,-38.21],[143.54,-38.82],[142.46,-38.39],[141.72,-38.27],[141.43,-38.36],[141.01,-38.08],[140.39,-37.9],[139.78,-37.25],[139.86,-36.66],[139.73,-36.37],[138.97,-35.58],[139.29,-35.61],[139.28,-35.38],[138.52,-35.64],[138.19,-35.61],[138.51,-35.02],[138.49,-34.76],[138.09,-34.17],[137.69,-35.14],[136.88,-35.24],[137.02,-34.92],[137.39,-34.91],[137.49,-34.16],[137.93,-33.58],[137.85,-33.2],[137.99,-33.09],[137.78,-32.58],[137.79,-32.82],[137.24,-33.63],[136.43,-34.03],[135.89,-34.66],[135.97,-34.98],[135.79,-34.86],[135.65,-34.94],[135.12,-34.59],[135.22,-34.49],[135.45,-34.58],[135.22,-33.96],[134.72,-33.26],[134.3,-33.17],[134.1,-32.75],[134.23,-32.73],[134.23,-32.55],[133.66,-32.21],[133.21,-32.18],[132.76,-31.96],[132.21,-32.01],[131.14,-31.5],[128.95,-31.7],[127.32,-32.26],[125.92,-32.3],[124.76,-32.88],[124.24,-33.01],[123.51,-33.92],[122.15,-33.99],[122.06,-33.87],[121.41,-33.83],[119.85,-33.97],[119.45,-34.37],[118.9,-34.48],[117.86,-35.05],[116.52,-34.99],[115.99,-34.8],[115.57,-34.43],[115.01,-34.26],[114.99,-33.51],[115.36,-33.64],[115.68,-33.19],[115.7,-31.7],[115.08,-30.56],[114.86,-29.14],[114.17,-28.08],[114.03,-27.35],[113.18,-26.18],[113.32,-26.24],[113.36,-26.08],[113.58,-26.56],[113.83,-26.5],[113.85,-26.33],[113.4,-25.71],[113.45,-25.6],[113.71,-25.83],[113.72,-26.13],[113.85,-26.02],[113.99,-26.32],[114.09,-26.39],[114.22,-26.29],[114.21,-25.85],[113.42,-24.44],[113.49,-23.87],[113.76,-23.42],[113.8,-22.91],[113.68,-22.64],[114.02,-21.88],[114.12,-21.83],[114.14,-22.48],[114.38,-22.34],[114.71,-21.82],[115.45,-21.49],[116.71,-20.65],[117.41,-20.72],[118.75,-20.26],[119.11,-19.99],[119.58,-20.04],[121.0,-19.6],[121.34,-19.32],[121.83,-18.48],[122.35,-18.11],[122.14,-17.43],[122.33,-17.06],[122.97,-16.44],[123.56,-17.52],[123.59,-17.03],[123.83,-17.12],[123.88,-16.92],[123.49,-16.49],[123.63,-16.42],[123.61,-16.22],[123.73,-16.19],[123.86,-16.38],[124.04,-16.27],[124.77,-16.4],[124.4,-16.3],[124.65,-15.87],[124.51,-15.97],[124.38,-15.76],[124.44,-15.49],[124.56,-15.5],[124.69,-15.27],[125.06,-15.44],[125.07,-15.31],[124.91,-15.31],[124.84,-15.16],[125.04,-15.0],[125.36,-15.12],[125.18,-14.72],[125.58,-14.48],[125.63,-14.26],[125.66,-14.53],[125.82,-14.47],[125.89,-14.62],[126.02,-14.5],[126.05,-13.98],[126.26,-14.16],[126.4,-14.02],[126.57,-14.16],[126.9,-13.74],[127.46,-14.03],[128.18,-14.71],[128.07,-15.33],[128.16,-15.23],[128.25,-15.3],[128.22,-14.99],[128.58,-14.77],[129.06,-14.88],[129.21,-15.16],[129.27,-14.87],[129.64,-15.14],[129.64,-14.85],[129.85,-14.83],[129.6,-14.65],[129.7,-14.56],[129.38,-14.39],[129.71,-13.98],[129.84,-13.57],[130.26,-13.3],[130.17,-12.96],[130.4,-12.69],[130.62,-12.65],[130.62,-12.43],[130.87,-12.56],[130.87,-12.37],[131.29,-12.07],[131.44,-12.28],[132.25,-12.19],[132.41,-12.3],[132.51,-12.13],[132.71,-12.12],[132.67,-11.65],[131.82,-11.3],[131.96,-11.18],[132.16,-11.31],[132.34,-11.22],[132.68,-11.51],[132.96,-11.41],[133.19,-11.71],[134.42,-12.05],[134.73,-11.98],[135.03,-12.19],[135.22,-12.22],[135.92,-11.83],[135.71,-12.21],[135.94,-12.15],[136.08,-12.42],[136.26,-12.43],[136.27,-12.13],[136.54,-11.96],[136.95,-12.35],[136.54,-12.79],[136.59,-13.0],[136.46,-13.23],[136.3,-13.14],[135.93,-13.3],[135.95,-13.93],[135.41,-14.76],[135.45,-14.92],[136.29,-15.57],[136.71,-15.69],[136.79,-15.89],[137.0,-15.88],[137.7,-16.23],[138.25,-16.72],[139.01,-16.9],[139.25,-17.33],[140.04,-17.7],[140.51,-17.63],[140.83,-17.41],[141.41,-16.07],[141.63,-15.06],[141.47,-13.8],[141.65,-13.26],[141.61,-12.94],[141.93,-12.74],[141.68,-12.49],[141.69,-12.35],[141.87,-11.98],[141.96,-12.05],[142.17,-10.95],[142.46,-10.71],[142.61,-10.75],[142.55,-10.87],[142.78,-11.12],[142.87,-11.82],[143.18,-11.96]],[[145.04,-40.79],[145.28,-40.77],[146.32,-41.16],[146.72,-41.08],[146.85,-41.17],[146.99,-40.99],[147.46,-41.0],[147.97,-40.78],[148.22,-40.85],[148.34,-42.22],[148.22,-41.97],[148.02,-42.26],[147.91,-42.66],[147.98,-43.16],[147.79,-43.22],[147.65,-43.02],[147.8,-42.93],[147.57,-42.85],[147.45,-43.03],[147.3,-42.79],[147.24,-43.22],[147.0,-43.16],[147.08,-43.28],[146.87,-43.61],[146.04,-43.55],[145.99,-43.38],[146.21,-43.32],[145.87,-43.29],[145.49,-42.93],[145.2,-42.23],[145.47,-42.49],[145.52,-42.35],[145.33,-42.15],[145.23,-42.2],[145.24,-42.02],[144.77,-41.39],[144.65,-40.98],[144.72,-40.67],[145.04,-40.79]],[[130.62,-11.38],[131.27,-11.19],[131.54,-11.44],[130.95,-11.93],[130.51,-11.62],[130.38,-11.19],[130.62,-11.38]],[[137.6,-35.74],[137.93,-35.73],[138.12,-35.85],[137.67,-35.9],[137.45,-36.08],[136.76,-36.03],[136.54,-35.89],[136.64,-35.75],[137.33,-35.59],[137.58,-35.62],[137.6,-35.74]],[[136.71,-13.8],[136.89,-13.79],[136.75,-14.07],[136.95,-14.18],[136.89,-14.29],[136.34,-14.21],[136.43,-13.86],[136.66,-13.68],[136.71,-13.8]]],"Armenia":[[[44.77,39.7],[44.29,40.04],[43.67,40.13],[43.57,40.48],[43.72,40.72],[43.44,41.11],[45.0,41.29],[45.19,41.15],[45.07,41.08],[45.59,40.85],[45.38,40.67],[45.46,40.53],[45.96,40.23],[45.88,40.02],[45.58,39.98],[46.2,39.59],[46.48,39.56],[46.37,39.4],[46.59,39.22],[46.4,39.19],[46.49,38.91],[46.11,38.88],[45.75,39.56],[45.46,39.49],[45.17,39.57],[45.03,39.77],[44.77,39.7]]],"Argentina":[[[-57.61,-30.19],[-57.87,-30.59],[-57.81,-30.86],[-58.03,-31.42],[-57.99,-31.62],[-58.19,-31.92],[-58.17,-32.96],[-58.42,-33.11],[-58.55,-33.66],[-58.39,-34.19],[-58.52,-34.3],[-58.28,-34.68],[-57.55,-35.02],[-57.17,-35.36],[-57.38,-35.9],[-57.08,-36.3],[-56.72,-36.39],[-56.73,-36.96],[-57.55,-38.09],[-58.18,-38.44],[-59.83,-38.84],[-61.11,-38.99],[-61.85,-38.96],[-62.34,-38.8],[-62.3,-39.24],[-62.05,-39.37],[-62.18,-39.38],[-62.08,-39.46],[-62.13,-39.83],[-62.29,-39.89],[-62.4,-40.2],[-62.25,-40.67],[-62.39,-40.89],[-62.96,-41.11],[-63.62,-41.16],[-64.87,-40.74],[-65.07,-40.81],[-65.16,-41.11],[-64.99,-42.1],[-64.54,-42.26],[-64.57,-42.42],[-64.42,-42.43],[-64.1,-42.39],[-64.06,-42.27],[-64.23,-42.22],[-63.79,-42.11],[-63.63,-42.28],[-63.62,-42.7],[-64.04,-42.88],[-64.49,-42.51],[-64.97,-42.67],[-65.03,-42.76],[-64.32,-42.97],[-64.84,-43.19],[-65.25,-43.57],[-65.29,-44.36],[-65.65,-44.66],[-65.64,-45.01],[-66.19,-44.97],[-66.94,-45.26],[-67.6,-46.05],[-67.51,-46.44],[-66.78,-47.01],[-65.85,-47.16],[-65.77,-47.57],[-66.22,-47.83],[-65.81,-47.94],[-67.47,-48.95],[-67.69,-49.25],[-67.78,-49.86],[-67.91,-49.98],[-68.26,-50.1],[-68.67,-49.75],[-68.66,-49.94],[-68.98,-50.0],[-68.6,-50.01],[-68.42,-50.16],[-68.94,-50.38],[-69.15,-50.86],[-69.36,-51.03],[-69.2,-50.99],[-69.06,-51.55],[-69.46,-51.58],[-68.96,-51.68],[-68.4,-52.31],[-69.96,-52.01],[-71.97,-51.96],[-72.41,-51.54],[-72.3,-51.3],[-72.34,-50.68],[-72.51,-50.61],[-73.15,-50.74],[-73.5,-50.12],[-73.58,-49.58],[-73.46,-49.31],[-73.14,-49.3],[-73.03,-49.01],[-72.61,-48.79],[-72.61,-48.52],[-72.29,-48.23],[-72.52,-47.88],[-72.34,-47.49],[-71.91,-47.2],[-71.94,-46.83],[-71.7,-46.65],[-71.88,-46.16],[-71.63,-45.95],[-71.75,-45.58],[-71.51,-45.51],[-71.35,-45.23],[-71.6,-44.98],[-72.04,-44.9],[-72.06,-44.77],[-71.26,-44.76],[-71.16,-44.56],[-71.21,-44.44],[-71.82,-44.38],[-71.68,-43.93],[-71.91,-43.35],[-71.75,-43.24],[-72.15,-42.99],[-72.11,-42.25],[-71.75,-42.05],[-71.91,-41.65],[-71.93,-40.69],[-71.71,-40.38],[-71.82,-40.18],[-71.66,-40.02],[-71.72,-39.64],[-71.54,-39.6],[-71.4,-38.93],[-70.86,-38.6],[-71.17,-37.76],[-71.19,-36.84],[-71.06,-36.52],[-70.4,-36.06],[-70.41,-35.52],[-70.56,-35.25],[-70.39,-35.15],[-70.05,-34.3],[-69.85,-34.22],[-69.82,-33.28],[-70.08,-33.2],[-70.02,-32.88],[-70.36,-32.08],[-70.25,-31.96],[-70.58,-31.57],[-70.56,-31.32],[-70.52,-31.15],[-70.31,-31.02],[-70.17,-30.39],[-69.96,-30.36],[-69.84,-30.17],[-69.96,-30.08],[-70.03,-29.32],[-69.83,-29.1],[-69.66,-28.41],[-69.17,-27.92],[-68.85,-27.15],[-68.32,-26.97],[-68.59,-26.47],[-68.41,-26.15],[-68.6,-25.49],[-68.38,-25.09],[-68.56,-24.84],[-68.51,-24.63],[-68.25,-24.39],[-67.35,-24.03],[-67.01,-23.0],[-67.2,-22.82],[-66.71,-22.22],[-66.36,-22.11],[-66.22,-21.8],[-65.77,-22.1],[-64.6,-22.23],[-64.32,-22.83],[-63.92,-22.03],[-62.84,-22.0],[-61.93,-23.06],[-61.03,-23.75],[-59.89,-24.09],[-59.19,-24.56],[-57.96,-25.05],[-57.65,-25.33],[-57.57,-25.53],[-58.11,-26.18],[-58.19,-26.63],[-58.62,-27.13],[-58.6,-27.31],[-58.17,-27.27],[-56.44,-27.55],[-56.16,-27.32],[-55.72,-27.41],[-55.43,-27.01],[-55.14,-26.93],[-54.75,-26.53],[-54.61,-25.58],[-54.15,-25.52],[-53.89,-25.67],[-53.67,-26.29],[-53.84,-27.12],[-54.33,-27.42],[-54.83,-27.55],[-55.1,-27.87],[-55.73,-28.2],[-55.69,-28.38],[-55.89,-28.37],[-57.61,-30.19]],[[-68.65,-54.85],[-68.63,-52.65],[-68.24,-53.08],[-68.43,-53.06],[-68.49,-53.26],[-68.16,-53.31],[-68.01,-53.56],[-67.29,-54.05],[-66.24,-54.53],[-65.18,-54.68],[-65.47,-54.91],[-66.51,-55.03],[-68.65,-54.85]]],"Angola":[[[23.97,-10.87],[24.05,-11.4],[23.88,-12.8],[23.96,-12.99],[21.98,-13.0],[22.04,-16.26],[22.15,-16.6],[23.38,-17.64],[20.75,-18.02],[20.19,-17.86],[18.96,-17.8],[18.4,-17.4],[14.02,-17.41],[13.48,-17.04],[13.1,-16.97],[12.55,-17.21],[11.74,-17.25],[11.75,-15.83],[12.02,-15.51],[12.55,-13.44],[12.98,-12.78],[13.6,-12.29],[13.79,-11.81],[13.85,-11.05],[13.0,-9.05],[13.36,-8.69],[13.38,-8.37],[12.83,-6.96],[12.3,-6.09],[13.19,-5.86],[16.43,-5.9],[16.7,-6.16],[16.98,-7.26],[17.58,-8.1],[18.56,-7.94],[19.34,-7.97],[19.53,-7.14],[19.87,-6.99],[20.59,-6.92],[20.61,-7.28],[21.78,-7.31],[21.9,-8.69],[21.81,-9.47],[22.28,-10.26],[22.22,-11.12],[22.31,-11.2],[22.56,-11.06],[23.83,-11.01],[23.97,-10.87]],[[13.07,-4.63],[12.45,-5.07],[12.5,-5.7],[12.21,-5.76],[12.02,-5.0],[12.39,-4.62],[12.8,-4.43],[13.07,-4.63]]],"Algeria":[[[8.58,36.94],[8.6,36.83],[8.21,36.52],[8.35,36.37],[8.25,35.8],[8.39,35.2],[8.25,34.73],[7.52,34.08],[7.5,33.83],[7.73,33.27],[8.11,33.06],[8.33,32.54],[9.05,32.07],[9.52,30.23],[9.31,30.12],[9.8,29.18],[9.92,27.79],[9.75,27.33],[9.88,26.63],[9.42,26.15],[10.0,25.33],[10.25,24.59],[11.51,24.32],[11.97,23.52],[7.48,20.87],[5.84,19.48],[3.26,19.01],[3.11,19.15],[3.26,19.41],[3.13,19.85],[1.76,20.33],[1.61,20.55],[1.16,20.82],[1.15,21.1],[-4.52,24.8],[-8.69,27.29],[-8.68,28.69],[-8.26,28.98],[-7.14,29.62],[-6.64,29.57],[-6.48,29.82],[-5.45,29.96],[-4.97,30.47],[-3.67,30.96],[-3.62,31.07],[-3.83,31.2],[-3.77,31.69],[-3.02,31.83],[-2.86,32.08],[-1.23,32.11],[-1.24,32.34],[-1.06,32.47],[-1.45,32.79],[-1.68,33.32],[-1.79,34.75],[-2.22,35.1],[-1.67,35.18],[-0.43,35.86],[-0.05,35.83],[0.31,36.16],[1.26,36.52],[2.59,36.6],[2.97,36.78],[3.78,36.9],[4.76,36.9],[5.29,36.65],[6.49,37.09],[6.93,36.92],[7.24,36.97],[7.21,37.09],[7.91,36.86],[8.58,36.94]]],"Albania":[[[19.34,41.87],[19.28,42.17],[19.7,42.65],[19.79,42.48],[20.06,42.55],[20.52,42.17],[20.49,41.27],[20.71,40.93],[20.93,40.9],[21.03,40.62],[20.66,40.12],[20.31,39.98],[20.38,39.8],[20.21,39.65],[20.0,39.71],[19.85,40.04],[19.32,40.41],[19.46,40.41],[19.34,40.66],[19.58,41.79],[19.34,41.87]]],"Afghanistan":[[[66.52,37.35],[67.7,37.23],[68.07,36.95],[68.91,37.33],[69.3,37.12],[69.49,37.55],[70.19,37.58],[70.21,37.92],[70.88,38.46],[71.26,38.31],[71.28,37.92],[71.58,37.91],[71.43,37.13],[71.66,36.7],[72.66,37.03],[72.9,37.27],[73.38,37.46],[73.72,37.42],[73.65,37.24],[74.35,37.42],[74.89,37.23],[74.73,37.29],[74.37,37.16],[74.54,37.02],[74.04,36.83],[73.12,36.87],[72.25,36.73],[71.23,36.12],[71.19,36.04],[71.57,35.55],[71.62,35.18],[70.97,34.53],[71.1,34.37],[71.05,34.05],[70.65,33.95],[69.89,34.01],[70.29,33.37],[69.92,33.11],[69.5,33.02],[69.24,32.43],[69.28,31.94],[68.87,31.63],[68.6,31.8],[68.16,31.8],[67.58,31.51],[67.74,31.34],[67.45,31.23],[66.83,31.26],[66.35,30.8],[66.24,30.11],[66.31,29.97],[66.18,29.84],[65.09,29.56],[64.39,29.54],[64.1,29.39],[63.57,29.5],[62.48,29.41],[60.84,29.86],[61.81,30.91],[61.66,31.38],[60.82,31.5],[60.83,32.25],[60.56,33.06],[60.92,33.51],[60.51,33.64],[60.49,34.09],[60.64,34.31],[60.89,34.32],[60.73,34.52],[61.08,34.86],[61.26,35.62],[61.62,35.43],[61.98,35.44],[62.31,35.17],[62.69,35.26],[63.06,35.45],[63.13,35.85],[64.01,36.01],[64.51,36.34],[64.82,37.13],[65.55,37.25],[65.76,37.57],[66.52,37.35]]],"Siachen Glacier":[[[77.05,35.11],[76.77,35.66],[77.8,35.5],[77.05,35.11]]]};
+/* ===== ÜLKE VERİSİ: [Türkçe ad, bant tipi, renkler, amblem, amblem rengi, güç] ===== */
+const CI={
+"Cyprus":["Kıbrıs","p","FFFFFF","em","D47600",8],
+"N. Cyprus":["KKTC","h","FFFFFF,E30A17,FFFFFF","crescent","E30A17",5],
+"Luxembourg":["Lüksemburg","h","ED2939,FFFFFF,00A1DE",0,0,10],
+"Palestine":["Filistin","h","000000,FFFFFF,007A3D","wedge","CE1126",6],
+"Bahamas":["Bahamalar","h","00778B,FFD100,00778B","wedge","000000",4],
+"Trinidad and Tobago":["Trinidad ve Tobago","p","DA1A35","x","FFFFFF",5],
+"Puerto Rico":["Porto Riko","h","CE1126,FFFFFF,CE1126,FFFFFF,CE1126","wedge","0050F0",6],
+"Solomon Is.":["Solomon Ad.","h","0051BA,215B33","star","FFFFFF",3],
+"Vanuatu":["Vanuatu","h","D21034,006341","wedge","000000",3],
+"S. Geo. and the Is.":["Güney Georgia","p","0072C6","em","FFFFFF",1],
+"Siachen Glacier":["Siachen","p","B8C6CC","em","6B7F8A",1],
+"Turkey":["Türkiye","p","E30A17","crescent","FFF",78],
+"Germany":["Almanya","h","000000,DD0000,FFCE00",0,0,76],
+"France":["Fransa","v","002395,FFFFFF,ED2939",0,0,84],
+"Italy":["İtalya","v","009246,FFFFFF,CE2B37",0,0,68],
+"Spain":["İspanya","h","AA151B,F1BF00,AA151B","em","AA151B",62],
+"Portugal":["Portekiz","v","006600,FF0000","em","FFD700",44],
+"United Kingdom":["Birleşik Krallık","union","012169,FFFFFF,C8102E",0,0,88],
+"Ireland":["İrlanda","v","169B62,FFFFFF,FF883E",0,0,30],
+"Netherlands":["Hollanda","h","AE1C28,FFFFFF,21468B",0,0,46],
+"Belgium":["Belçika","v","000000,FDDA24,EF3340",0,0,40],
+"Switzerland":["İsviçre","p","D52B1E","cross","FFFFFF",38],
+"Austria":["Avusturya","h","ED2939,FFFFFF,ED2939",0,0,34],
+"Czechia":["Çekya","h","FFFFFF,D7141A","wedge","11457E",38],
+"Slovakia":["Slovakya","h","FFFFFF,0B4EA2,EE1C25","em","EE1C25",26],
+"Poland":["Polonya","h","FFFFFF,DC143C",0,0,58],
+"Hungary":["Macaristan","h","CD2A3E,FFFFFF,436F4D",0,0,32],
+"Romania":["Romanya","v","002B7F,FCD116,CE1126",0,0,40],
+"Bulgaria":["Bulgaristan","h","FFFFFF,00966E,D62612",0,0,30],
+"Serbia":["Sırbistan","h","C6363C,0C4076,FFFFFF","em","C6363C",28],
+"Croatia":["Hırvatistan","h","FF0000,FFFFFF,171796","em","FF0000",26],
+"Slovenia":["Slovenya","h","FFFFFF,0000FF,FF0000","em","FF0000",20],
+"Bosnia and Herz.":["Bosna-Hersek","p","002F6C","wedge","FCD116",20],
+"Montenegro":["Karadağ","p","C40308","em","D4AF3A",16],
+"Macedonia":["Kuzey Makedonya","p","D20000","sun","FFE600",18],
+"Albania":["Arnavutluk","p","E41E20","em","000000",22],
+"Kosovo":["Kosova","p","244AA5","em","D0A650",16],
+"Moldova":["Moldova","v","0046AE,FFD200,CC092F","em","CC092F",14],
+"Ukraine":["Ukrayna","h","0057B7,FFD700",0,0,64],
+"Belarus":["Belarus","h","CE1720,4AA657",0,0,34],
+"Russia":["Rusya","h","FFFFFF,0039A6,D52B1E",0,0,96],
+"Estonia":["Estonya","h","0072CE,000000,FFFFFF",0,0,16],
+"Latvia":["Letonya","h","9E3039,FFFFFF,9E3039",0,0,16],
+"Lithuania":["Litvanya","h","FDB913,006A44,C1272D",0,0,18],
+"Finland":["Finlandiya","p","FFFFFF","nordic","003580",34],
+"Sweden":["İsveç","p","006AA7","nordic","FECC00",42],
+"Norway":["Norveç","p","BA0C2F","nordic","00205B",38],
+"Denmark":["Danimarka","p","C60C30","nordic","FFFFFF",32],
+"Iceland":["İzlanda","p","02529C","nordic","DC1E35",10],
+"Greenland":["Grönland","h","FFFFFF,D00C33",0,0,8],
+"Greece":["Yunanistan","greece","0D5EAF,FFFFFF",0,0,42],
+"China":["Çin","p","DE2910","stars","FFDE00",98],
+"Japan":["Japonya","p","FFFFFF","circle","BC002D",74],
+"South Korea":["Güney Kore","p","FFFFFF","taeguk","CD2E3A",72],
+"North Korea":["Kuzey Kore","h","024FA2,FFFFFF,ED1C27,FFFFFF,024FA2","circle","FFFFFF",56],
+"Mongolia":["Moğolistan","v","C4272F,015197,C4272F","em","F9CF02",12],
+"Kazakhstan":["Kazakistan","p","00AFCA","sun","FFE500",34],
+"Uzbekistan":["Özbekistan","h","0099B5,FFFFFF,1EB53A",0,0,26],
+"Turkmenistan":["Türkmenistan","p","28AE66","em","FFFFFF",18],
+"Kyrgyzstan":["Kırgızistan","p","E8112D","sun","FFEF00",12],
+"Tajikistan":["Tacikistan","h","CC0000,FFFFFF,006600","em","FFD700",12],
+"Afghanistan":["Afganistan","v","000000,D32011,007A36","em","FFFFFF",24],
+"Pakistan":["Pakistan","v","FFFFFF,01411C","crescent","FFFFFF",74],
+"India":["Hindistan","h","FF9933,FFFFFF,138808","circle","000080",88],
+"Nepal":["Nepal","p","DC143C","em","FFFFFF",14],
+"Bangladesh":["Bangladeş","p","006A4E","circle","F42A41",34],
+"Sri Lanka":["Sri Lanka","p","FFBE29","em","8D153A",16],
+"Bhutan":["Butan","h","FFCC00,FF4E12","em","FFFFFF",8],
+"Myanmar":["Myanmar","h","FECB00,34B233,EA2839","star","FFFFFF",30],
+"Thailand":["Tayland","h","A51931,F4F5F8,2D2A4A,F4F5F8,A51931",0,0,44],
+"Laos":["Laos","h","CE1126,002868,CE1126","circle","FFFFFF",12],
+"Cambodia":["Kamboçya","h","032EA1,E00025,032EA1","em","FFFFFF",14],
+"Vietnam":["Vietnam","p","DA251D","star","FFFF00",48],
+"Malaysia":["Malezya","h","CC0001,FFFFFF,CC0001,FFFFFF,CC0001","canton","010066",34],
+"Indonesia":["Endonezya","h","FF0000,FFFFFF",0,0,52],
+"Brunei":["Brunei","p","F7E017","em","000000",8],
+"Philippines":["Filipinler","h","0038A8,CE1126","wedge","FFFFFF",34],
+"Timor-Leste":["Doğu Timor","p","CC0000","wedge","000000",6],
+"Papua New Guinea":["Papua Yeni Gine","p","000000","em","CE1126",8],
+"Taiwan":["Tayvan","p","FE0000","canton","000095",50],
+"Israel":["İsrail","h","FFFFFF,0038B8,FFFFFF","star6","0038B8",70],
+"Lebanon":["Lübnan","h","ED1C24,FFFFFF,ED1C24","em","00A651",14],
+"Syria":["Suriye","h","CE1126,FFFFFF,000000",0,0,26],
+"Jordan":["Ürdün","h","000000,FFFFFF,007A3D","wedge","CE1126",22],
+"Iraq":["Irak","h","CE1126,FFFFFF,000000",0,0,32],
+"Iran":["İran","h","239F40,FFFFFF,DA0000","em","DA0000",68],
+"Saudi Arabia":["Suudi Arabistan","p","006C35","em","FFFFFF",62],
+"Yemen":["Yemen","h","CE1126,FFFFFF,000000",0,0,14],
+"Oman":["Umman","h","FFFFFF,CE1126,007A3D","vbar","CE1126",20],
+"United Arab Emirates":["BAE","h","00732F,FFFFFF,000000","vbar","FF0000",44],
+"Kuwait":["Kuveyt","h","007A3D,FFFFFF,CE1126","wedge","000000",20],
+"Qatar":["Katar","v","FFFFFF,8A1538",0,0,20],
+"Georgia":["Gürcistan","p","FFFFFF","cross","FF0000",14],
+"Armenia":["Ermenistan","h","D90012,0033A0,F2A800",0,0,14],
+"Azerbaijan":["Azerbaycan","h","0092BC,ED2939,3F9C35","crescent","FFFFFF",30],
+"Egypt":["Mısır","h","CE1126,FFFFFF,000000","em","C09300",58],
+"Libya":["Libya","h","E70013,000000,239E46",0,0,16],
+"Tunisia":["Tunus","p","E70013","circle","FFFFFF",16],
+"Algeria":["Cezayir","v","006233,FFFFFF","crescent","D21034",40],
+"Morocco":["Fas","p","C1272D","star","006233",38],
+"W. Sahara":["Batı Sahra","h","000000,FFFFFF,007A3B","wedge","C4111B",4],
+"Mauritania":["Moritanya","p","006233","crescent","FFC400",6],
+"Mali":["Mali","v","14B53A,FCD116,CE1126",0,0,10],
+"Niger":["Nijer","h","E05206,FFFFFF,0DB02B","circle","E05206",10],
+"Chad":["Çad","v","002664,FECB00,C60C30",0,0,10],
+"Sudan":["Sudan","h","D21034,FFFFFF,000000","wedge","007229",20],
+"S. Sudan":["Güney Sudan","h","000000,FFFFFF,DA121A","wedge","0F47AF",10],
+"Eritrea":["Eritre","p","4189DD","wedge","EA0437",8],
+"Ethiopia":["Etiyopya","h","078930,FCDD09,DA121A","circle","0F47AF",26],
+"Djibouti":["Cibuti","h","6AB2E7,12AD2B","wedge","FFFFFF",6],
+"Somalia":["Somali","p","4189DD","star","FFFFFF",8],
+"Somaliland":["Somaliland","h","4189DD,FFFFFF,008000",0,0,4],
+"Kenya":["Kenya","h","000000,BB0000,006600","em","FFFFFF",18],
+"Uganda":["Uganda","h","000000,FCDC04,D90000,000000,FCDC04,D90000","circle","FFFFFF",12],
+"Rwanda":["Ruanda","h","00A1DE,FAD201,20603D","sun","FAD201",8],
+"Burundi":["Burundi","p","FFFFFF","x","1EB53A",6],
+"Tanzania":["Tanzanya","h","1EB53A,FCD116,00A3DD",0,0,14],
+"Dem. Rep. Congo":["Kongo DC","p","007FFF","star","F7D618",14],
+"Congo":["Kongo","v","009543,FBDE4A,DC241F",0,0,6],
+"Gabon":["Gabon","h","009E60,FCD116,3A75C4",0,0,6],
+"Eq. Guinea":["Ekvator Ginesi","h","3E9A00,FFFFFF,E32118","wedge","0073CE",4],
+"Cameroon":["Kamerun","v","007A5E,CE1126,FCD116","star","FCD116",12],
+"Central African Rep.":["Orta Afrika C.","h","003082,FFFFFF,289728,FFD100","vbar","D21034",4],
+"Nigeria":["Nijerya","v","008751,FFFFFF,008751",0,0,32],
+"Benin":["Benin","v","008751,FCD116",0,0,6],
+"Togo":["Togo","h","006A4E,FFFFFF,006A4E,FFFFFF,006A4E","canton","D21034",5],
+"Ghana":["Gana","h","CE1126,FCD116,006B3F","star","000000",12],
+"Côte d'Ivoire":["Fildişi Sahili","v","F77F00,FFFFFF,009E60",0,0,12],
+"Liberia":["Liberya","h","BF0A30,FFFFFF,BF0A30","canton","002868",5],
+"Sierra Leone":["Sierra Leone","h","1EB53A,FFFFFF,0072C6",0,0,5],
+"Guinea":["Gine","v","CE1126,FCD116,009460",0,0,6],
+"Guinea-Bissau":["Gine-Bissau","h","FCD116,009E49","vbar","CE1126",4],
+"Senegal":["Senegal","v","00853F,FDEF42,E31B23","star","00853F",10],
+"Gambia":["Gambiya","h","CE1126,0C1C8C,3A7728",0,0,4],
+"Burkina Faso":["Burkina Faso","h","EF2B2D,009E49","star","FCD116",8],
+"Angola":["Angola","h","CE1126,000000","em","FFCB00",14],
+"Zambia":["Zambiya","p","198A00","em","EF7D00",8],
+"Zimbabwe":["Zimbabve","h","006400,FFD200,D40000,000000,D40000,FFD200,006400","wedge","FFFFFF",8],
+"Malawi":["Malavi","h","000000,CE1126,339E35",0,0,5],
+"Mozambique":["Mozambik","h","009A00,FFFFFF,000000,FFFFFF,FFCE00","wedge","D21034",8],
+"Namibia":["Namibya","h","003580,FFFFFF,009543",0,0,8],
+"Botswana":["Botsvana","h","6DA9D2,FFFFFF,000000,FFFFFF,6DA9D2",0,0,8],
+"South Africa":["Güney Afrika","h","E03C31,FFFFFF,007A4D","wedge","000000",34],
+"Lesotho":["Lesotho","h","009543,FFFFFF,00209F","em","000000",4],
+"eSwatini":["Esvatini","h","3E5EB9,FFD900,B10C0C,FFD900,3E5EB9",0,0,4],
+"Madagascar":["Madagaskar","h","CE1126,007E3A","vbar","FFFFFF",8],
+"United States of America":["ABD","usa","B22234,FFFFFF,3C3B6E",0,0,100],
+"Canada":["Kanada","canada","D80621,FFFFFF",0,0,54],
+"Mexico":["Meksika","v","006847,FFFFFF,CE1126","em","8B5A2B",44],
+"Guatemala":["Guatemala","v","4997D0,FFFFFF,4997D0",0,0,10],
+"Belize":["Belize","h","CE1126,003F87,CE1126","em","FFFFFF",3],
+"Honduras":["Honduras","h","0073CF,FFFFFF,0073CF",0,0,8],
+"El Salvador":["El Salvador","h","0F47AF,FFFFFF,0F47AF",0,0,8],
+"Nicaragua":["Nikaragua","h","0067C6,FFFFFF,0067C6",0,0,8],
+"Costa Rica":["Kosta Rika","h","002B7F,FFFFFF,CE1126,FFFFFF,002B7F",0,0,6],
+"Panama":["Panama","quad","FFFFFF,DA121A,0F47AF",0,0,8],
+"Cuba":["Küba","h","002A8F,FFFFFF,002A8F,FFFFFF,002A8F","wedge","CF142B",22],
+"Jamaica":["Jamaika","p","009B3A","x","FED100",5],
+"Haiti":["Haiti","h","00209F,D21034",0,0,5],
+"Dominican Rep.":["Dominik C.","v","002D62,CE1126","cross","FFFFFF",8],
+"Colombia":["Kolombiya","h","FCD116,003893,CE1126",0,0,34],
+"Venezuela":["Venezuela","h","FFCC00,00247D,CF142B",0,0,26],
+"Guyana":["Guyana","p","009E49","wedge","FFD100",4],
+"Suriname":["Surinam","h","377E3F,FFFFFF,C8102E,FFFFFF,377E3F","star","FFD100",4],
+"Ecuador":["Ekvador","h","FFDD00,0072C6,EF3340",0,0,16],
+"Peru":["Peru","v","D91023,FFFFFF,D91023",0,0,24],
+"Bolivia":["Bolivya","h","D52B1E,F9E300,007934",0,0,12],
+"Brazil":["Brezilya","brazil","009B3A,FEDF00,002776",0,0,66],
+"Paraguay":["Paraguay","h","D52B1E,FFFFFF,0038A8","circle","FFFFFF",10],
+"Uruguay":["Uruguay","h","FFFFFF,0038A8,FFFFFF,0038A8,FFFFFF","canton","FFFFFF",10],
+"Argentina":["Arjantin","h","74ACDF,FFFFFF,74ACDF","sun","F6B40E",38],
+"Chile":["Şili","chile","FFFFFF,D52B1E,0039A6",0,0,26],
+"Falkland Is.":["Falkland Ad.","p","0072C6","em","FFFFFF",2],
+"Australia":["Avustralya","ausnz","00247D,FFFFFF",0,0,58],
+"New Zealand":["Yeni Zelanda","ausnz","00247D,CC142B",0,0,20],
+"Fiji":["Fiji","p","68BFE5","canton","012169",3],
+"New Caledonia":["Yeni Kaledonya","h","0035AD,D9081C,009543","circle","FCD116",3]
+};
+
+/* ================= TEMEL ================= */
+const W0=2400,H0=1218,CITY_HP=320;
+/* Robinson projeksiyonu — kutuplarda yatay esnemeyi kaldırır */
+const RBX=[1,.9986,.9954,.99,.9822,.973,.96,.9427,.9216,.8962,.8679,.835,.7986,.7597,.7186,.6732,.6213,.5722,.5322];
+const RBY=[0,.062,.124,.186,.248,.31,.372,.434,.4958,.5571,.6176,.6769,.7346,.7903,.8435,.8936,.9394,.9761,1];
+const map=document.getElementById('map'),fx=document.getElementById('fx');
+const mc=map.getContext('2d'),fc=fx.getContext('2d');
+let cw=0,ch=0,DPR=1;
+const cam={x:W0/2,y:H0*0.46,z:.3,tx:null,ty:null,tz:null};
+const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
+/* eksik bir öğe yüzünden diğer düğmelerin ölmesini engeller */
+function on(sel,ev,fn){const e=document.querySelector(sel);
+  if(e)e.addEventListener(ev,function(a){try{fn(a);}catch(err){showErr(err);}});
+  else console.warn('öğe yok:',sel);}
+function showErr(e){
+  const m=(e&&(e.message||e.reason&&e.reason.message))||String(e);
+  const b=document.getElementById('errbar');
+  if(b){b.textContent='Hata: '+m;b.style.display='block';
+    clearTimeout(b.__t);b.__t=setTimeout(()=>{b.style.display='none';},9000);}
+  console.error(e);}
+window.addEventListener('error',ev=>showErr(ev.error||ev.message));
+window.addEventListener('unhandledrejection',ev=>showErr(ev.reason));
+
+function proj(lon,lat){
+  const a=Math.min(Math.abs(lat),90)/5,i=Math.min(17,a|0),t=a-i;
+  const xs=RBX[i]+(RBX[i+1]-RBX[i])*t;
+  let ys=RBY[i]+(RBY[i+1]-RBY[i])*t; if(lat<0)ys=-ys;
+  return [(xs*lon/180*.5+.5)*W0,(.5-ys*.5)*H0];}
+function s2w(sx,sy){return [cam.x+(sx-cw/2)/cam.z, cam.y+(sy-ch/2)/cam.z];}
+function w2s(wx,wy){return [(wx-cam.x)*cam.z+cw/2,(wy-cam.y)*cam.z+ch/2];}
+const dist=(a,b,c,d)=>Math.hypot(a-c,b-d);
+const clamp=(v,a,b)=>v<a?a:v>b?b:v;
+let RSEED=1;
+function srand(s){RSEED=(s>>>0)||1;}
+function R(){RSEED=(RSEED+0x6D2B79F5)|0;let t=RSEED;
+  t=Math.imul(t^t>>>15,t|1);t^=t+Math.imul(t^t>>>7,t|61);
+  return((t^t>>>14)>>>0)/4294967296;}
+const rnd=(a,b)=>a+R()*(b-a);
+function seedRnd(s){let x=s|0||1;return()=>{x^=x<<13;x^=x>>>17;x^=x<<5;return((x>>>0)%100000)/100000;};}
+
+/* ================= BAYRAK ÇİZİMİ ================= */
+const flagCache={};
+function drawFlag(spec){
+  const k=JSON.stringify(spec); if(flagCache[k])return flagCache[k];
+  const w=36,h=24,cv=document.createElement('canvas');cv.width=w;cv.height=h;
+  const g=cv.getContext('2d');
+  const band=spec[1],cols=String(spec[2]).split(',').map(c=>'#'+c),ov=spec[3],oc=spec[4]?'#'+spec[4]:'#fff';
+  const fill=(x,y,ww,hh,c)=>{g.fillStyle=c;g.fillRect(x,y,ww,hh);};
+  const circle=(x,y,r,c)=>{g.fillStyle=c;g.beginPath();g.arc(x,y,r,0,7);g.fill();};
+  function star(x,y,r,c,pts){pts=pts||5;g.fillStyle=c;g.beginPath();
+    for(let i=0;i<pts*2;i++){const a=-Math.PI/2+i*Math.PI/pts,rr=i%2?r*.42:r;
+      g[i?'lineTo':'moveTo'](x+Math.cos(a)*rr,y+Math.sin(a)*rr);}g.closePath();g.fill();}
+  // temel bant
+  if(band==='v'){const n=cols.length;cols.forEach((c,i)=>fill(i*w/n,0,w/n+1,h,c));}
+  else if(band==='h'||band==='p'){const n=cols.length;cols.forEach((c,i)=>fill(0,i*h/n,w,h/n+1,c));}
+  else if(band==='usa'){fill(0,0,w,h,'#fff');
+    for(let i=0;i<13;i+=2)fill(0,i*h/13,w,h/13+.6,'#B22234');
+    fill(0,0,w*.42,h*7/13,'#3C3B6E');
+    for(let r=0;r<4;r++)for(let c2=0;c2<5;c2++)star(2.2+c2*3.1,2.2+r*3.2,1.15,'#fff');}
+  else if(band==='canada'){fill(0,0,w,h,'#fff');fill(0,0,w*.25,h,'#D80621');fill(w*.75,0,w*.25,h,'#D80621');
+    g.fillStyle='#D80621';g.beginPath();g.moveTo(18,4);g.lineTo(21,10);g.lineTo(25,8.5);g.lineTo(23,15);
+    g.lineTo(26,16);g.lineTo(18.8,19);g.lineTo(19.4,21);g.lineTo(16.6,21);g.lineTo(17.2,19);g.lineTo(10,16);
+    g.lineTo(13,15);g.lineTo(11,8.5);g.lineTo(15,10);g.closePath();g.fill();}
+  else if(band==='union'){fill(0,0,w,h,'#012169');
+    g.strokeStyle='#fff';g.lineWidth=6;g.beginPath();g.moveTo(0,0);g.lineTo(w,h);g.moveTo(w,0);g.lineTo(0,h);g.stroke();
+    g.strokeStyle='#C8102E';g.lineWidth=2.6;g.beginPath();g.moveTo(0,0);g.lineTo(w,h);g.moveTo(w,0);g.lineTo(0,h);g.stroke();
+    fill(0,h/2-4,w,8,'#fff');fill(w/2-4,0,8,h,'#fff');
+    fill(0,h/2-2.2,w,4.4,'#C8102E');fill(w/2-2.2,0,4.4,h,'#C8102E');}
+  else if(band==='ausnz'){fill(0,0,w,h,'#00247D');
+    g.save();g.beginPath();g.rect(0,0,w/2,h/2);g.clip();
+    g.strokeStyle='#fff';g.lineWidth=3.4;g.beginPath();g.moveTo(0,0);g.lineTo(w/2,h/2);g.moveTo(w/2,0);g.lineTo(0,h/2);g.stroke();
+    g.strokeStyle='#C8102E';g.lineWidth=1.4;g.beginPath();g.moveTo(0,0);g.lineTo(w/2,h/2);g.moveTo(w/2,0);g.lineTo(0,h/2);g.stroke();
+    fill(0,h/4-2,w/2,4,'#fff');fill(w/4-2,0,4,h/2,'#fff');
+    fill(0,h/4-1,w/2,2,'#C8102E');fill(w/4-1,0,2,h/2,'#C8102E');g.restore();
+    const sc=cols[1]?'#'+String(spec[2]).split(',')[1]:'#fff';
+    star(25,7,2.1,sc);star(29,13,1.7,sc);star(24,17,1.9,sc);star(31,19,1.5,sc);star(9,19,2.2,sc);}
+  else if(band==='brazil'){fill(0,0,w,h,'#009B3A');
+    g.fillStyle='#FEDF00';g.beginPath();g.moveTo(w/2,2.5);g.lineTo(w-3,h/2);g.lineTo(w/2,h-2.5);g.lineTo(3,h/2);g.closePath();g.fill();
+    circle(w/2,h/2,5.2,'#002776');fill(w/2-5.2,h/2-1.4,10.4,1.9,'#fff');}
+  else if(band==='chile'){fill(0,0,w,h,'#fff');fill(0,h/2,w,h/2,'#D52B1E');fill(0,0,w*.36,h/2,'#0039A6');
+    star(w*.18,h*.25,3,'#fff');}
+  else if(band==='greece'){fill(0,0,w,h,'#fff');
+    for(let i=0;i<9;i+=2)fill(0,i*h/9,w,h/9+.5,'#0D5EAF');
+    fill(0,0,h*5/9,h*5/9,'#0D5EAF');
+    fill(0,h*2/9-1.5,h*5/9,3,'#fff');fill(h*2.5/9-1.5,0,3,h*5/9,'#fff');}
+  else if(band==='quad'){fill(0,0,w,h,'#fff');fill(w/2,0,w/2,h/2,'#DA121A');fill(0,h/2,w/2,h/2,'#0F47AF');
+    star(w*.25,h*.25,3,'#0F47AF');star(w*.75,h*.75,3,'#DA121A');}
+  // amblem
+  if(ov==='crescent'){const cx=band==='v'?w*.62:w/2;
+    g.save();g.beginPath();g.arc(cx,h/2,6.2,0,7);g.arc(cx+2.6,h/2,5.2,0,7,true);g.fillStyle=oc;g.fill();g.restore();
+    star(cx+8.4,h/2,2.5,oc);}
+  else if(ov==='circle')circle(w/2,h/2,6.4,oc);
+  else if(ov==='star')star(w/2,h/2,6,oc);
+  else if(ov==='star6'){g.strokeStyle=oc;g.lineWidth=1.3;
+    for(const f of[0,1]){g.beginPath();for(let i=0;i<3;i++){const a=-Math.PI/2+(f?Math.PI/3:0)+i*2.094;
+      g[i?'lineTo':'moveTo'](w/2+Math.cos(a)*6,h/2+Math.sin(a)*6);}g.closePath();g.stroke();}}
+  else if(ov==='cross'){fill(w/2-2.6,h*.2,5.2,h*.6,oc);fill(w/2-7.5,h/2-2.6,15,5.2,oc);}
+  else if(ov==='nordic'){fill(w*.28,0,5,h,oc);fill(0,h/2-2.5,w,5,oc);}
+  else if(ov==='x'){g.strokeStyle=oc;g.lineWidth=4;g.beginPath();g.moveTo(0,0);g.lineTo(w,h);g.moveTo(w,0);g.lineTo(0,h);g.stroke();}
+  else if(ov==='wedge'){g.fillStyle=oc;g.beginPath();g.moveTo(0,0);g.lineTo(w*.42,h/2);g.lineTo(0,h);g.closePath();g.fill();}
+  else if(ov==='vbar')fill(0,0,w*.26,h,oc);
+  else if(ov==='sun'){g.strokeStyle=oc;g.lineWidth=1.2;
+    for(let i=0;i<12;i++){const a=i*Math.PI/6;g.beginPath();
+      g.moveTo(w/2+Math.cos(a)*4.5,h/2+Math.sin(a)*4.5);g.lineTo(w/2+Math.cos(a)*7.6,h/2+Math.sin(a)*7.6);g.stroke();}
+    circle(w/2,h/2,4,oc);}
+  else if(ov==='stars'){star(6,6,3.2,oc);for(let i=0;i<4;i++)star(12,2.6+i*3,1.35,oc);}
+  else if(ov==='taeguk'){g.save();g.beginPath();g.arc(w/2,h/2,6,Math.PI/2,Math.PI*1.5);g.fillStyle='#CD2E3A';g.fill();
+    g.beginPath();g.arc(w/2,h/2,6,Math.PI*1.5,Math.PI/2);g.fillStyle='#0047A0';g.fill();
+    circle(w/2,h/2-3,3,'#CD2E3A');circle(w/2,h/2+3,3,'#0047A0');g.restore();
+    g.fillStyle='#000';[[6,5],[6,19],[30,5],[30,19]].forEach(p=>{for(let i=0;i<3;i++)g.fillRect(p[0]-3.5,p[1]-2.5+i*2,7,1.1);});}
+  else if(ov==='canton'){fill(0,0,w*.5,h*.5,oc);star(w*.25,h*.25,3.4,'#fff');}
+  else if(ov==='em'){circle(w/2,h/2,4.6,oc);g.strokeStyle='rgba(0,0,0,.35)';g.lineWidth=.8;
+    g.beginPath();g.arc(w/2,h/2,4.6,0,7);g.stroke();}
+  g.strokeStyle='rgba(0,0,0,.45)';g.lineWidth=1;g.strokeRect(.5,.5,w-1,h-1);
+  flagCache[k]=cv;return cv;
+}
+
+/* ================= ÜLKE RENGİ (bayraktan) ================= */
+function hx(c){c=c.replace('#','');return [parseInt(c.slice(0,2),16),parseInt(c.slice(2,4),16),parseInt(c.slice(4,6),16)];}
+function luma(c){const [r,g,b]=hx(c);return (.299*r+.587*g+.114*b)/255;}
+function mix(c1,c2,t){const a=hx(c1),b=hx(c2);
+  return '#'+[0,1,2].map(i=>Math.round(a[i]+(b[i]-a[i])*t).toString(16).padStart(2,'0')).join('');}
+function baseColor(spec){
+  const cols=String(spec[2]).split(',');
+  for(const c of cols){const L=luma(c);if(L>.05&&L<.82)return '#'+c;}
+  if(spec[4]){const L=luma(spec[4]);if(L>.05&&L<.88)return '#'+spec[4];}
+  const L0=luma(cols[0]);return '#'+(L0>=.82?mix(cols[0],'404b52',.55).slice(1):cols[0]);}
+function hueShift(c,deg){
+  let [r,g,b]=hx(c);r/=255;g/=255;b/=255;
+  const mx=Math.max(r,g,b),mn=Math.min(r,g,b),d=mx-mn;let h=0;
+  if(d){h=mx===r?((g-b)/d+(g<b?6:0)):mx===g?((b-r)/d+2):((r-g)/d+4);h*=60;}
+  const l=(mx+mn)/2,s=d?d/(1-Math.abs(2*l-1)):0;
+  h=(h+deg+360)%360;
+  const C=(1-Math.abs(2*l-1))*s,X=C*(1-Math.abs((h/60)%2-1)),m=l-C/2;
+  let q=[[C,X,0],[X,C,0],[0,C,X],[0,X,C],[X,0,C],[C,0,X]][(h/60)|0];
+  return '#'+q.map(v=>Math.round((v+m)*255).toString(16).padStart(2,'0')).join('');}
+function colorDist(a,b){const p=hx(a),q=hx(b);
+  return Math.hypot(p[0]-q[0],p[1]-q[1],p[2]-q[2]);}
+
+/* tarih çizgisini (180°) aşan halkaları ikiye böl — yoksa harita boyunca şerit çizilir */
+function splitSeam(ring){
+  let j=-1;
+  for(let i=1;i<ring.length;i++)if(Math.abs(ring[i][0]-ring[i-1][0])>180){j=i;break;}
+  if(j<0)return [ring];
+  const r=ring.slice(j).concat(ring.slice(0,j)),out=[];
+  let cur=[r[0]];
+  for(let i=1;i<r.length;i++){
+    if(Math.abs(r[i][0]-r[i-1][0])>180){if(cur.length>2)out.push(cur);cur=[r[i]];}
+    else cur.push(r[i]);}
+  if(cur.length>2)out.push(cur);
+  return out;}
+
+/* ================= ÜLKELERİ KUR ================= */
+const COUNTRIES={},CLIST=[];
+(function build(){
+  const skip={'Antarctica':1,'Fr. S. Antarctic Lands':1};
+  for(const name in GEO){
+    if(skip[name])continue;
+    const info=CI[name]||[name,'h','6b7f6e,4a5a4d',0,0,10];
+    const polys=[];
+    for(const r of GEO[name])for(const seg of splitSeam(r)){
+      if(seg.length<3)continue;
+      polys.push(seg.map(q=>proj(q[0],q[1])));}
+    if(!polys.length)continue;
+    const pa=polys.map(p=>{let a=0,sx=0,sy=0;
+      for(let i=0;i<p.length;i++){const q=p[i],r=p[(i+1)%p.length];a+=q[0]*r[1]-r[0]*q[1];sx+=q[0];sy+=q[1];}
+      return{p,a:Math.abs(a)/2,cx:sx/p.length,cy:sy/p.length};});
+    pa.sort((x,y)=>y.a-x.a);
+    const M=pa[0];
+    // ana kütleden çok uzak parçaları (tarih çizgisi/denizaşırı) hesap dışında tut
+    const polysM=pa.filter(q=>Math.abs(q.cx-M.cx)<500&&Math.abs(q.cy-M.cy)<500).map(q=>q.p);
+    let minx=1e9,miny=1e9,maxx=-1e9,maxy=-1e9;
+    for(const p of polysM)for(const q of p){
+      if(q[0]<minx)minx=q[0];if(q[0]>maxx)maxx=q[0];
+      if(q[1]<miny)miny=q[1];if(q[1]>maxy)maxy=q[1];}
+    const best=M.p;
+    let sx=0,sy=0;for(const p of best){sx+=p[0];sy+=p[1];}
+    const c={name,tr:info[0],spec:info,power:info[5]||10,
+      polys,polysM,bbox:[minx,miny,maxx,maxy],area:M.a,
+      cx:sx/best.length,cy:sy/best.length,main:best,nb:new Set(),cities:[],coastal:false};
+    c.col=baseColor(info);
+    c.fill=mix(c.col,'#16232b',.52);
+    c.fillHot=mix(c.col,'#0f1a20',.24);
+    c.line=mix(c.col,'#ffffff',.42);
+    c.lineNorm=mix(c.col,'#0e1c24',.55);
+    c.lineHot=mix(c.col,'#ffffff',.55);
+    c.fillHover=mix(c.col,'#101a20',.34);
+    COUNTRIES[name]=c;CLIST.push(c);
+  }
+  CLIST.sort((a,b)=>a.tr.localeCompare(b.tr,'tr'));
+})();
+
+function inPoly(poly,x,y){let s=false;
+  for(let i=0,j=poly.length-1;i<poly.length;j=i++){
+    const xi=poly[i][0],yi=poly[i][1],xj=poly[j][0],yj=poly[j][1];
+    if(((yi>y)!==(yj>y))&&(x<(xj-xi)*(y-yi)/(yj-yi)+xi))s=!s;}
+  return s;}
+function inCountryAll(c,x,y){
+  for(const p of c.polys)if(inPoly(p,x,y))return true;return false;}
+function inCountry(c,x,y){
+  if(x<c.bbox[0]-1||x>c.bbox[2]+1||y<c.bbox[1]-1||y>c.bbox[3]+1)return false;
+  for(const p of c.polysM)if(inPoly(p,x,y))return true;return false;}
+function countryAt(x,y){
+  let hit=null;
+  for(const c of CLIST)if(inCountryAll(c,x,y)){if(!hit||c.area<hit.area)hit=c;}
+  return hit;}
+
+/* ---------- kara maskesi (deniz/kara ayrimi) ---------- */
+const MW=480,MH=240,LAND=new Uint8Array(MW*MH);
+(function mask(){
+  for(const c of CLIST)for(const p of c.polys){
+    const pts=p.map(q=>[q[0]/W0*MW,q[1]/H0*MH]);
+    let miny=1e9,maxy=-1e9;
+    for(const q of pts){if(q[1]<miny)miny=q[1];if(q[1]>maxy)maxy=q[1];}
+    const y0=Math.max(0,Math.floor(miny)),y1=Math.min(MH-1,Math.ceil(maxy));
+    for(let y=y0;y<=y1;y++){
+      const yc=y+.5,xs=[];
+      for(let i=0,j=pts.length-1;i<pts.length;j=i++){
+        const a=pts[j],b=pts[i];
+        if((a[1]>yc)!==(b[1]>yc))xs.push(a[0]+(yc-a[1])/(b[1]-a[1])*(b[0]-a[0]));}
+      xs.sort((u,v)=>u-v);
+      for(let k=0;k+1<xs.length;k+=2){
+        const xa=Math.max(0,Math.round(xs[k])),xb=Math.min(MW-1,Math.round(xs[k+1]));
+        for(let x=xa;x<=xb;x++)LAND[y*MW+x]=1;}}
+    for(const q of pts){const x=Math.round(q[0]),y=Math.round(q[1]);
+      if(x>=0&&x<MW&&y>=0&&y<MH)LAND[y*MW+x]=1;}
+  }
+})();
+const isLand=(x,y)=>{const mx=(x/W0*MW)|0,my=(y/H0*MH)|0;
+  if(mx<0||my<0||mx>=MW||my>=MH)return 0;return LAND[my*MW+mx];};
+function landFraction(x1,y1,x2,y2){
+  const n=Math.max(6,Math.min(60,Math.hypot(x2-x1,y2-y1)/3|0));let L=0;
+  for(let i=0;i<=n;i++){const t=i/n;if(isLand(x1+(x2-x1)*t,y1+(y2-y1)*t))L++;}
+  return L/(n+1);}
+
+/* ---------- şehirler, komşuluk, kıyı ---------- */
+(function meta(){
+  for(const c of CLIST){
+    const R=seedRnd(c.name.length*7919+c.name.charCodeAt(0)*31+((c.cx*13)|0));
+    const n=clamp(2+Math.round(c.power/16),2,6);
+    let tries=0;
+    let mb=[1e9,1e9,-1e9,-1e9];
+    for(const q of c.main){mb[0]=Math.min(mb[0],q[0]);mb[1]=Math.min(mb[1],q[1]);
+      mb[2]=Math.max(mb[2],q[0]);mb[3]=Math.max(mb[3],q[1]);}
+    while(c.cities.length<n&&tries<400){tries++;
+      const x=mb[0]+R()*(mb[2]-mb[0]),y=mb[1]+R()*(mb[3]-mb[1]);
+      if(!inPoly(c.main,x,y))continue;
+      if(c.cities.some(q=>dist(q.x,q.y,x,y)<Math.max(4,Math.sqrt(c.area)*.20)))continue;
+      c.cities.push({x,y,hp:CITY_HP,max:CITY_HP,aa:.18+c.power/400});}
+    if(!c.cities.length)c.cities.push({x:c.cx,y:c.cy,hp:CITY_HP,max:CITY_HP,aa:.2});
+    // kıyı kontrolü
+    for(const p of c.main){if(!isLand(p[0]+7,p[1])||!isLand(p[0]-7,p[1])||!isLand(p[0],p[1]+7)||!isLand(p[0],p[1]-7)){c.coastal=true;break;}}
+  }
+  // komşuluk: gerçek kara sınırı için temas uzunluğu ölçülür
+  const SEA_PAIR=new Set(["Albania|Italy", "Australia|Papua New Guinea", "Australia|Timor-Leste", "Bahamas|Cuba", "Bahamas|United States of America", "Bahrain|Qatar", "Belgium|United Kingdom", "Belize|Honduras", "Canada|Greenland", "China|Japan", "China|Taiwan", "Croatia|Italy", "Cuba|Haiti", "Cuba|United States of America", "Cyprus|Syria", "Cyprus|Turkey", "Denmark|Norway", "Denmark|Sweden", "Djibouti|Yemen", "Dominican Rep.|Puerto Rico", "Egypt|Saudi Arabia", "El Salvador|Nicaragua", "Eritrea|Saudi Arabia", "Eritrea|Yemen", "Estonia|Finland", "Fiji|Vanuatu", "France|United Kingdom", "Germany|Sweden", "Greece|Italy", "Greece|Turkey|X", "Iceland|Greenland", "India|Sri Lanka", "Indonesia|Australia", "Indonesia|Philippines", "Iran|Kuwait", "Iran|Oman", "Iran|Qatar", "Iran|United Arab Emirates", "Ireland|United Kingdom", "Italy|Tunisia", "Jamaica|Cuba", "Japan|Russia", "Latvia|Sweden", "Lebanon|Turkey", "Malaysia|Philippines", "Malta|Italy", "Morocco|Spain", "N. Cyprus|Syria", "N. Cyprus|Turkey", "Netherlands|United Kingdom", "Nigeria|Togo", "North Korea|Japan", "Norway|United Kingdom", "Papua New Guinea|Solomon Is.", "Philippines|Taiwan", "Russia|United States of America", "Singapore|Malaysia", "South Korea|Japan", "Sweden|Estonia", "Trinidad and Tobago|Venezuela", "Vanuatu|Solomon Is."]);
+  const LAND_PAIR=new Set(["Egypt|Israel","Egypt|Libya","Gambia|Senegal","Iraq|Turkey","Georgia|Turkey",
+    "Iraq|Syria","Armenia|Turkey","Azerbaijan|Turkey","Iran|Turkey","Lebanon|Syria","Israel|Lebanon",
+    "Israel|Jordan","Armenia|Azerbaijan","Georgia|Russia","Austria|Slovenia","Croatia|Slovenia",
+    "Bosnia and Herz.|Croatia","Albania|Montenegro","Kosovo|Macedonia","Bhutan|China","Nepal|China",
+    "Denmark|Germany","Cyprus|N. Cyprus","Palestine|Israel","Palestine|Egypt","Palestine|Jordan"]);
+  const key=(a,b)=>[a,b].sort().join('|');
+  const CELL=11,grid=new Map();
+  const gk=(x,y)=>((x/CELL)|0)+','+((y/CELL)|0);
+  for(let ci=0;ci<CLIST.length;ci++)for(const p of CLIST[ci].polysM)for(const q of p){
+    const k=gk(q[0],q[1]);let arr=grid.get(k);
+    if(!arr){arr=[];grid.set(k,arr);}arr.push(ci,q[0],q[1]);}
+  const pairCnt=new Map();
+  for(let ci=0;ci<CLIST.length;ci++)for(const p of CLIST[ci].polysM)for(const q of p){
+    const gx=(q[0]/CELL)|0,gy=(q[1]/CELL)|0,near=new Set();
+    for(let dx=-1;dx<=1;dx++)for(let dy=-1;dy<=1;dy++){
+      const arr=grid.get((gx+dx)+','+(gy+dy));if(!arr)continue;
+      for(let i=0;i<arr.length;i+=3){
+        const cj=arr[i];if(cj===ci||near.has(cj))continue;
+        if(dist(q[0],q[1],arr[i+1],arr[i+2])<CELL)near.add(cj);}}
+    for(const cj of near){const kk=ci+'>'+cj;pairCnt.set(kk,(pairCnt.get(kk)||0)+1);}}
+  for(let ci=0;ci<CLIST.length;ci++)for(let cj=ci+1;cj<CLIST.length;cj++){
+    const n1=pairCnt.get(ci+'>'+cj)||0,n2=pairCnt.get(cj+'>'+ci)||0;
+    if(!n1&&!n2)continue;
+    const a=CLIST[ci],b=CLIST[cj],k=key(a.name,b.name);
+    if(SEA_PAIR.has(k))continue;
+    const cnt=Math.max(n1,n2);
+    if(cnt>=4||(cnt>=1&&LAND_PAIR.has(k))){a.nb.add(b.name);b.nb.add(a.name);}
+  }
+  // komşu ülkeler aynı tonu paylaşmasın (kimlik rengi korunur, sadece ton değişir)
+  const TONE=[.36,.47,.57,.66];
+  for(const c of CLIST){
+    const used=new Set();
+    for(const n of c.nb){const o=COUNTRIES[n];
+      if(o.tone!==undefined&&colorDist(o.col,c.col)<75)used.add(o.tone);}
+    let t=0;while(t<3&&used.has(t))t++;
+    c.tone=t;
+    c.fill=mix(c.col,'#16232b',TONE[t]);
+    c.fillHot=mix(c.col,'#0f1a20',Math.max(.16,TONE[t]-.28));
+    c.line=mix(c.col,'#ffffff',.46);
+    c.lineNorm=mix(c.col,'#0e1c24',.55);
+    c.lineHot=mix(c.col,'#ffffff',.55);
+    c.fillHover=mix(c.col,'#101a20',.34);
+    c._tex=null;c._texKey='';
+  }
+  // merkezleri kara üstüne taşı (etiket ve hesaplar için)
+  for(const c of CLIST){
+    let ax=0,ay=0;for(const ci of c.cities){ax+=ci.x;ay+=ci.y;}
+    ax/=c.cities.length;ay/=c.cities.length;
+    if(!inCountry(c,ax,ay)){let b=c.cities[0],bd=1e9;
+      for(const ci of c.cities){const d=dist(ci.x,ci.y,ax,ay);if(d<bd){bd=d;b=ci;}}
+      ax=b.x;ay=b.y;}
+    c.cx=ax;c.cy=ay;
+  }
+})();
+
+function nearestPointIn(c,tx,ty){
+  let bx=c.cx,by=c.cy,bd=1e9;
+  for(const p of c.polysM)for(const q of p){const d=dist(q[0],q[1],tx,ty);
+    if(d<bd){bd=d;bx=q[0];by=q[1];}}
+  // biraz içeri çek
+  const ix=bx+(c.cx-bx)*.12,iy=by+(c.cy-by)*.12;
+  return inCountry(c,ix,iy)?[ix,iy]:[bx,by];}
+function coastPointOf(c,tx,ty){
+  let bx=null,by=null,bd=1e9;
+  for(const p of c.polysM)for(const q of p){
+    if(isLand(q[0]+6,q[1])&&isLand(q[0]-6,q[1])&&isLand(q[0],q[1]+6)&&isLand(q[0],q[1]-6))continue;
+    const d=dist(q[0],q[1],tx,ty);if(d<bd){bd=d;bx=q[0];by=q[1];}}
+  if(bx===null)return null;
+  for(let r=2;r<=14;r+=2)for(let a=0;a<8;a++){
+    const x=bx+Math.cos(a*.785)*r,y=by+Math.sin(a*.785)*r;
+    if(!isLand(x,y))return [x,y];}
+  return [bx,by];}
+
+function landLinked(a,b,maxHop){
+  if(a===b)return true;
+  let front=[a.name],seen={[a.name]:1};
+  for(let h=0;h<maxHop;h++){
+    const nx=[];
+    for(const n of front){for(const m of COUNTRIES[n].nb){
+      if(m===b.name)return true;
+      if(!seen[m]){seen[m]=1;nx.push(m);}}}
+    front=nx;if(!front.length)break;}
+  return false;}
+function canMarch(me,foe,sx,sy,tx,ty){
+  if(me.nb.has(foe.name))return true;
+  return landLinked(me,foe,3)&&landFraction(sx,sy,tx,ty)>=.8;}
+
+/* ---------- deniz yolu (A*) ---------- */
+const pathCache={};
+function seaPath(x1,y1,x2,y2){
+  const key=((x1/6|0)+'_'+(y1/6|0)+'_'+(x2/6|0)+'_'+(y2/6|0));
+  if(pathCache[key])return pathCache[key];
+  const GW=MW,GH=MH;
+  const idx=(x,y)=>y*GW+x;
+  const toG=(x,y)=>[clamp((x/W0*GW)|0,0,GW-1),clamp((y/H0*GH)|0,0,GH-1)];
+  const free=(x,y)=>!LAND[idx(x,y)];
+  let [sx,sy]=toG(x1,y1),[ex,ey]=toG(x2,y2);
+  const nearFree=(x,y)=>{if(free(x,y))return [x,y];
+    for(let r=1;r<12;r++)for(let dx=-r;dx<=r;dx++)for(let dy=-r;dy<=r;dy++){
+      if(Math.max(Math.abs(dx),Math.abs(dy))!==r)continue;
+      const nx=clamp(x+dx,0,GW-1),ny=clamp(y+dy,0,GH-1);if(free(nx,ny))return [nx,ny];}
+    return null;};
+  const s=nearFree(sx,sy),e=nearFree(ex,ey);
+  if(!s||!e)return null;
+  [sx,sy]=s;[ex,ey]=e;
+  const N=GW*GH,g=new Float32Array(N).fill(Infinity),came=new Int32Array(N).fill(-1),
+        closed=new Uint8Array(N);
+  const heap=[],push=(n,f)=>{heap.push([f,n]);let i=heap.length-1;
+    while(i>0){const p=(i-1)>>1;if(heap[p][0]<=heap[i][0])break;[heap[p],heap[i]]=[heap[i],heap[p]];i=p;}};
+  const pop=()=>{const t=heap[0],l=heap.pop();
+    if(heap.length){heap[0]=l;let i=0;for(;;){const a=2*i+1,b=a+1;let m=i;
+      if(a<heap.length&&heap[a][0]<heap[m][0])m=a;if(b<heap.length&&heap[b][0]<heap[m][0])m=b;
+      if(m===i)break;[heap[m],heap[i]]=[heap[i],heap[m]];i=m;}}return t;};
+  const h=(x,y)=>Math.hypot(x-ex,y-ey);
+  const S=idx(sx,sy),E=idx(ex,ey);g[S]=0;push(S,h(sx,sy));
+  let steps=0,found=false;
+  while(heap.length&&steps<400000){steps++;
+    const cur=pop()[1];if(closed[cur])continue;closed[cur]=1;
+    if(cur===E){found=true;break;}
+    const cx=cur%GW,cy=(cur/GW)|0;
+    for(let dx=-1;dx<=1;dx++)for(let dy=-1;dy<=1;dy++){
+      if(!dx&&!dy)continue;
+      let nx=cx+dx,ny=cy+dy;
+      if(ny<0||ny>=GH)continue;
+      if(nx<0)nx=GW-1;if(nx>=GW)nx=0;
+      const ni=idx(nx,ny);if(closed[ni]||!free(nx,ny))continue;
+      const ng=g[cur]+(dx&&dy?1.42:1);
+      if(ng<g[ni]){g[ni]=ng;came[ni]=cur;push(ni,ng+h(nx,ny)*1.05);}}}
+  if(!found){pathCache[key]=null;return null;}
+  const pts=[];let c=E,guard=0;
+  while(c!==-1&&guard++<20000){pts.push([(c%GW+.5)/GW*W0,(((c/GW)|0)+.5)/GH*H0]);c=came[c];}
+  pts.reverse();
+  const out=[[x1,y1]];
+  for(let i=3;i<pts.length;i+=3)out.push(pts[i]);
+  out.push([x2,y2]);
+  pathCache[key]=out;return out;}
+
+/* ================= HARİTA ÇİZİMİ ================= */
+let mapDirty=true;
+const WORLD=(function(){const a=[];
+  for(let lat=-90;lat<=90;lat+=2)a.push(proj(-180,lat));
+  for(let lat=90;lat>=-90;lat-=2)a.push(proj(180,lat));
+  return a;})();
+const QUAL={
+  dpr:1.5, shadow:false, terr:7, label:.28, auto:true, low:false,
+  simp(z){return this.low?(z<.5?4:z<1?2:1):(z<.28?3:z<.5?2:1);},
+  set(low){
+    this.low=low;
+    this.dpr=low?1:1.5;this.shadow=false;this.terr=low?11:7;this.label=low?.45:.28;
+    resize();mapDirty=true;}
+};
+function resize(){
+  DPR=Math.min(QUAL.dpr,window.devicePixelRatio||1);
+  cw=window.innerWidth;ch=window.innerHeight;
+  /* çok büyük ekranlarda toplam piksel sayısını sınırla */
+  const MAXPX=3.2e6;
+  while(cw*ch*DPR*DPR>MAXPX&&DPR>0.75)DPR-=0.05;
+  for(const cv of [map,fx]){cv.width=cw*DPR;cv.height=ch*DPR;}
+  mc.setTransform(DPR,0,0,DPR,0,0);fc.setTransform(DPR,0,0,DPR,0,0);
+  mapDirty=true;}
+window.addEventListener('resize',resize);
+
+function worldPath(g){g.beginPath();
+  WORLD.forEach((q,i)=>{const s=w2s(q[0],q[1]);g[i?'lineTo':'moveTo'](s[0],s[1]);});
+  g.closePath();}
+
+function drawMap(){
+  mapDirty=false;
+  const g=mc,z=cam.z;
+  g.fillStyle='#060e13';g.fillRect(0,0,cw,ch);
+  // okyanus
+  worldPath(g);
+  const og=g.createLinearGradient(0,0,0,ch);
+  og.addColorStop(0,'#0e2c3a');og.addColorStop(.55,'#0b2532');og.addColorStop(1,'#071a24');
+  g.save();g.clip();
+  g.fillStyle=og;g.fillRect(0,0,cw,ch);
+  // paralel / meridyen
+  g.strokeStyle='rgba(120,180,200,.10)';g.lineWidth=1;g.beginPath();
+  for(let lon=-180;lon<=180;lon+=20){
+    for(let lat=-90;lat<=90;lat+=6){const s=w2s(...proj(lon,lat));
+      g[lat===-90?'moveTo':'lineTo'](s[0],s[1]);}}
+  for(let lat=-80;lat<=80;lat+=20){
+    const a=w2s(...proj(-180,lat)),b=w2s(...proj(180,lat));
+    g.moveTo(a[0],a[1]);g.lineTo(b[0],b[1]);}
+  g.stroke();
+  g.restore();
+
+  const inView=c=>{const a=w2s(c.bbox[0],c.bbox[1]),b=w2s(c.bbox[2],c.bbox[3]);
+    return !(b[0]<-40||a[0]>cw+40||b[1]<-40||a[1]>ch+40);};
+  const vis=CLIST.filter(c=>{
+    if(!inView(c))return false;
+    const a=w2s(c.bbox[0],c.bbox[1]),b=w2s(c.bbox[2],c.bbox[3]);
+    return Math.abs(b[0]-a[0])>2||Math.abs(b[1]-a[1])>2;});
+  const simp=QUAL.simp(z);
+  const trace=(c)=>{g.beginPath();
+    for(const p of c.polys){
+      const sk=p.length>26?simp:1;
+      for(let i=0;i<p.length;i+=sk){const s=w2s(p[i][0],p[i][1]);g[i?'lineTo':'moveTo'](s[0],s[1]);}
+      g.closePath();}};
+  // kara gölgesi: bulanıklık yerine tek kaydırılmış dolgu (çok daha ucuz)
+  if(QUAL.shadow){
+    g.save();g.translate(0,Math.max(1,1.5*Math.min(1,z*2)));
+    g.fillStyle='rgba(2,8,12,.55)';
+    for(const c of vis){trace(c);g.fill();}
+    g.restore();}
+  // ülkeler — yol bir kez oluşturulur, hem doldurulur hem çizilir
+  g.lineJoin='round';
+  for(const c of vis){
+    const st=warState(c);
+    trace(c);
+    if(teamOf(c)&&G.cityList&&G.cityList.length){
+      g.fillStyle=st.fill;g.fill();
+      paintTerritory(g,c);}
+    else{g.fillStyle=st.fill;g.fill();}
+    g.strokeStyle=st.line;g.lineWidth=st.lw;g.stroke();
+  }
+  // savaşan ülkelerin halkası
+  if(G.phase==='war'||G.phase==='over'){
+    const ring=[];
+    for(const s2 of['A','D'])for(const c of G.team[s2])ring.push([c,SIDEC[s2]]);
+    for(const [c,col] of ring){
+      if(!c)continue;const s=w2s(c.cx,c.cy);
+      const r=Math.max(14,Math.min(c.bbox[2]-c.bbox[0],c.bbox[3]-c.bbox[1])*z*.5);
+      g.strokeStyle=col;g.globalAlpha=.35;g.lineWidth=1.2;g.setLineDash([5,6]);
+      g.beginPath();g.arc(s[0],s[1],r,0,7);g.stroke();
+      g.setLineDash([]);g.globalAlpha=1;}
+  }
+  // isimler
+  g.textAlign='center';g.textBaseline='middle';
+  const minA=QUAL.low?260:120;
+  for(const c of vis){
+    const sel=(teamOf(c)||c===G.a||c===G.d||(G.mpPickSet&&G.mpPickSet.has(c.name)));
+    /* savaşan ve seçili ülkeler her zaman yazılır, diğerleri yer kalınca */
+    if(!sel){
+      if(z<QUAL.label)continue;
+      if(c.area*z*z<minA)continue;}
+    const s=w2s(c.cx,c.cy);
+    if(s[0]<-60||s[0]>cw+60||s[1]<-20||s[1]>ch+20)continue;
+    g.font=(sel?'700 ':'600 ')+clamp(10+z*3.2,10,18)+'px "Barlow Condensed","Arial Narrow",sans-serif';
+    g.strokeStyle='rgba(0,0,0,.85)';g.lineWidth=3.5;g.lineJoin='round';
+    g.strokeText(c.tr.toUpperCase(),s[0],s[1]);
+    g.fillStyle=sel?'#ffffff':'rgba(232,244,248,.85)';
+    g.fillText(c.tr.toUpperCase(),s[0],s[1]);}
+}
+function terrCol(o){return mix(SIDEC[o],'#0f1a20',.44);}
+/* işgal edilen bölgeler: her şehir kendi çevresini yönetir (en yakın şehir kuralı) */
+/* sahiplik dokusu: dünya koordinatlarında küçük bir tuvale bir kez çizilir */
+const TEXN=72;
+function terrTex(c){
+  const key=c.cities.map(x=>x.owner).join('')+'|'+SIDEC.A+SIDEC.D;
+  if(c._tex&&c._texKey===key)return c._tex;
+  const cv=c._tex||document.createElement('canvas');
+  cv.width=TEXN;cv.height=TEXN;
+  const t=cv.getContext('2d');
+  const x0=c.bbox[0],y0=c.bbox[1],w=Math.max(1,c.bbox[2]-x0),h=Math.max(1,c.bbox[3]-y0);
+  const cs=c.cities;
+  for(let j=0;j<TEXN;j++)for(let i=0;i<TEXN;i++){
+    const wx=x0+(i+.5)/TEXN*w,wy=y0+(j+.5)/TEXN*h;
+    let bo=cs[0],bd=1e18;
+    for(const ci of cs){const dx=ci.x-wx,dy=ci.y-wy,d=dx*dx+dy*dy;if(d<bd){bd=d;bo=ci;}}
+    t.fillStyle=terrCol(bo.owner);t.fillRect(i,j,1,1);}
+  c._tex=cv;c._texKey=key;return cv;}
+function paintTerritory(g,c){
+  const cs=c.cities;
+  let mixed=false;
+  for(const ci of cs)if(ci.owner!==cs[0].owner){mixed=true;break;}
+  if(!mixed){g.fillStyle=terrCol(cs[0].owner);g.fill();return;}
+  g.save();g.clip();
+  const a=w2s(c.bbox[0],c.bbox[1]),b=w2s(c.bbox[2],c.bbox[3]);
+  g.imageSmoothingEnabled=false;
+  g.drawImage(terrTex(c),a[0],a[1],b[0]-a[0],b[1]-a[1]);
+  g.imageSmoothingEnabled=true;
+  g.restore();}
+function teamOf(c){return c.teamSide||null;}
+function refreshTeamMarks(){
+  for(const c of CLIST)c.teamSide=null;
+  if(!G.team)return;
+  for(const c of G.team.A)if(c)c.teamSide='A';
+  for(const c of G.team.D)if(c)c.teamSide='D';}
+const _ws={fill:'',line:'',lw:1};
+function warState(c){
+  if(typeof RT!=='undefined'&&RT.on&&!RT.savas){
+    if(c.rtOwner){
+      const r=rtRenk(c.rtOwner),ben=rtBenim(c.rtOwner);
+      _ws.fill=mix(r,'#16232b',ben?.28:.5);
+      _ws.line=ben?'#e8b23a':mix(r,'#ffffff',.4);
+      _ws.lw=ben?2.4:1.2;return _ws;}
+    _ws.fill='#2c3a30';_ws.line='#5c6f5e';_ws.lw=.9;return _ws;}
+  if(G.mpPickSet&&G.mpPickSet.has(c.name)){_ws.fill=c.fillHot;_ws.line='#e8b23a';_ws.lw=2.4;return _ws;}
+  if(c.infected){_ws.fill='#1f3a1c';_ws.line='#5bd14a';_ws.lw=1.8;return _ws;}
+  const t=teamOf(c);
+  if(t){_ws.fill=c.fillHot;_ws.line=SIDEC[t];_ws.lw=2.2;return _ws;}
+  if(c.ruler&&c.ruler!==c){const r=c.ruler;
+    if(!r.fillRule){r.fillRule=mix(r.col,'#16232b',.48);r.lineRule=mix(r.col,'#ffffff',.5);}
+    _ws.fill=r.fillRule;_ws.line=r.lineRule;_ws.lw=1.1;return _ws;}
+  if(G.hover===c){_ws.fill=c.fillHover;_ws.line=c.lineHot;_ws.lw=1.4;return _ws;}
+  _ws.fill=c.fill;_ws.line=c.lineNorm;_ws.lw=.9;return _ws;
+}
+
+/* ================= OYUN DURUMU ================= */
+const G={mode:'manual',phase:'pickA',a:null,d:null,side:'A',hover:null,
+  units:[],fxs:[],sol:{A:[],D:[]},stock:{A:{},D:{}},cd:{A:{},D:{}},cityList:[],total:{A:1,D:1},team:{A:[],D:[]},allyA:[],allyD:[],rulerA:null,rulerD:null,gap:0,logOn:true,ecoOn:true,eco:null,
+  speed:1,paused:false,tool:null,troopN:30,t:0,ai:{A:0,D:0},started:0,cap:{A:{},D:{}},res:10,res2:30,
+  tick:0,cmdq:[],seed:0,aiSides:null,diff:2,
+  secimOn:false,sec:null,adet:1,haritaya:true,
+  zomOn:false,waveMax:50,zom:[],towers:[],towerT:0,wave:0,waveLeft:0,spawnT:0,infect:null,zomOver:false};
+
+const WEP={
+  msl :{ic:'🚀',lb:'FÜZE',cd:2.2},
+  jet :{ic:'✈️',lb:'UÇAK',cd:2.6},
+  ship:{ic:'🚢',lb:'S. GEMİSİ',cd:3.6},
+  sol :{ic:'🪖',lb:'ASKER',cd:1.1},
+  lship:{ic:'⛴️',lb:'ÇIKARMA',cd:4.5},
+  tank:{ic:'🛡️',lb:'TANK',cd:2.8},
+  heli:{ic:'🚁',lb:'HELİKOPTER',cd:3.2},
+  nuke:{ic:'☢️',lb:'NÜKLEER',cd:25},
+  cpl :{ic:'🛩️',lb:'NAKLİYE',cd:4.5}
+};
+const SIDEC={A:'#c1332d',D:'#2f6fb0',Z:'#5bd14a'};
+const other=s=>s==='A'?'D':'A';
+const ctry=s=>s==='A'?G.a:G.d;
+const citiesOf=s=>G.cityList.filter(c=>c.owner===s);
+function teamName(s){
+  const t=G.team[s]||[];
+  if(!t.length)return '—';
+  if(t.length<=3)return t.map(c=>c.tr).join(' + ');
+  if(t.length>=CLIST.length-6)return 'TÜM DÜNYA ('+t.length+' ülke)';
+  return t[0].tr+' + '+(t.length-1)+' ülke';}
+function bestLand(side,tx,ty){
+  let b=G.team[side][0],bd=1e18;
+  for(const c of G.team[side]){const p=nearestPointIn(c,tx,ty),d=dist(p[0],p[1],tx,ty);
+    if(d<bd){bd=d;b=c;}}
+  return b;}
+function coastMember(side,tx,ty){
+  let b=null,bp=null,bd=1e18;
+  for(const c of G.team[side]){if(!c.coastal)continue;
+    const p=coastPointOf(c,tx,ty);if(!p)continue;
+    const d=dist(p[0],p[1],tx,ty);if(d<bd){bd=d;b=c;bp=p;}}
+  return b?{c:b,p:bp}:null;}
+
+const DIFF=[
+ {n:'ÇOK KOLAY', stock:.38, cd:3.1, aim:12,  aa:.35, res:.35},
+ {n:'KOLAY',     stock:.62, cd:2.0, aim:7,   aa:.65, res:.6},
+ {n:'NORMAL',    stock:1,   cd:1,   aim:4,   aa:1,   res:1},
+ {n:'ZOR',       stock:1.3, cd:.72, aim:2.5, aa:1.2, res:1.3},
+ {n:'ÇOK ZOR',   stock:1.65,cd:.55, aim:1.4, aa:1.45,res:1.65},
+ {n:'İMKANSIZ',  stock:2.2, cd:.36, aim:.5,  aa:1.85,res:2.3}
+];
+function dif(){return DIFF[clamp(G.diff|0,0,DIFF.length-1)];}
+function aiCtrl(s){
+  if(!G.team||!G.team[s]||!G.team[s].length)return false;
+  return G.aiSides?!!G.aiSides[s]
+    :(G.mode==='auto'||G.mode==='world'||G.side==='W'||G.side!==s);}
+function stocksFor(c){
+  const p=c.power;
+  return{msl:Math.round(8+p/3.2),jet:Math.round(5+p/5),
+    ship:c.coastal?Math.round(2+p/9):0,sol:Math.round(120+p*4.5),
+    lship:c.coastal?Math.round(2+p/22):0,cpl:Math.round(2+p/20),
+    heli:Math.round(2+p/14),tank:Math.round(2+p/11),nuke:0};
+}
+
+/* ================= LOG ================= */
+function log(txt,cls){
+  const el=document.createElement('div');el.className='lg '+(cls||'');el.textContent=txt;
+  const L=$('#log');L.appendChild(el);
+  while(L.children.length>7)L.removeChild(L.firstChild);
+  setTimeout(()=>{el.style.transition='opacity .5s';el.style.opacity='0';
+    setTimeout(()=>el.remove(),600);},6500);
+}
+function hint(t){$('#hint').textContent=t||'';}
+
+/* ================= EKONOMİ ================= */
+const INV=[
+ {id:'konut', ic:'🏠', n:'Konut Projesi', d:'Yeni evler, ucuz kira. Halk sever.',        c:100e6, m:6, bina:'ev'},
+ {id:'yol',   ic:'🛣️', n:'Yol Tamiri',    d:'Bozuk yollar onarılır.',                    c:80e6,  m:5},
+ {id:'hast',  ic:'🏥', n:'Hastane',       d:'Sağlık hizmeti genişler.',                  c:150e6, m:8},
+ {id:'okul',  ic:'🏫', n:'Okul',          d:'Eğitime yatırım, uzun vadeli güven.',       c:120e6, m:7},
+ {id:'gok',   ic:'🏙️', n:'Gökdelen',      d:'Prestij projesi. Vergi geliri de artar.',   c:250e6, m:9, inc:2.2e6},
+ {id:'fab',   ic:'🏭', n:'Fabrika',      d:'Sürekli gelir üretir, halkı biraz yorar.',   c:180e6, m:-2, bina:'fabrika'},
+ {id:'vaz',   ic:'📉', n:'Vergiyi Azalt', d:'Gelir düşer ama halk rahatlar.',            c:0,     m:10, tax:-.15},
+ {id:'vart',  ic:'📈', n:'Vergiyi Artır', d:'Hazine dolar, halk küser.',                 c:0,     m:-12, tax:.2},
+ {id:'fuze',  ic:'🚀', n:'Füze Üretimi',  d:'+5 füze. Savaş harcaması halkı yorar.',     c:120e6, m:-5, st:{msl:5}},
+ {id:'ucak',  ic:'✈️', n:'Savaş Uçağı',   d:'+3 savaş uçağı.',                           c:200e6, m:-5, st:{jet:3}},
+ {id:'gemi',  ic:'🚢', n:'Savaş Gemisi',  d:'+2 savaş gemisi.',                          c:300e6, m:-7, st:{ship:2}},
+ {id:'asker', ic:'🪖', n:'Asker Topla',   d:'+60 asker. Seferberlik halkı geriyor.',     c:90e6,  m:-7, st:{sol:60}},
+ {id:'cik',   ic:'⛴️', n:'Çıkarma Gemisi',d:'+1 çıkarma gemisi.',                        c:180e6, m:-5, st:{lship:1}},
+ {id:'nak',   ic:'🛩️', n:'Nakliye Uçağı', d:'+1 nakliye uçağı.',                         c:160e6, m:-4, st:{cpl:1}},
+ {id:'heli',  ic:'🚁', n:'Helikopter',    d:'+2 helikopter. Her biri 10 bomba bırakır.', c:220e6, m:-5, st:{heli:2}},
+ {id:'nuke',  ic:'☢️', n:'Nükleer Başlık',d:'+1 nükleer başlık. Halk dehşete kapılır; ancak can %50 altındayken ateşlenir.', c:1.5e9, m:-20, st:{nuke:1}}
+];
+function fmtM(v){
+  if(v>=1e9)return (v/1e9).toFixed(2).replace('.',',')+' Mlr';
+  if(v>=1e6)return Math.round(v/1e6)+' Mn';
+  return Math.round(v/1e3)+' B';}
+function ecoActive(){return !!(G.eco&&G.eco.on);}
+function newEco(on){return{on:on,money:1e9,morale:70,tax:1,inc:0,riot:0};}
+function ecoInit(){
+  const on=G.ecoOn&&(G.mode==='manual');
+  G.ecoS={A:newEco(on),D:newEco(on)};
+  G.eco=(G.side==='A'||G.side==='D')?G.ecoS[G.side]:null;
+  $('#eco').classList.toggle('show',!!(G.eco&&G.eco.on));
+  buildInvList();updateEco();}
+function ecoStep(dt){
+  if(!G.ecoS)return;
+  for(const s of['A','D']){
+    const e=G.ecoS[s];if(!e||!e.on)continue;
+    e.money+=(19e6*e.tax+e.inc)*dt;
+    e.morale=clamp(e.morale+(-(e.tax-1)*4-0.25)*dt,0,100);
+    if(e.morale<=4){e.riot+=dt;
+      if(e.riot>=10){
+        log(`${teamName(s)} halkı isyan etti — hükümet düştü.`,'w');
+        endWar(other(s),'riot',s);return;}}
+    else e.riot=0;}}
+function invest(it,side,who,adet){
+  side=side||G.side;
+  adet=Math.max(1,adet||1);
+  const e=G.ecoS&&G.ecoS[side];if(!e||!e.on)return;
+  const tut=it.c*adet;
+  if(e.money<tut){hint('Bütçe yetmiyor.');return;}
+  e.money-=tut;
+  if(it.tax){e.tax=clamp(e.tax+it.tax,.4,2.2);}
+  if(it.inc)e.inc+=it.inc*adet;
+  if(it.m)e.morale=clamp(e.morale+it.m*Math.min(adet,3),0,100);
+  if(it.st)for(const k in it.st){G.stock[side][k]+=it.st[k]*adet;G.cap[side][k]+=it.st[k]*adet;}
+  if(it.bina&&side===G.side){
+    if(G.haritaya)placeStart(it.bina,adet);
+    else for(let i=0;i<adet;i++){
+      const c=(citiesOf(side)[0])||{x:0,y:0};
+      addBina(it.bina,c.x+rnd(-8,8),c.y+rnd(-8,8),side);}}
+  if(typeof secYapildi==='function')secYapildi(it.id,adet);
+  log((who?who+' · ':'')+`${it.n}: ${it.c?fmtM(it.c*adet)+' harcandı':'vergi ayarlandı'}`+
+      ` · halk ${it.m>0?'+':''}${it.m}`, it.m>0?'d':'a');
+  updateEco();updateHUD();}
+function invAdet(n){
+  G.adet=n;
+  $$('#inv-adet .btn').forEach(b=>b.classList.toggle('on',+b.dataset.n===n));
+  buildInvList();}
+function invHarita(){
+  G.haritaya=!G.haritaya;
+  const b=$('#inv-harita');
+  if(b){b.textContent=G.haritaya?'HARİTAYA YERLEŞTİR: AÇIK':'HARİTAYA YERLEŞTİR: KAPALI';
+    b.classList.toggle('on',G.haritaya);}}
+function buildInvList(){
+  const L=$('#inv-list');if(!L)return;L.innerHTML='';
+  for(const it of INV){
+    const d=document.createElement('div');d.className='iv';d.dataset.id=it.id;
+    const ad=G.adet||1;
+    d.innerHTML=`<div class="ic">${it.ic}</div><div class="tx">
+      <div class="tt">${it.n}${(ad>1&&it.c)?(' ×'+ad):''}${it.bina?' <span class="mm up">harita</span>':''}</div>
+      <div class="dd">${it.d}</div></div>
+      <div class="pr">${it.c?fmtM(it.c*ad):'ücretsiz'}
+      <span class="mm ${it.m>0?'up':'dn'}">halk ${it.m>0?'+':''}${it.m}</span></div>`;
+    d.addEventListener('click',()=>issueInvest(it));
+    L.appendChild(d);}}
+function updateEco(){
+  const e=G.eco;if(!e||!e.on)return;
+  $('#money').textContent=fmtM(e.money);
+  const hb=$('#inv-harita');
+  if(hb){hb.textContent=G.haritaya?'HARİTAYA YERLEŞTİR: AÇIK':'HARİTAYA YERLEŞTİR: KAPALI';
+    hb.classList.toggle('on',!!G.haritaya);}
+  const m=e.morale;
+  const bar=$('#mbar-i');bar.style.width=m+'%';
+  bar.style.background=m>60?'#5fbf7a':m>30?'#e8b23a':'#c1332d';
+  const top=$('#inv-top');
+  if(top)top.textContent=`Bütçe: ${fmtM(e.money)} · Halk memnuniyeti: %${Math.round(m)} · Vergi: %${Math.round(e.tax*100)}`;
+  for(const it of INV){
+    const el=document.querySelector(`.iv[data-id="${it.id}"]`);
+    if(el)el.classList.toggle('no',e.money<it.c);}}
+
+/* ================= DÜNYA FETHİ ================= */
+const rulerOf=c=>c.ruler||c;
+function nations(){
+  const m=new Map();
+  for(const c of CLIST){const r=rulerOf(c);if(!m.has(r))m.set(r,[]);m.get(r).push(c);}
+  return m;}
+function resetWorld(){
+  for(const c of CLIST){c.ruler=c;c.cities.forEach(ci=>{ci.hp=ci.max;ci.owner=null;ci.home=null;ci.lock=0;});}
+  G.units.length=0;G.fxs.length=0;G.sol.A.length=0;G.sol.D.length=0;G.cityList=[];
+  mapDirty=true;}
+function nearestFirst(list,x,y,n){
+  return list.slice().sort((a,b)=>dist(a.cx,a.cy,x,y)-dist(b.cx,b.cy,x,y)).slice(0,n);}
+function startWorldWar(){
+  const M=nations();
+  if(M.size<=1){worldEnd([...M.keys()][0]);return;}
+  const rulers=[...M.keys()].sort(()=>R()-.5);
+  let ra=null,rd=null;
+  for(const r of rulers){
+    const foes=new Set();
+    for(const c of M.get(r))for(const n of c.nb){const o=rulerOf(COUNTRIES[n]);if(o!==r)foes.add(o);}
+    if(foes.size){ra=r;const f=[...foes];rd=f[(R()*f.length)|0];break;}}
+  if(!ra){ra=rulers[0];rd=rulers[1];}
+  const A=M.get(ra),D=M.get(rd);
+  let ax=0,ay=0;for(const c of A){ax+=c.cx;ay+=c.cy;}ax/=A.length;ay/=A.length;
+  let dx=0,dy=0;for(const c of D){dx+=c.cx;dy+=c.cy;}dx/=D.length;dy/=D.length;
+  G.team.A=nearestFirst(A,dx,dy,4);G.team.D=nearestFirst(D,ax,ay,4);
+  G.allyA=[];G.allyD=[];
+  for(const r of rulers){
+    if(r===ra||r===rd)continue;
+    if(R()>=.20)continue;
+    const side=R()<.5?'A':'D';
+    if(G.team[side].length>=6)continue;
+    const ref=side==='A'?[dx,dy]:[ax,ay];
+    const add=nearestFirst(M.get(r),ref[0],ref[1],2);
+    G.team[side]=G.team[side].concat(add);
+    (side==='A'?G.allyA:G.allyD).push(r);
+  }
+  G.rulerA=ra;G.rulerD=rd;
+  G.a=G.team.A[0];G.d=G.team.D[0];
+  G.mode='world';G.side='W';
+  startWar();
+  if(G.allyA.length||G.allyD.length)
+    log(`Müttefikler savaşa girdi: ${G.allyA.concat(G.allyD).map(r=>r.tr).join(', ')}`,'w');
+  const nt=nations().size;
+  $('#phase').textContent=`${teamName('A')} ⚔ ${teamName('D')} · ${nt} devlet`;
+}
+function absorb(win,lose){
+  let n=0;
+  for(const c of CLIST)if(rulerOf(c)===lose){c.ruler=win;n++;}
+  return n;}
+function dunyaPanel(){
+  const p=$('#dunya-pnl'),ac=$('#dn-ac');
+  const acik=(G.mode==='world'&&(G.phase==='war'||G.phase==='between'));
+  if(!p)return;
+  if(!acik){p.classList.add('hide');if(ac)ac.style.display='none';return;}
+  if(ac)ac.style.display=p.classList.contains('hide')?'':'none';
+  if(p.classList.contains('hide'))return;
+  const M=nations();
+  const n=M.size,tot=CLIST.length;
+  $('#dn-kalan').textContent=n;
+  $('#dn-ilerleme').textContent=tot+' → '+n+' · '+((G.warCount||0)+1)+'. savaş';
+  $('#dn-bar').style.width=Math.round((tot-n)/(tot-1)*100)+'%';
+  const c=$('#dn-cephe');
+  if(c)c.innerHTML='<span class="vs">AÇIK CEPHE</span> · '+
+    (G.a?('<b>'+teamName('A')+'</b> ⚔ <b>'+teamName('D')+'</b>'):'yeni cephe hazırlanıyor…');
+  const L=$('#dn-liste');if(!L)return;
+  const top=[...M.entries()].sort((a,b)=>b[1].length-a[1].length).slice(0,5);
+  const enb=top.length?top[0][1].length:1;
+  L.innerHTML='';
+  top.forEach(([r,list],i)=>{
+    const d=document.createElement('div');d.className='devlet';
+    d.innerHTML='<div class="sira">'+(i+1)+'</div><div class="ad">'+r.tr+'</div>'+
+      '<div class="mini"><i style="width:'+Math.round(list.length/enb*100)+'%"></i></div>'+
+      '<div class="say">'+list.length+'</div>';
+    L.appendChild(d);});}
+function worldEnd(r){
+  G.phase='over';
+  if(typeof unlockAch==='function')unlockAch('world');
+  const t=$('#res-title');t.textContent='DÜNYA FETHEDİLDİ';t.className='win';
+  $('#res-body').innerHTML=`<b>${r.tr}</b> tüm dünyayı ele geçirdi.<br><br>`+
+    `Toplam savaş: <b>${G.warCount||0}</b><br>Yönetilen ülke: <b>${CLIST.length}</b>`;
+  $('#ov-res').classList.remove('hide');
+  log(`${r.tr} dünyayı fethetti.`,'w');
+  mapDirty=true;}
+
+/* ================= SAVAŞI BAŞLAT ================= */
+function startWar(){
+  G.units.length=0;G.fxs.length=0;G.sol.A.length=0;G.sol.D.length=0;
+  G.cityList=[];
+  for(const s of['A','D']){
+    const st={msl:0,jet:0,ship:0,sol:0,lship:0,cpl:0,heli:0,tank:0,nuke:0};
+    const mul=aiCtrl(s)?dif().stock:1;
+    for(const c of G.team[s]){
+      const x=stocksFor(c);for(const k in st)st[k]+=Math.round(x[k]*mul);
+      c.cities.forEach(ci=>{ci.hp=ci.max;ci.owner=s;ci.home=s;ci.lock=0;ci.land=c;G.cityList.push(ci);});
+    }
+    G.total[s]=G.cityList.filter(x=>x.owner===s).length;
+    G.stock[s]=st;G.cap[s]=Object.assign({},st);G.cd[s]={};G.ai[s]=0;
+  }
+  let ca=mix((G.a||G.d||CLIST[0]).col,'#ffffff',.16),cd=mix((G.d||G.a||CLIST[0]).col,'#ffffff',.16);
+  if(colorDist(ca,cd)<70)cd=hueShift(cd,155);
+  SIDEC.A=ca;SIDEC.D=cd;
+  document.documentElement.style.setProperty('--atk',ca);
+  document.documentElement.style.setProperty('--def',cd);
+  if(!G.aiSides)G.aiSides={A:(G.mode!=='manual'||G.side!=='A'),D:(G.mode!=='manual'||G.side!=='D')};
+  refreshTeamMarks();
+  G.upg={};G.bina=[];G.place=null;
+  if(typeof secReset==='function')secReset();G.adet=G.adet||1;if(G.haritaya===undefined)G.haritaya=true;
+  if(typeof statReset==='function'){statReset();addGame();}
+  if(G.mode==='world'){const p=$('#dunya-pnl');if(p)p.classList.remove('hide');}
+  G.phase='war';G.t=0;G.tick=0;G.cmdq.length=0;
+  /* ortak tohum ÖNCE kurulur: salgın kaynağı her oyuncuda aynı çıksın */
+  srand(G.seed||((Date.now()^0x5f3759df)>>>0));
+  if(G.zomOn)zomStart();
+  else{G.zom=[];G.wave=0;if(G.infect)G.infect.clear();for(const c of CLIST)c.infected=false;}
+  G.lastCap=0;G.res=10;G.res2=30;G.started=performance.now();
+  $('#hud').classList.add('show');
+  ecoInit();
+  if(typeof secStart==='function')setTimeout(secStart,60);
+  buildTools();updateHUD();
+  focusTheater();
+  log(`${teamName('A')} — ${teamName('D')} savaşı başladı.`,'w');
+  $('#phase').textContent=`${teamName('A')} ⚔ ${teamName('D')}`;
+  mapDirty=true;
+}
+function focusTheater(){
+  const all=G.team.A.concat(G.team.D);
+  const b=[Math.min(...all.map(c=>c.bbox[0])),Math.min(...all.map(c=>c.bbox[1])),
+           Math.max(...all.map(c=>c.bbox[2])),Math.max(...all.map(c=>c.bbox[3]))];
+  const w=Math.max(30,b[2]-b[0]),h=Math.max(30,b[3]-b[1]);
+  cam.tx=(b[0]+b[2])/2;cam.ty=(b[1]+b[3])/2;
+  cam.tz=clamp(Math.min(cw/(w*1.35),ch/(h*1.7)),.18,4.5);
+}
+
+/* ================= ATEŞ ================= */
+function canFire(side,type){
+  return G.stock[side][type]>0 && (G.cd[side][type]||0)<=G.t;
+}
+function spawnPoint(side,tx,ty){
+  const cs=citiesOf(side);
+  if(!cs.length)return nearestPointIn(ctry(side),tx,ty);
+  let b=cs[0],bd=1e9;for(const ci of cs){const d=dist(ci.x,ci.y,tx,ty);if(d<bd){bd=d;b=ci;}}
+  return[b.x,b.y];
+}
+/* ---- komut katmanı: tek oyuncuda anında, ağda tick damgalı ---- */
+function issueFire(side,type,tx,ty,n){
+  if(!(typeof NET!=='undefined'&&NET.on))return fire(side,type,tx,ty,n);
+  if(!canFire(side,type))return false;
+  NET.request({k:'fire',side,w:type,x:+tx.toFixed(2),y:+ty.toFixed(2),n:n||G.troopN});
+  return true;}
+function issueInvest(it){
+  if(typeof secKontrol==='function'&&!secKontrol()){
+    hint('Yatırımı seçimi kazanan yönetiyor.');return;}
+  if(!(typeof NET!=='undefined'&&NET.on))return invest(it,G.side,null,G.adet||1);
+  const e=G.eco;
+  if(!e||!e.on){log('Ekonomi kapalı.','w');return;}
+  if(e.money<it.c*(G.adet||1)){hint('Takım bütçesi yetmiyor.');return;}
+  /* takım bütçesi ortak: herkeste aynı anda uygulanır */
+  NET.request({k:'inv',id:it.id,side:G.side,who:NET.name,n:G.adet||1});}
+function cityAtScreen(sx,sy){
+  let best=null,bd=30;
+  for(let i=0;i<G.cityList.length;i++){
+    const ci=G.cityList[i],p=w2s(ci.x,ci.y);
+    const d=Math.hypot(p[0]-sx,p[1]-sy);
+    if(d<bd){bd=d;best=i;}}
+  return best;}
+function issueUpg(k){
+  if(!(typeof NET!=='undefined'&&NET.on))return buyUpg(k);
+  NET.request({k:'upg',w:k,side:G.side,who:NET.name});}
+function issueZCity(i){
+  if(!(typeof NET!=='undefined'&&NET.on))return runCmd({k:'zcity',i});
+  NET.request({k:'zcity',i});}
+function doLongPress(sx,sy){
+  if(!G.zomOn||G.phase!=='war')return false;
+  const i=cityAtScreen(sx,sy);
+  if(i===null)return false;
+  const ci=G.cityList[i];
+  if(ci.owner==='Z'){hint('Bu şehir zaten salgın altında.');return true;}
+  issueZCity(i);
+  return true;}
+function runCmd(c){
+  if(c.k==='zcity'){
+    const ci=G.cityList[c.i];
+    if(!ci||ci.owner==='Z')return;
+    ci.owner='Z';ci.hp=0;if(G.stat)G.stat.waveLoss=true;
+    if(ci.land&&typeof infect==='function')infect(ci.land);
+    G.fxs.push({t:'boom',x:ci.x,y:ci.y,r:6,mr:18,a:1});
+    log((ci.land?ci.land.tr:'Bir ülke')+': bir şehir salgına düştü.','w');
+    updateHUD();mapDirty=true;return;}
+  if(c.k==='fire'){const keep=G.troopN;G.troopN=c.n||G.troopN;
+    fire(c.side,c.w,c.x,c.y,c.n);G.troopN=keep;}
+  else if(c.k==='aday'){secAdayEkle(c.id,c.name,c.v);}
+  else if(c.k==='oy'){secOyEkle(c.hedef,c.kim);}
+  else if(c.k==='bina'){addBina(c.b,c.x,c.y,c.side||G.side);}
+  else if(c.k==='upg'){buyUpg(c.w,c.side,c.who);}
+  else if(c.k==='inv'){
+    const it=INV.find(i=>i.id===c.id);if(!it)return;
+    const sd=c.side||G.side;
+    invest(it,sd,c.who,c.n||1);}}
+function runCmds(){
+  for(let i=G.cmdq.length-1;i>=0;i--)if(G.cmdq[i].tick<=G.tick){
+    const c=G.cmdq[i];G.cmdq.splice(i,1);
+    try{runCmd(c.c);}catch(e){}}}
+
+function fire(side,type,tx,ty,n){
+  if(!canFire(side,type))return false;
+  const lead=ctry(side);
+  if(type==='sol'){
+    n=clamp(n||G.troopN,5,Math.min(150,G.stock[side].sol));
+    const me=bestLand(side,tx,ty),foe=G.team[other(side)][0];
+    const [sx,sy]=nearestPointIn(me,tx,ty);
+    let ok=false;
+    if(G.zomOn)ok=landFraction(sx,sy,tx,ty)>=.75;
+    else for(const f of G.team[other(side)])if(canMarch(me,f,sx,sy,tx,ty)){ok=true;break;}
+    if(!ok){
+      if(side===G.side)hint('Kara bağlantısı yok — asker için ÇIKARMA GEMİSİ ya da NAKLİYE UÇAĞI kullan.');
+      return false;}
+    G.stock[side].sol-=n;
+    for(let i=0;i<n;i++)addSoldier(side,sx+rnd(-4,4),sy+rnd(-4,4),tx,ty,me);
+    if(G.stat&&side===G.side)G.stat.land=true;
+    log(`${me.tr}: ${n} asker kara harekâtına başladı.`,side==='A'?'a':'d');
+  }
+  else if(type==='msl'){
+    const [sx,sy]=spawnPoint(side,tx,ty);
+    G.stock[side].msl--;
+    G.units.push({t:'msl',side,x:sx,y:sy,x0:sx,y0:sy,tx,ty,p:0,
+      len:dist(sx,sy,tx,ty),sp:58,trail:[],seen:new Set()});
+    if(G.stat&&side===G.side)G.stat.msl++;
+    log(`${lead.tr}: balistik füze fırlatıldı.`,side==='A'?'a':'d');
+  }
+  else if(type==='jet'){
+    const [sx,sy]=spawnPoint(side,tx,ty);
+    G.stock[side].jet--;
+    G.units.push({t:'jet',side,x:sx,y:sy,hx:sx,hy:sy,tx,ty,sp:34,bombs:3,st:'go',bcd:0,seen:new Set()});
+    log(`${lead.tr}: savaş uçağı havalandı.`,side==='A'?'a':'d');
+  }
+  else if(type==='ship'||type==='lship'){
+    const cm=coastMember(side,tx,ty);
+    if(!cm){if(side===G.side)hint('Bu tarafın denize kıyısı yok, gemi gönderilemez.');return false;}
+    let to=null,bd=1e18;
+    if(!G.zomOn)for(const f of (G.team[other(side)]||[])){
+      const p=coastPointOf(f,cm.p[0],cm.p[1]);
+      if(p){const d=dist(p[0],p[1],tx,ty);if(d<bd){bd=d;to=p;}}}
+    if(!to)to=[tx,ty];
+    const path=seaPath(cm.p[0],cm.p[1],to[0],to[1]);
+    if(!path){if(side===G.side)hint('Bu hedefe deniz yolu bulunamadı.');return false;}
+    G.stock[side][type]--;
+    let cargo=0;
+    if(type==='lship'){cargo=clamp(G.troopN,5,Math.min(120,G.stock[side].sol));
+      G.stock[side].sol-=cargo;}
+    G.units.push({t:type,side,x:cm.p[0],y:cm.p[1],path,i:1,sp:type==='ship'?11:13,
+      hp:type==='ship'?120:80,cd:0,cargo,dx:to[0],dy:to[1],land:cm.c,fl:drawFlag(cm.c.spec)});
+    log(type==='ship'?`${cm.c.tr}: savaş gemisi denize açıldı.`
+      :`${cm.c.tr}: çıkarma gemisi ${cargo} askerle yola çıktı.`,side==='A'?'a':'d');
+  }
+  else if(type==='tank'){
+    const me=bestLand(side,tx,ty);
+    const [sx,sy]=nearestPointIn(me,tx,ty);
+    if(!G.zomOn){
+      let ok=false;
+      for(const f of G.team[other(side)])if(canMarch(me,f,sx,sy,tx,ty)){ok=true;break;}
+      if(!ok&&landFraction(sx,sy,tx,ty)<.75){
+        if(side===G.side)hint('Tank için kara yolu gerekli.');return false;}}
+    else if(landFraction(sx,sy,tx,ty)<.75){
+      if(side===G.side)hint('Tank için kara yolu gerekli.');return false;}
+    G.stock[side].tank--;
+    G.units.push({t:'tank',side,x:sx+rnd(-3,3),y:sy+rnd(-3,3),tx,ty,sp:9,hp:70,
+      fc:rnd(0,1),rt:rnd(0,.5),tgt:null,city:null,ang:0,fl:drawFlag(me.spec)});
+    log(`${me.tr}: tank birliği yola çıktı.`,side==='A'?'a':'d');
+  }
+  else if(type==='heli'){
+    const [sx,sy]=spawnPoint(side,tx,ty);
+    G.stock[side].heli--;
+    G.units.push({t:'heli',side,x:sx,y:sy,hx:sx,hy:sy,tx,ty,sp:22,bombs:10,st:'go',bcd:0,
+      rot:0,seen:new Set()});
+    if(G.stat&&side===G.side&&++G.stat.heli>=10)unlockAch('air');
+    log(`${lead.tr}: helikopter havalandı — 10 bomba taşıyor.`,side==='A'?'a':'d');
+  }
+  else if(type==='nuke'){
+    if(hpOf(side)>.5){
+      if(side===G.side)hint('Nükleer başlık ancak canın %50 veya altına düştüğünde ateşlenebilir.');
+      return false;}
+    const [sx,sy]=spawnPoint(side,tx,ty);
+    G.stock[side].nuke--;
+    G.units.push({t:'nuke',side,x:sx,y:sy,x0:sx,y0:sy,tx,ty,p:0,
+      len:dist(sx,sy,tx,ty),sp:42,trail:[],seen:new Set()});
+    if(G.stat&&side===G.side&&++G.stat.nuke>=3)unlockAch('winter');
+    log(`${lead.tr}: NÜKLEER BAŞLIK FIRLATILDI.`,'w');
+  }
+  else if(type==='cpl'){
+    const [sx,sy]=spawnPoint(side,tx,ty);
+    const cargo=clamp(G.troopN,5,Math.min(120,G.stock[side].sol));
+    if(cargo<5)return false;
+    G.stock[side].cpl--;G.stock[side].sol-=cargo;
+    G.units.push({t:'cpl',side,x:sx,y:sy,tx,ty,sp:30,cargo,seen:new Set()});
+    log(`${lead.tr}: nakliye uçağı ${cargo} askerle havalandı.`,side==='A'?'a':'d');
+  }
+  if(G.stat&&side===G.side)G.stat.silah=(G.stat.silah||0)+1;
+  G.cd[side][type]=G.t+WEP[type].cd*(aiCtrl(side)?dif().cd:1);
+  updateHUD();return true;
+}
+function addSoldier(side,x,y,tx,ty,land){
+  if(G.sol[side].length>=320)return {hp:0};
+  const L=land||ctry(side);
+  if(G.stat&&side===G.side)G.stat.spawn++;
+  const s={t:'sol',side,x,y,tx,ty,hp:10,fc:rnd(0,1),tgt:null,rt:rnd(0,.5),fl:drawFlag(L.spec),
+    li:Math.max(0,G.team[side].indexOf(L)),
+    sp:rnd(5,7),bob:rnd(0,6)};
+  G.sol[side].push(s);return s;
+}
+function boom(x,y,r,pow,side){
+  G.fxs.push({t:'boom',x,y,r,a:1,mr:r});
+  for(const s of['A','D']){
+    if(s===side)continue;
+    const arr=G.sol[s];
+    for(let i=arr.length-1;i>=0;i--){const u=arr[i];
+      if(dist(u.x,u.y,x,y)<r){u.hp-=pow*1.4;if(u.hp<=0){arr.splice(i,1);
+        G.fxs.push({t:'dead',x:u.x,y:u.y,a:1});}}}
+  }
+  for(const ci of G.cityList){
+    if(ci.owner===side||(ci.lock||0)>G.t)continue;
+    if(dist(ci.x,ci.y,x,y)<r+4){ci.hp-=pow;if(ci.hp<=0)capture(ci,side);}}
+  // gemilere hasar
+  for(const u of G.units)if(u.side!==side&&(u.t==='ship'||u.t==='lship')&&dist(u.x,u.y,x,y)<r)u.hp-=pow;
+}
+
+function capture(ci,side){
+  ci.owner=side;ci.hp=ci.max*.45;ci.lock=G.t+7;G.lastCap=G.t;
+  if(G.stat){if(side===G.side)G.stat.cap++;else G.stat.waveLoss=true;}
+  G.fxs.push({t:'boom',x:ci.x,y:ci.y,r:6,mr:16,a:1});
+  mapDirty=true;
+  if(G.ecoS&&G.ecoS[other(side)]&&G.ecoS[other(side)].on)
+    G.ecoS[other(side)].morale=clamp(G.ecoS[other(side)].morale-4,0,100);
+  const who=ctry(side).tr;
+  log(`${who} bir şehri işgal etti — sınırlar değişti.`,'w');
+  updateHUD();
+}
+
+/* ================= HAVA SAVUNMA ================= */
+function aaCheck(u,dt){
+  const foe=ctry(other(u.side));
+  for(const ci of citiesOf(other(u.side))){
+    const d=dist(u.x,u.y,ci.x,ci.y);
+    if(d<26&&!u.seen.has(ci)){
+      u.seen.add(ci);
+      G.fxs.push({t:'tracer',x1:ci.x,y1:ci.y,x2:u.x,y2:u.y,a:1,c:'#9fe8ff'});
+      const dm=aiCtrl(other(u.side))?dif().aa:1;
+      if(R()<ci.aa*dm*(u.t==='jet'?1.15:.75)){
+        G.fxs.push({t:'boom',x:u.x,y:u.y,r:5,a:1,mr:5});
+        u.dead=true;
+        log(`${foe.tr} hava savunması ${u.t==='jet'?'bir uçağı':'bir füzeyi'} düşürdü.`,'w');
+        return true;}
+    }}
+  return false;
+}
+
+/* ================= SİMÜLASYON ================= */
+function step(dt){
+  G.t+=dt;
+  // birimler
+  for(let i=G.units.length-1;i>=0;i--){
+    const u=G.units[i];
+    if(u.t==='msl'){
+      u.p+=u.sp*dt;
+      const k=clamp(u.p/Math.max(1,u.len),0,1);
+      u.x=u.x0+(u.tx-u.x0)*k;u.y=u.y0+(u.ty-u.y0)*k;
+      u.trail.push([u.x,u.y]);if(u.trail.length>26)u.trail.shift();
+      if(aaCheck(u)){G.units.splice(i,1);continue;}
+      if(k>=1){const U=upg('msl');buildHit(u.x,u.y,15*U.r,u.side);
+        if(G.zomOn){zomBlast(u.x,u.y,16*U.r,'msl');towerHit(u.x,u.y,16*U.r,1);}boom(u.x,u.y,14*U.r,42*U.d,u.side);G.units.splice(i,1);continue;}
+    }
+    else if(u.t==='nuke'){
+      u.p+=u.sp*dt;
+      const k=clamp(u.p/Math.max(1,u.len),0,1);
+      u.x=u.x0+(u.tx-u.x0)*k;u.y=u.y0+(u.ty-u.y0)*k;
+      u.trail.push([u.x,u.y]);if(u.trail.length>40)u.trail.shift();
+      if(k>=1){
+        const N=upg('nuke');
+        if(G.zomOn){zomBlast(u.x,u.y,46*N.r,'nuke');towerHit(u.x,u.y,46*N.r,9);}
+        boom(u.x,u.y,44*N.r,260*N.d,u.side);
+        if(typeof unlockAch==='function')unlockAch('nuke');
+        for(let n=0;n<10;n++){const a=R()*6.283,r0=R()*40;
+          G.fxs.push({t:'boom',x:u.x+Math.cos(a)*r0,y:u.y+Math.sin(a)*r0,r:6,mr:26,a:1});}
+        G.units.splice(i,1);continue;}
+    }
+    else if(u.t==='tank'){
+      if(u.hp<=0){boom(u.x,u.y,7,10,other(u.side));G.units.splice(i,1);continue;}
+      u.rt-=dt;
+      if(u.rt<=0){u.rt=.5+R()*.4;u.tgt=null;
+        let bd=26,best=null;
+        if(G.zomOn)for(let j=0;j<G.zom.length;j+=2){
+          const z=G.zom[j],d=dist(u.x,u.y,z.x,z.y);if(d<bd){bd=d;best=z;}}
+        const foes=G.sol[other(u.side)];
+        for(let j=0;j<foes.length;j+=2){
+          const f=foes[j],d=dist(u.x,u.y,f.x,f.y);if(d<bd){bd=d;best=f;}}
+        if(best)u.tgt=best;
+        else{const cs=citiesOf(other(u.side));
+          if(cs.length){let b=cs[0],b2=1e18;
+            for(const c of cs){const d=dist(u.x,u.y,c.x,c.y);if(d<b2){b2=d;b=c;}}
+            u.city=b;u.tx=b.x;u.ty=b.y;}}}
+      const tg=(u.tgt&&u.tgt.hp>0)?u.tgt:null;
+      const gx=tg?tg.x:u.tx,gy=tg?tg.y:u.ty;
+      const d=dist(u.x,u.y,gx,gy);
+      u.ang=Math.atan2(gy-u.y,gx-u.x);
+      if(d>(tg?12:5)){
+        let nx=u.x+Math.cos(u.ang)*u.sp*dt,ny=u.y+Math.sin(u.ang)*u.sp*dt;
+        if(isLand(nx,ny)){u.x=nx;u.y=ny;}
+      }else{
+        u.fc-=dt;
+        if(u.fc<=0){u.fc=1.1;
+          const U=upg('tank');
+          G.fxs.push({t:'tracer',x1:u.x,y1:u.y,x2:gx,y2:gy,a:1,c:'#ffd27a'});
+          if(G.zomOn)zomBlast(gx,gy,7*U.r,'shell');
+          if(tg){tg.hp-=rnd(6,11)*U.d;
+            if(tg.hp<=0){
+              if(tg.z){const kz=G.zom.indexOf(tg);if(kz>=0)G.zom.splice(kz,1);}
+              else{const arr=G.sol[other(u.side)],k=arr.indexOf(tg);if(k>=0)arr.splice(k,1);}
+              G.fxs.push({t:'dead',x:tg.x,y:tg.y,a:1});}}
+          else if(u.city&&u.city.owner!==u.side&&(u.city.lock||0)<=G.t){
+            u.city.hp-=rnd(4,7)*U.d;
+            if(u.city.hp<=0)capture(u.city,u.side);}
+          buildHit(gx,gy,6,u.side);}}
+    }
+    else if(u.t==='heli'){
+      const gx=u.st==='back'?u.hx:u.tx, gy=u.st==='back'?u.hy:u.ty;
+      const d=dist(u.x,u.y,gx,gy);
+      u.ang=Math.atan2(gy-u.y,gx-u.x);u.rot+=dt*22;
+      if(d>3){u.x+=Math.cos(u.ang)*u.sp*dt;u.y+=Math.sin(u.ang)*u.sp*dt;}
+      if(u.st==='go'&&aaCheck(u)){G.units.splice(i,1);continue;}
+      if(u.st==='go'&&d<9){u.st='drop';}
+      if(u.st==='drop'){
+        u.x+=Math.cos(G.t*2.2+u.rot*.02)*6*dt;
+        u.y+=Math.sin(G.t*1.7)*6*dt;
+        u.bcd-=dt;
+        if(u.bcd<=0&&u.bombs>0){u.bombs--;u.bcd=.7;
+          G.units.push({t:'bomb',side:u.side,src:'heli',x:u.x,y:u.y,tx:u.x+rnd(-4,4),ty:u.y+rnd(-4,4),p:0});}
+        if(!u.bombs)u.st='back';
+        if(aaCheck(u)){G.units.splice(i,1);continue;}}
+      if(u.st==='back'&&d<5){G.units.splice(i,1);continue;}
+    }
+    else if(u.t==='jet'){
+      const tx=u.st==='go'?u.tx:u.hx,ty=u.st==='go'?u.ty:u.hy;
+      const d=dist(u.x,u.y,tx,ty);
+      u.ang=Math.atan2(ty-u.y,tx-u.x);
+      u.x+=Math.cos(u.ang)*u.sp*dt;u.y+=Math.sin(u.ang)*u.sp*dt;
+      if(u.st==='go'&&aaCheck(u)){G.units.splice(i,1);continue;}
+      if(u.st==='go'&&d<10){
+        u.bcd-=dt;
+        if(u.bcd<=0&&u.bombs>0){u.bombs--;u.bcd=.35;
+          G.units.push({t:'bomb',side:u.side,src:'jet',x:u.x,y:u.y,tx:u.tx+rnd(-6,6),ty:u.ty+rnd(-6,6),p:0});}
+        if(!u.bombs)u.st='back';}
+      if(u.st==='back'&&d<6){G.units.splice(i,1);continue;}
+    }
+    else if(u.t==='shell'){
+      u.dl-=dt;if(u.dl<=0){boom(u.x,u.y,7,11,u.side);G.units.splice(i,1);continue;}
+    }
+    else if(u.t==='bomb'){
+      u.p+=dt*2.2;u.x+=(u.tx-u.x)*.12;u.y+=(u.ty-u.y)*.12;
+      if(u.p>=1){const U=upg(u.src||'jet');
+        if(G.zomOn){zomBlast(u.tx,u.ty,9*U.r,'bomb');towerHit(u.tx,u.ty,9*U.r,.34);}boom(u.tx,u.ty,8*U.r,17*U.d,u.side);G.units.splice(i,1);continue;}
+    }
+    else if(u.t==='ship'||u.t==='lship'){
+      if(u.hp<=0){boom(u.x,u.y,7,6,other(u.side));G.units.splice(i,1);
+        log('Bir gemi battı.','w');continue;}
+      const wp=u.path[u.i];
+      if(wp){
+        const a=Math.atan2(wp[1]-u.y,wp[0]-u.x);u.ang=a;
+        u.x+=Math.cos(a)*u.sp*dt;u.y+=Math.sin(a)*u.sp*dt;
+        if(dist(u.x,u.y,wp[0],wp[1])<3)u.i++;
+      }
+      const dd=dist(u.x,u.y,u.dx,u.dy);
+      if(u.t==='ship'){
+        if(dd<45){u.cd-=dt;
+          if(u.cd<=0){u.cd=1.5;
+            const cs=G.zomOn?[]:citiesOf(other(u.side));
+            let tg=cs.length?cs.reduce((p,c)=>dist(c.x,c.y,u.x,u.y)<dist(p.x,p.y,u.x,u.y)?c:p):null;
+            const ex=tg?tg.x+rnd(-5,5):u.dx,ey=tg?tg.y+rnd(-5,5):u.dy;
+            G.fxs.push({t:'tracer',x1:u.x,y1:u.y,x2:ex,y2:ey,a:1,c:'#ffd27a'});
+            G.units.push({t:'shell',side:u.side,x:ex,y:ey,dl:.26});}}
+        if(!wp&&dd<12)u.i=u.path.length;
+      }else{
+        if(!wp||dd<8){
+          const foes=G.team[other(u.side)]||[];
+          let tgc=foes[0]||null,bd=1e18;
+          for(const f of foes){const d=dist(f.cx,f.cy,u.x,u.y);if(d<bd){bd=d;tgc=f;}}
+          const[lx,ly]=tgc?nearestPointIn(tgc,u.x,u.y)
+            :[(u.dx!=null?u.dx:u.x),(u.dy!=null?u.dy:u.y)];
+          for(let s2=0;s2<u.cargo;s2++)addSoldier(u.side,u.x+rnd(-3,3),u.y+rnd(-3,3),lx,ly,u.land);
+          if(G.stat&&u.side===G.side)G.stat.sea=true;
+          log(`Çıkarma yapıldı: ${u.cargo} asker karaya çıktı.`,u.side==='A'?'a':'d');
+          G.units.splice(i,1);continue;}
+      }
+    }
+    else if(u.t==='cpl'){
+      const a=Math.atan2(u.ty-u.y,u.tx-u.x);u.ang=a;
+      u.x+=Math.cos(a)*u.sp*dt;u.y+=Math.sin(a)*u.sp*dt;
+      if(aaCheck(u)){G.stock[u.side].sol+=0;G.units.splice(i,1);continue;}
+      if(dist(u.x,u.y,u.tx,u.ty)<5){
+        for(let s2=0;s2<u.cargo;s2++){
+          const s3=addSoldier(u.side,u.tx+rnd(-9,9),u.ty+rnd(-9,9),u.tx,u.ty);s3.para=1;}
+        log(`Hava indirmesi: ${u.cargo} paraşütçü indi.`,u.side==='A'?'a':'d');
+        G.units.splice(i,1);continue;}
+    }
+    if(u.dead)G.units.splice(i,1);
+  }
+  // askerler
+  for(const side of['A','D']){
+    const mine=G.sol[side],foes=G.sol[other(side)],foeC=ctry(other(side));
+    for(let i=mine.length-1;i>=0;i--){
+      const u=mine[i];
+      if(u.para){u.para-=dt*1.6;if(u.para<0)u.para=0;continue;}
+      u.rt-=dt;
+      if(u.rt<=0){u.rt=.45+R()*.35;
+        let best=null,bd=34;
+        const stp=foes.length>90?3:1,off=(u.bob|0)%stp;
+        for(let j=off;j<foes.length;j+=stp){const f=foes[j],d=dist(u.x,u.y,f.x,f.y);
+          if(d<bd){bd=d;best=f;}}
+        if(G.zomOn)best=zomTargetFor(u,best,best?bd:34);
+        if(best)u.tgt=best;
+        else{u.tgt=null;
+          const cs=citiesOf(other(side));
+          if(cs.length){let b=cs[0],b2=1e9;for(const c of cs){const d=dist(u.x,u.y,c.x,c.y);if(d<b2){b2=d;b=c;}}
+            u.tx=b.x;u.ty=b.y;u.city=b;}}
+      }
+      const tg=u.tgt&&u.tgt.hp>0?u.tgt:null;
+      const gx=tg?tg.x:u.tx,gy=tg?tg.y:u.ty;
+      const d=dist(u.x,u.y,gx,gy);
+      const rng=tg?7:4;
+      if(d>rng){const a=Math.atan2(gy-u.y,gx-u.x);
+        let nx=u.x+Math.cos(a)*u.sp*dt,ny=u.y+Math.sin(a)*u.sp*dt;
+        if(!isLand(nx,ny)){nx=u.x+Math.cos(a)*u.sp*dt*.3;ny=u.y+Math.sin(a)*u.sp*dt*.3;}
+        u.x=nx;u.y=ny;u.bob+=dt*9;}
+      else{
+        u.fc-=dt;
+        if(u.fc<=0){u.fc=.5+R()*.5;
+          if(tg){G.fxs.push({t:'tracer',x1:u.x,y1:u.y,x2:tg.x,y2:tg.y,a:.9,c:SIDEC[side]});
+            if(R()<.55){tg.hp-=rnd(2,5)*upg('sol').d;
+              if(tg.hp<=0){
+                if(tg.z){const kz=G.zom.indexOf(tg);if(kz>=0)G.zom.splice(kz,1);
+                  u.kills=(u.kills||0)+1;
+                  if(u.kills>=10){mine.splice(i,1);
+                    G.fxs.push({t:'dead',x:u.x,y:u.y,a:1});}}
+                else{const k=foes.indexOf(tg);if(k>=0)foes.splice(k,1);}
+                G.fxs.push({t:'dead',x:tg.x,y:tg.y,a:1});}}}
+          else if(u.city&&u.city.owner!==side&&(u.city.lock||0)<=G.t){u.city.hp-=rnd(2.2,3.8)*upg('sol').d;if(u.city.hp<=0)capture(u.city,side);
+            G.fxs.push({t:'tracer',x1:u.x,y1:u.y,x2:u.city.x,y2:u.city.y,a:.7,c:SIDEC[side]});
+            }}
+      }
+    }
+  }
+  if(typeof zomStep==='function')zomStep(dt);
+  ecoStep(dt);binaEtki(dt);
+  if(typeof secStep==='function')secStep(dt);
+  if(typeof statCheck==='function')statCheck();
+  if(G.phase!=='war')return;
+  // takviye
+  G.res-=dt;G.res2-=dt;
+  if(G.res<=0){G.res=10;
+    for(const s of['A','D']){const st=G.stock[s],cp=G.cap[s];
+      const r=aiCtrl(s)?dif().res:1;
+      st.msl=Math.min(cp.msl,st.msl+Math.max(1,Math.round(1*r)));
+      st.jet=Math.min(cp.jet,st.jet+Math.max(1,Math.round(1*r)));
+      st.sol=Math.min(cp.sol,st.sol+Math.round(14*r));}}
+  if(G.res2<=0){G.res2=30;
+    for(const s of['A','D']){const st=G.stock[s],cp=G.cap[s];
+      st.ship=Math.min(cp.ship,st.ship+1);st.lship=Math.min(cp.lship,st.lship+1);
+      st.cpl=Math.min(cp.cpl,st.cpl+1);
+      st.heli=Math.min(cp.heli,st.heli+1);}}
+  // efektler
+  for(let i=G.fxs.length-1;i>=0;i--){const f=G.fxs[i];
+    if(f.t==='boom'){f.r+=dt*32;f.a-=dt*1.4;}
+    else f.a-=dt*(f.t==='tracer'?5:1.6);
+    if(f.a<=0)G.fxs.splice(i,1);}
+  // yapay zekâ
+  for(const s of['A','D']){
+    if(aiCtrl(s)){
+      G.ai[s]-=dt;if(G.ai[s]<=0){G.ai[s]=rnd(.9,2.4)*dif().cd;aiTurn(s);}}
+  }
+  checkEnd();
+}
+
+/* ================= YAPAY ZEKÂ ================= */
+function aiTurn(side){
+  const me=ctry(side),foe=ctry(other(side)),st=G.stock[side];
+  const cs=citiesOf(other(side));
+  /* salgın modunda düşman ülke yoksa hedef zombilerdir */
+  if(G.zomOn&&G.zom.length&&(!cs.length||R()<.75)){
+    const z=G.zom[(R()*G.zom.length)|0];
+    const opts=[];
+    if(canFire(side,'msl'))opts.push('msl');
+    if(canFire(side,'jet'))opts.push('jet');
+    if(canFire(side,'heli'))opts.push('heli');
+    if(canFire(side,'sol')&&st.sol>20)opts.push('sol');
+    if(canFire(side,'cpl')&&st.sol>20)opts.push('cpl');
+    if(!opts.length)return;
+    const pick=opts[(R()*opts.length)|0];
+    const am=dif().aim;
+    const n=clamp(20+Math.round(R()*40),10,Math.min(90,st.sol));
+    const keep=G.troopN;G.troopN=n;
+    fire(side,pick,z.x+rnd(-am,am),z.y+rnd(-am,am),n);
+    G.troopN=keep;return;}
+  if(!cs.length)return;
+  const tg=cs[(R()*cs.length)|0];
+  const enemySol=G.sol[other(side)];
+  const opts=[];
+  if(canFire(side,'msl'))opts.push(['msl',5]);
+  if(canFire(side,'jet'))opts.push(['jet',4]);
+  if(canFire(side,'heli'))opts.push(['heli',3]);
+  if(canFire(side,'ship'))opts.push(['ship',2.5]);
+  if(canFire(side,'sol')&&st.sol>20)opts.push(['sol',4]);
+  if(canFire(side,'lship')&&st.sol>20)opts.push(['lship',2]);
+  if(canFire(side,'cpl')&&st.sol>20)opts.push(['cpl',2]);
+  if(!opts.length)return;
+  let tot=opts.reduce((a,b)=>a+b[1],0),r=R()*tot,pick=opts[0][0];
+  for(const o of opts){r-=o[1];if(r<=0){pick=o[0];break;}}
+  const am=aiCtrl(side)?dif().aim:4;
+  let tx=tg.x+rnd(-am,am),ty=tg.y+rnd(-am,am);
+  if(enemySol.length>30&&R()<.4&&(pick==='msl'||pick==='jet')){
+    const e=enemySol[(R()*enemySol.length)|0];tx=e.x;ty=e.y;}
+  if(pick==='sol'){
+    const mm=bestLand(side,tx,ty),[sx,sy]=nearestPointIn(mm,tx,ty);
+    let ok=false;
+    if(G.zomOn)ok=landFraction(sx,sy,tx,ty)>=.75;
+    else for(const f of G.team[other(side)])if(canMarch(mm,f,sx,sy,tx,ty)){ok=true;break;}
+    if(!ok)pick=(G.team[side].some(c=>c.coastal)&&canFire(side,'lship'))?'lship':'cpl';
+  }
+  const n=clamp(20+Math.round(R()*40),10,Math.min(90,st.sol));
+  const keep=G.troopN;G.troopN=n;fire(side,pick,tx,ty,n);G.troopN=keep;
+}
+
+/* ================= BİTİŞ ================= */
+function checkEnd(){
+  if(G.phase!=='war')return;
+  if(G.zomOn)return;   // salgın modunda savaşı ülkeler değil zombiler bitirir
+  const alive=s=>citiesOf(s).length;
+  const aA=alive('A'),aD=alive('D');
+  if(aA&&aD&&(G.t-(G.lastCap||0)>45||G.t>150)){
+    const sc=s=>{let v=0;for(const ci of citiesOf(s))v+=10*Math.max(0,ci.hp)/ci.max;
+      return v+G.sol[s].length*.25+(G.stock[s].msl+G.stock[s].jet)*.4;};
+    const a=sc('A'),d=sc('D');
+    log('Cephe kilitlendi — üstünlük sağlayan taraf kazandı.','w');
+    endWar(a>=d?'A':'D');return;}
+  if(aD===0||aA===0){
+    let winner=aD===0?'A':'D';
+    if(aA===0&&aD===0)winner=G.sol.A.length>=G.sol.D.length?'A':'D';
+    endWar(winner);
+  }
+}
+function ozetKarti(w,dur){
+  const s=G.stat||{};
+  const mine=(G.side==='A'||G.side==='D')?G.side:w;
+  const kayip=Math.max(0,(s.spawn||0)-((G.sol[mine]||[]).length));
+  const e=G.ecoS&&G.ecoS[mine];
+  const mor=e&&e.on?Math.round(e.morale):null;
+  let html='<div class="ozet">'+
+    '<div><div class="sy">'+(s.cap||0)+'</div><div class="lb">İŞGAL EDİLEN ŞEHİR</div></div>'+
+    '<div><div class="sy">'+(s.msl||0)+'</div><div class="lb">ATILAN FÜZE</div></div>'+
+    '<div><div class="sy">'+kayip+'</div><div class="lb">KAYIP ASKER</div></div></div>';
+  if(mor!==null)
+    html+='<div style="font-size:11px;color:var(--dim);margin-bottom:5px">HALK MEMNUNİYETİ · %'+mor+'</div>'+
+      '<div class="cubuk" style="margin-bottom:12px"><i style="width:'+mor+'%;background:'+
+      (mor>60?'var(--ok)':mor>30?'var(--amber)':'var(--atk)')+'"></i></div>';
+  if(G.stat&&G.stat.ach)
+    html+='<div class="ozet-ach">🏆 <b>'+G.stat.ach+'</b> · bu savaşta kazandın</div>';
+  return html+'<div style="height:10px"></div>';}
+function endWar(w,reason,rside){
+  if(typeof RT!=='undefined'&&RT.savas&&typeof rtSonuc==='function')rtSonuc(w);
+  G.phase='over';
+  if(G.mode==='world'){
+    const win=w==='A'?G.rulerA:G.rulerD, lose=w==='A'?G.rulerD:G.rulerA;
+    const losers=[lose].concat(w==='A'?G.allyD:G.allyA);
+    let got=0;for(const l of losers)if(l!==win)got+=absorb(win,l);
+    for(const c of CLIST)c.cities.forEach(ci=>{ci.hp=ci.max;ci.owner=null;ci.home=null;ci.lock=0;});
+    G.units.length=0;G.fxs.length=0;G.sol.A.length=0;G.sol.D.length=0;G.cityList=[];
+    G.team.A=[];G.team.D=[];G.a=G.d=null;
+    G.warCount=(G.warCount||0)+1;
+    log(`${win.tr} kazandı — ${got} ülke ilhak edildi.`,'w');
+    mapDirty=true;updateHUD();
+    const M=nations();
+    if(M.size<=1){worldEnd([...M.keys()][0]);return;}
+    $('#phase').textContent=`${win.tr} galip · ${M.size} devlet kaldı`;
+    G.phase='between';G.gap=2.6;
+    return;
+  }
+  const wc={tr:teamName(w)},lc={tr:teamName(other(w))};
+  if(G.mode==='manual'&&G.side===w&&typeof addWin==='function'){
+    addWin();winAch(w);
+    if(typeof savasAltini==='function'){
+      const r=savasAltini();
+      addGold(r.alt,r.k+' silah kullandın');
+      G.stat.altin=r.alt;}}
+  const mine=G.side==='W'?null:G.side;
+  const t=$('#res-title');
+  if(mine===null){t.textContent='SAVAŞ BİTTİ';t.className='';}
+  else if(mine===w){t.textContent='ZAFER';t.className='win';}
+  else{t.textContent='YENİLGİ';t.className='lose';}
+  const dur=Math.round(G.t);
+  if(reason==='zombie'){
+    t.textContent='İNSANLIK DÜŞTÜ';t.className='lose';
+    $('#res-body').innerHTML='Bütün şehirler salgına teslim oldu.<br><br>'+
+      'Ulaşılan dalga: <b>WAVE '+G.wave+'</b><br>Süre: <b>'+Math.floor(dur/60)+' dk '+(dur%60)+' sn</b>';
+    $('#ov-res').classList.remove('hide');$('#eco').classList.remove('show');return;}
+  if(reason==='survived'){
+    t.textContent='SALGIN DURDURULDU';t.className='win';
+    $('#res-body').innerHTML='<b>'+G.waveMax+' dalga</b> atlatıldı, insanlık ayakta kaldı.<br><br>'+
+      'Kalan şehir: <b>'+(citiesOf('A').length+citiesOf('D').length)+'</b><br>'+
+      'Süre: <b>'+Math.floor(dur/60)+' dk '+(dur%60)+' sn</b>';
+    $('#ov-res').classList.remove('hide');$('#eco').classList.remove('show');return;}
+  if(reason==='riot'){
+    if(typeof unlockAch==='function')unlockAch('riot');
+    const mine=(rside===G.side);
+    t.textContent='İSYAN';t.className=mine?'lose':'win';
+    const re=G.ecoS[rside]||{money:0,tax:1};
+    $('#res-body').innerHTML=`Halk memnuniyeti dibe vurdu ve halk sokağa döküldü. `+
+      `<b>${teamName(rside)}</b> hükümeti devrildi.<br><br>`+
+      `Kalan bütçe: <b>${fmtM(re.money)}</b> · Vergi: <b>%${Math.round(re.tax*100)}</b><br>`+
+      `Süre: <b>${Math.floor(dur/60)} dk ${dur%60} sn</b>`;
+    $('#ov-res').classList.remove('hide');
+    $('#eco').classList.remove('show');
+    return;}
+  $('#res-body').innerHTML=ozetKarti(w,dur)+
+    `<b>${wc.tr}</b> savaşı kazandı. <b>${lc.tr}</b> teslim oldu.<br><br>`+
+    `Süre: <b>${Math.floor(dur/60)} dk ${dur%60} sn</b><br>`+
+    `İşgal edilen şehir: <b>${G.cityList.filter(x=>x.owner!==x.home).length}</b><br>`+
+    `Ayakta kalan asker: <b>${G.sol[w].length}</b><br>`+
+    `Kalan füze: <b>${G.stock[w].msl}</b> · uçak: <b>${G.stock[w].jet}</b>`;
+  if(typeof NET!=='undefined'&&NET.on){
+    const rb=$('#r-again').querySelector('strong');if(rb)rb.textContent='ODAYA DÖN';
+    const re=$('#r-again').querySelector('em');if(re)re.textContent='Herkes lobiye döner, yeni maç kurulur.';}
+  $('#ov-res').classList.remove('hide');
+  $('#eco').classList.remove('show');
+  log(`${wc.tr} zafer kazandı.`,'w');
+}
+
+/* ================= ÇİZİM (BİRİMLER) ================= */
+function drawUnits(){
+  const g=fc;g.clearRect(0,0,cw,ch);
+  if(G.phase==='pickA'||G.phase==='pickD')return;
+  const z=cam.z;
+  // şehirler (sahibinin rengiyle)
+  for(const ci of G.cityList){
+    const s=ci.owner,p=w2s(ci.x,ci.y);
+    if(p[0]<-40||p[0]>cw+40||p[1]<-40||p[1]>ch+40)continue;
+    const sz=clamp(5+z*2.2,5,12),col=SIDEC[s],occ=ci.owner!==ci.home;
+    const hs=[.55,.95,.7,1,.6];
+    for(let b=0;b<5;b++){
+      const bw=sz*.24,bx=p[0]-sz*.55+b*sz*.26,bh=sz*hs[b];
+      g.fillStyle='#1b2b34';g.fillRect(bx,p[1]-bh,bw,bh);
+      g.fillStyle=col;g.fillRect(bx,p[1]-bh,bw,Math.max(1,bh*.16));}
+    g.fillStyle=col;g.fillRect(p[0]-sz*.6,p[1],sz*1.2,1.4);
+    if(ci.hp<ci.max){
+      const r=Math.max(0,ci.hp)/ci.max;
+      g.fillStyle='#0a1319';g.fillRect(p[0]-sz*.7,p[1]-sz*1.35,sz*1.4,2.6);
+      g.fillStyle=r>.5?'#5fbf7a':r>.22?'#e8b23a':'#c1332d';
+      g.fillRect(p[0]-sz*.7,p[1]-sz*1.35,sz*1.4*r,2.6);}
+    if(occ){const f=drawFlag(ctry(s).spec);
+      g.strokeStyle='#0d151a';g.lineWidth=1;g.beginPath();
+      g.moveTo(p[0]+sz*.6,p[1]);g.lineTo(p[0]+sz*.6,p[1]-sz*1.5);g.stroke();
+      g.drawImage(f,p[0]+sz*.6,p[1]-sz*1.5,10,6.6);}
+  }
+  // askerler
+  const det=!QUAL.low&&z>.6;
+  for(const s of['A','D']){
+    const arr=G.sol[s];
+    const fw=clamp(7+z*1.6,7,13),fh=fw*.66;
+    for(const u of arr){
+      const fl=u.fl||drawFlag(ctry(s).spec);
+      const p=w2s(u.x,u.y);
+      if(p[0]<-20||p[0]>cw+20||p[1]<-20||p[1]>ch+20)continue;
+      if(u.para){g.strokeStyle='#dfe8ea';g.lineWidth=1;g.beginPath();
+        g.arc(p[0],p[1]-8,5,Math.PI,0);g.moveTo(p[0]-5,p[1]-8);g.lineTo(p[0],p[1]-2);
+        g.moveTo(p[0]+5,p[1]-8);g.lineTo(p[0],p[1]-2);g.stroke();}
+      const bo=Math.sin(u.bob)*.7;
+      if(det){g.fillStyle='rgba(0,0,0,.35)';g.beginPath();
+        g.ellipse(p[0],p[1]+2.6,fw*.34,1.5,0,0,7);g.fill();}
+      g.fillStyle='#1a2228';
+      g.fillRect(p[0]-1.5,p[1]-3.4+bo,3,4.4);
+      g.beginPath();g.arc(p[0],p[1]-4.1+bo,1.9,Math.PI,0);g.fill();
+      g.fillStyle=SIDEC[s];g.fillRect(p[0]-1.9,p[1]-4.6+bo,3.8,1.1);
+      if(det){g.strokeStyle='#0d151a';g.lineWidth=1;g.beginPath();
+        g.moveTo(p[0]+1.4,p[1]-fh-1+bo);g.lineTo(p[0]+1.4,p[1]+bo);g.stroke();}
+      g.drawImage(fl,p[0]+1.9,p[1]-fh-1+bo,fw,fh);
+    }
+  }
+  // birimler
+  for(const u of G.units){
+    const p=w2s(u.x,u.y);
+    if(p[0]<-60||p[0]>cw+60||p[1]<-60||p[1]>ch+60)continue;
+    const col=SIDEC[u.side];
+    if(u.t==='tank'){
+      const L=clamp(7+z*2.6,7,15);
+      g.save();g.translate(p[0],p[1]);g.rotate(u.ang||0);
+      g.fillStyle='rgba(0,0,0,.3)';g.fillRect(-L*.55,-L*.32,L*1.1,L*.64);
+      g.fillStyle='#5d6a55';g.fillRect(-L*.5,-L*.28,L,L*.56);
+      g.fillStyle=col;g.fillRect(-L*.18,-L*.2,L*.42,L*.4);
+      g.fillStyle='#7d8a72';g.fillRect(L*.1,-L*.07,L*.62,L*.14);
+      g.restore();
+      if(u.fl)g.drawImage(u.fl,p[0]-5,p[1]-L-6,10,6.6);
+      g.fillStyle='#0a1319';g.fillRect(p[0]-7,p[1]+L*.5,14,2.2);
+      g.fillStyle=u.hp>35?'#5fbf7a':'#c1332d';
+      g.fillRect(p[0]-7,p[1]+L*.5,14*clamp(u.hp/70,0,1),2.2);}
+    else if(u.t==='heli'){
+      g.save();g.translate(p[0],p[1]);g.rotate(u.ang||0);
+      const L=clamp(8+z*3,8,16);
+      g.fillStyle='rgba(0,0,0,.25)';g.beginPath();g.ellipse(-2,4,L*.5,2,0,0,7);g.fill();
+      g.fillStyle='#c6d2d6';
+      g.beginPath();g.ellipse(0,0,L*.45,L*.28,0,0,7);g.fill();
+      g.fillStyle='#8d9ba2';g.fillRect(-L*.85,-1.1,L*.5,2.2);
+      g.beginPath();g.moveTo(-L*.85,0);g.lineTo(-L*1.05,-3);g.lineTo(-L*.75,0);g.closePath();g.fill();
+      g.fillStyle=col;g.fillRect(-L*.12,-L*.14,L*.24,L*.28);
+      g.strokeStyle='rgba(220,235,240,.85)';g.lineWidth=1.4;
+      const rr=L*.95,a0=u.rot||0;
+      g.beginPath();g.moveTo(Math.cos(a0)*-rr,Math.sin(a0)*-rr);g.lineTo(Math.cos(a0)*rr,Math.sin(a0)*rr);
+      g.moveTo(Math.cos(a0+1.57)*-rr,Math.sin(a0+1.57)*-rr);g.lineTo(Math.cos(a0+1.57)*rr,Math.sin(a0+1.57)*rr);
+      g.stroke();
+      g.restore();
+      if(u.bombs>0){g.fillStyle='rgba(240,237,228,.8)';g.font='700 8px "Barlow Condensed"';
+        g.textAlign='center';g.fillText(u.bombs+'',p[0],p[1]-13);}}
+    else if(u.t==='nuke'){
+      g.strokeStyle='rgba(255,220,120,.7)';g.lineWidth=2;g.beginPath();
+      u.trail.forEach((q2,i2)=>{const s2=w2s(q2[0],q2[1]);g[i2?'lineTo':'moveTo'](s2[0],s2[1]);});g.stroke();
+      const a=Math.atan2(u.ty-u.y,u.tx-u.x);
+      g.save();g.translate(p[0],p[1]);g.rotate(a);
+      g.fillStyle='#e8e2d0';g.beginPath();g.moveTo(11,0);g.lineTo(3,3);g.lineTo(-7,3);
+      g.lineTo(-7,-3);g.lineTo(3,-3);g.closePath();g.fill();
+      g.fillStyle='#111';g.fillRect(-2,-3,3,6);
+      g.fillStyle='rgba(255,170,60,.95)';g.beginPath();g.moveTo(-7,0);
+      g.lineTo(-7-13*(1+R()*.5),2.4);g.lineTo(-7-13*(1+R()*.5),-2.4);g.closePath();g.fill();
+      g.restore();}
+    else if(u.t==='msl'){
+      g.strokeStyle=u.side==='A'?'rgba(255,150,120,.55)':'rgba(140,190,255,.55)';
+      g.lineWidth=1.4;g.beginPath();
+      u.trail.forEach((q,i)=>{const s=w2s(q[0],q[1]);g[i?'lineTo':'moveTo'](s[0],s[1]);});g.stroke();
+      const a=Math.atan2(u.ty-u.y,u.tx-u.x);
+      g.save();g.translate(p[0],p[1]);g.rotate(a);
+      g.fillStyle='#cdd8dd';g.beginPath();g.moveTo(8,0);g.lineTo(2,2);g.lineTo(-5,2);
+      g.lineTo(-5,-2);g.lineTo(2,-2);g.closePath();g.fill();
+      g.fillStyle=col;g.fillRect(-1,-2,2.4,4);
+      g.fillStyle='#8f9ea6';g.beginPath();g.moveTo(-5,-2);g.lineTo(-8,-4);g.lineTo(-5,-.6);g.closePath();
+      g.moveTo(-5,2);g.lineTo(-8,4);g.lineTo(-5,.6);g.closePath();g.fill();
+      const fl2=1+Math.random()*.6;
+      g.fillStyle='rgba(255,190,90,.95)';g.beginPath();g.moveTo(-5,0);
+      g.lineTo(-5-7*fl2,1.5);g.lineTo(-5-7*fl2,-1.5);g.closePath();g.fill();
+      g.restore();}
+    else if(u.t==='jet'||u.t==='cpl'){
+      const big=u.t==='cpl';
+      const L=big?13:11;
+      g.save();g.translate(p[0],p[1]);g.rotate(u.ang||0);
+      g.fillStyle='rgba(0,0,0,.25)';g.beginPath();g.ellipse(-2,4,L*.5,2,0,0,7);g.fill();
+      g.fillStyle='#9fb0b8';   // kanatlar
+      g.beginPath();g.moveTo(1,0);g.lineTo(-5,big?7:6);g.lineTo(-7,big?7:6);g.lineTo(-3,0);g.closePath();
+      g.moveTo(1,0);g.lineTo(-5,big?-7:-6);g.lineTo(-7,big?-7:-6);g.lineTo(-3,0);g.closePath();g.fill();
+      g.fillStyle='#e3ebee';   // gövde
+      g.beginPath();g.moveTo(L,0);g.lineTo(L*.3,1.8);g.lineTo(-L*.55,2.1);g.lineTo(-L*.55,-2.1);
+      g.lineTo(L*.3,-1.8);g.closePath();g.fill();
+      g.fillStyle='#9fb0b8';   // kuyruk
+      g.beginPath();g.moveTo(-L*.5,0);g.lineTo(-L*.75,3.2);g.lineTo(-L*.35,0);g.closePath();
+      g.moveTo(-L*.5,0);g.lineTo(-L*.75,-3.2);g.lineTo(-L*.35,0);g.closePath();g.fill();
+      g.fillStyle=col;g.fillRect(-L*.15,-1.6,3,3.2);
+      g.fillStyle='#5d7a86';g.beginPath();g.arc(L*.45,0,1.3,0,7);g.fill();
+      g.restore();
+      if(big){g.fillStyle='rgba(240,237,228,.75)';g.font='700 8px "Barlow Condensed"';
+        g.textAlign='center';g.fillText(u.cargo+'',p[0],p[1]-9);}}
+    else if(u.t==='bomb'){g.fillStyle='#ffd27a';g.beginPath();g.arc(p[0],p[1],2,0,7);g.fill();}
+    else if(u.t==='ship'||u.t==='lship'){
+      g.save();g.translate(p[0],p[1]);g.rotate(u.ang||0);
+      const L=clamp(10+z*3,10,20);
+      g.fillStyle='rgba(255,255,255,.10)';g.beginPath();
+      g.ellipse(-L*.1,0,L*.95,L*.42,0,0,7);g.fill();
+      g.fillStyle=u.t==='ship'?'#7f8d95':'#79866f';
+      g.beginPath();g.moveTo(L,0);g.lineTo(L*.35,L*.26);g.lineTo(-L*.72,L*.26);
+      g.lineTo(-L*.72,-L*.26);g.lineTo(L*.35,-L*.26);g.closePath();g.fill();
+      g.fillStyle='#5d6a72';g.fillRect(-L*.3,-L*.17,L*.4,L*.34);
+      g.fillStyle=col;g.fillRect(-L*.05,-L*.09,L*.16,L*.18);
+      if(u.t==='ship'){g.fillStyle='#48545c';g.fillRect(L*.35,-1,L*.3,2);}
+      g.restore();
+      g.drawImage(u.fl||drawFlag(ctry(u.side).spec),p[0]-5,p[1]-13,10,6.6);
+      if(u.t==='lship'){g.fillStyle='rgba(240,237,228,.8)';g.font='700 8px "Barlow Condensed"';
+        g.textAlign='center';g.fillText(u.cargo+'',p[0],p[1]+16);}}
+  }
+  drawBina(g,z);
+  if(G.zomOn&&typeof drawZombies==='function'){drawTowers(g,z);drawZombies(g,z);}
+  // efektler
+  for(const f of G.fxs){
+    if(f.t==='boom'){const p=w2s(f.x,f.y),r=f.r*z;
+      const gr=g.createRadialGradient(p[0],p[1],0,p[0],p[1],Math.max(2,r));
+      gr.addColorStop(0,`rgba(255,240,190,${f.a})`);
+      gr.addColorStop(.45,`rgba(255,140,50,${f.a*.75})`);
+      gr.addColorStop(1,`rgba(120,40,20,0)`);
+      g.fillStyle=gr;g.beginPath();g.arc(p[0],p[1],Math.max(2,r),0,7);g.fill();}
+    else if(f.t==='tracer'){const a=w2s(f.x1,f.y1),b=w2s(f.x2,f.y2);
+      g.strokeStyle=f.c;g.globalAlpha=f.a;g.lineWidth=1;
+      g.beginPath();g.moveTo(a[0],a[1]);g.lineTo(b[0],b[1]);g.stroke();g.globalAlpha=1;}
+    else if(f.t==='dead'){const p=w2s(f.x,f.y);
+      g.fillStyle=`rgba(200,60,40,${f.a*.7})`;g.beginPath();g.arc(p[0],p[1],3,0,7);g.fill();}
+  }
+  // hedef göstergesi
+  if(G.tool&&G.phase==='war'&&G.side!=='W'){
+    const foe=ctry(other(G.side));
+    if(!foe)return;
+    const b1=w2s(foe.bbox[0],foe.bbox[1]),b2=w2s(foe.bbox[2],foe.bbox[3]);
+    g.strokeStyle='rgba(232,178,58,.5)';g.setLineDash([6,5]);g.lineWidth=1;
+    g.strokeRect(b1[0],b1[1],b2[0]-b1[0],b2[1]-b1[1]);g.setLineDash([]);}
+}
+
+/* ================= BİNALAR (harita üstü) ================= */
+const BINA={
+  ev     :{ic:'🏠',n:'Konut',   hp:26,mor:.018,inc:0},
+  fabrika:{ic:'🏭',n:'Fabrika', hp:34,mor:-.004,inc:.42e6}
+};
+function addBina(type,x,y,side){
+  if(!G.bina)G.bina=[];
+  if(G.bina.length>260)return;
+  G.bina.push({t:type,x,y,side,hp:BINA[type].hp});
+  mapDirty=true;}
+function binaEtki(dt){
+  if(!G.bina||!G.bina.length)return;
+  for(const b of G.bina){
+    const e=G.ecoS&&G.ecoS[b.side];
+    if(!e||!e.on)continue;
+    const d=BINA[b.t];
+    e.money+=d.inc*dt;
+    e.morale=clamp(e.morale+d.mor*dt,0,100);}}
+function buildHit(x,y,r,side){
+  if(!G.bina)return;
+  for(let i=G.bina.length-1;i>=0;i--){
+    const b=G.bina[i];
+    if(b.side===side)continue;
+    if(dist(b.x,b.y,x,y)<r){b.hp-=12;
+      if(b.hp<=0){G.bina.splice(i,1);mapDirty=true;
+        G.fxs.push({t:'boom',x:b.x,y:b.y,r:4,mr:10,a:1});}}}}
+function drawBina(g,z){
+  if(!G.bina||!G.bina.length)return;
+  const s=clamp(5+z*2.2,5,12);
+  for(const b of G.bina){
+    const p=w2s(b.x,b.y);
+    if(p[0]<-20||p[0]>cw+20||p[1]<-20||p[1]>ch+20)continue;
+    const col=SIDEC[b.side]||'#888';
+    if(b.t==='ev'){
+      g.fillStyle='#2b3a44';
+      g.beginPath();g.moveTo(p[0],p[1]-s);g.lineTo(p[0]+s*.6,p[1]-s*.45);
+      g.lineTo(p[0]+s*.6,p[1]);g.lineTo(p[0]-s*.6,p[1]);
+      g.lineTo(p[0]-s*.6,p[1]-s*.45);g.closePath();g.fill();
+      g.fillStyle=col;g.fillRect(p[0]-s*.6,p[1]-s*.45,s*1.2,1.6);
+    }else{
+      g.fillStyle='#33403a';g.fillRect(p[0]-s*.65,p[1]-s*.7,s*1.3,s*.7);
+      g.fillStyle=col;g.fillRect(p[0]-s*.65,p[1]-s*.7,s*1.3,1.6);
+      g.fillStyle='#55636a';
+      g.fillRect(p[0]-s*.35,p[1]-s*1.15,s*.22,s*.5);
+      g.fillRect(p[0]+s*.1,p[1]-s*1.05,s*.22,s*.4);}
+  }}
+/* yerleştirme kipi */
+function placeStart(type,n){
+  G.place={t:type,left:n};
+  hide('#ov-eco');
+  hint(BINA[type].n+' yerleştir — haritaya dokun ('+n+' adet kaldı)');}
+function placeTap(wx,wy){
+  if(!G.place)return false;
+  if(!isLand(wx,wy)){hint('Karaya yerleştir.');return true;}
+  issueBina(G.place.t,wx,wy);
+  G.place.left--;
+  if(G.place.left<=0){G.place=null;hint('');}
+  else hint(BINA[G.place.t].n+' yerleştir — '+G.place.left+' adet kaldı');
+  return true;}
+function issueBina(type,x,y){
+  const c={k:'bina',b:type,x:+x.toFixed(1),y:+y.toFixed(1),side:G.side};
+  if(typeof NET!=='undefined'&&NET.on)NET.request(c);else runCmd(c);}
+
+/* ================= HUD ================= */
+function hpOf(s){if(!G.cityList.length)return 1;
+  let h=0;for(const ci of citiesOf(s))h+=Math.max(0,ci.hp)/ci.max;
+  return clamp(h/Math.max(1,G.total[s]),0,1);}
+function updateHUD(){
+  if(!G.a&&!G.d)return;   // tek taraflı (zombi) savaşta da güncellensin
+  updateEco();
+  for(const [s,k] of [['A','a'],['D','d']]){
+    const card=$('#card-'+k);
+    const c=ctry(s);
+    if(!c){if(card)card.style.display='none';continue;}
+    if(card)card.style.display='';
+    $('#nm-'+k).textContent=teamName(s);
+    const fl=$('#fl-'+k),g=fl.getContext('2d');
+    fl.width=36;fl.height=24;g.drawImage(drawFlag(c.spec),0,0);
+    $('#hp-'+k).style.width=(hpOf(s)*100)+'%';
+    $('#s-'+k+'-m').textContent=G.stock[s].msl;
+    $('#s-'+k+'-j').textContent=G.stock[s].jet;
+    $('#s-'+k+'-s').textContent=G.stock[s].ship;
+    $('#s-'+k+'-t').textContent=G.stock[s].sol+G.sol[s].length;
+    $('#s-'+k+'-c').textContent=citiesOf(s).length+'/'+G.total[s];
+  }
+  $('#card-a').classList.toggle('me',G.side==='A'&&G.mode==='manual');
+  $('#card-d').classList.toggle('me',G.side==='D'&&G.mode==='manual');
+  refreshTools();
+}
+let toolRefs=null;
+function buildTools(){
+  const el=$('#tools');el.innerHTML='';toolRefs=null;
+  if(G.mode!=='manual'||G.side==='W'){
+    $('#troop').classList.remove('show');
+    el.innerHTML='<div style="padding:9px 4px;font-size:11.5px;color:#8ba0aa">'+
+      'Otomatik savaş sürüyor — iki tarafı da yapay zekâ yönetiyor. Menüden manuel komutaya geçebilirsin.</div>';
+    return;}
+  for(const k in WEP){
+    const w=WEP[k],d=document.createElement('div');
+    d.className='tool';d.dataset.k=k;
+    d.innerHTML=`<div class="ic">${w.ic}</div><div class="lb">${w.lb}</div>
+      <div class="ct" id="ct-${k}">0</div><div class="cd" id="cd-${k}"></div>`;
+    d.addEventListener('click',()=>selectTool(k));
+    el.appendChild(d);}
+  toolRefs={};
+  for(const k in WEP){
+    toolRefs[k]={el:document.querySelector('.tool[data-k="'+k+'"]'),
+      ct:$('#ct-'+k),cd:$('#cd-'+k),n:-1,w:-1};}
+  refreshTools();
+}
+function selectTool(k){
+  G.tool=G.tool===k?null:k;
+  $$('.tool').forEach(t=>t.classList.toggle('sel',t.dataset.k===G.tool));
+  $('#troop').classList.toggle('show',G.tool==='sol'||G.tool==='lship'||G.tool==='cpl');
+  if(!G.tool){hint('');return;}
+  const names={msl:'Füze hedefini seç — haritada bir noktaya dokun.',
+    jet:'Uçak hedefini seç — haritada bir noktaya dokun.',
+    ship:'Savaş gemisinin bombardıman edeceği kıyıya dokun.',
+    sol:'Askerlerin yürüyeceği hedefe dokun (kara bağlantısı gerekli).',
+    lship:'Çıkarma yapılacak düşman kıyısına dokun.',
+    cpl:'Paraşütçülerin ineceği noktaya dokun.'};
+  hint(names[G.tool]);
+}
+function refreshTools(){
+  if(!toolRefs||G.mode!=='manual'||G.side==='W')return;
+  const s=G.side;
+  for(const k in WEP){
+    const r=toolRefs[k];if(!r||!r.el)continue;
+    const n=G.stock[s][k];
+    if(n!==r.n){r.n=n;if(r.ct)r.ct.textContent=n;r.el.classList.toggle('dis',n<=0);}
+    const rem=(G.cd[s][k]||0)-G.t;
+    const w=rem>0?Math.round(rem/WEP[k].cd*100):0;
+    if(w!==r.w){r.w=w;if(r.cd)r.cd.style.width=w+'%';}
+  }
+}
+
+/* ================= GİRDİ ================= */
+const st=$('#stage');
+let ptrs=new Map(),drag=false,last=null,pinch=null,downT=0,downP=null,lpTimer=0,longFired=false;
+st.addEventListener('pointerdown',e=>{
+  st.setPointerCapture(e.pointerId);
+  ptrs.set(e.pointerId,{x:e.clientX,y:e.clientY});
+  if(ptrs.size===1){drag=false;last={x:e.clientX,y:e.clientY};downT=Date.now();downP={x:e.clientX,y:e.clientY};
+    longFired=false;clearTimeout(lpTimer);
+    if(G.zomOn&&G.phase==='war'){
+      lpTimer=setTimeout(()=>{
+        if(!drag&&ptrs.size===1&&doLongPress(downP.x,downP.y))longFired=true;},600);}}
+  else if(ptrs.size===2){const p=[...ptrs.values()];
+    pinch={d:dist(p[0].x,p[0].y,p[1].x,p[1].y),z:cam.z};}
+});
+st.addEventListener('pointermove',e=>{
+  if(!ptrs.has(e.pointerId)){
+    if(G.phase==='pickA'||G.phase==='pickD'){
+      const w=s2w(e.clientX,e.clientY),c=countryAt(w[0],w[1]);
+      if(c!==G.hover){G.hover=c;mapDirty=true;}}
+    return;}
+  ptrs.set(e.pointerId,{x:e.clientX,y:e.clientY});
+  if(ptrs.size===2&&pinch){const p=[...ptrs.values()];
+    const d=dist(p[0].x,p[0].y,p[1].x,p[1].y);
+    cam.z=clamp(pinch.z*d/pinch.d,.12,6);cam.tz=null;mapDirty=true;drag=true;return;}
+  if(ptrs.size===1&&last){
+    const dx=e.clientX-last.x,dy=e.clientY-last.y;
+    if(Math.abs(e.clientX-downP.x)+Math.abs(e.clientY-downP.y)>9){drag=true;clearTimeout(lpTimer);}
+    cam.x-=dx/cam.z;cam.y-=dy/cam.z;cam.tx=cam.ty=null;
+    cam.y=clamp(cam.y,0,H0);last={x:e.clientX,y:e.clientY};mapDirty=true;}
+});
+function up(e){
+  clearTimeout(lpTimer);
+  if(longFired){longFired=false;ptrs.delete(e.pointerId);
+    if(ptrs.size<2)pinch=null;if(!ptrs.size)last=null;return;}
+  if(ptrs.size===1&&!drag&&Date.now()-downT<450)tap(e.clientX,e.clientY);
+  ptrs.delete(e.pointerId);if(ptrs.size<2)pinch=null;if(!ptrs.size)last=null;
+}
+st.addEventListener('pointerup',up);
+st.addEventListener('pointercancel',e=>{clearTimeout(lpTimer);ptrs.delete(e.pointerId);pinch=null;last=null;});
+st.addEventListener('wheel',e=>{e.preventDefault();
+  const w=s2w(e.clientX,e.clientY);
+  cam.z=clamp(cam.z*(e.deltaY<0?1.16:.86),.12,6);cam.tz=null;
+  const w2=s2w(e.clientX,e.clientY);
+  cam.x+=w[0]-w2[0];cam.y+=w[1]-w2[1];mapDirty=true;},{passive:false});
+
+function pickToggle(c){
+  if(!c)return;
+  const A=G.team.A,D=G.team.D;
+  if(G.zomOn){
+    const k=D.indexOf(c);
+    if(k>=0){D.splice(k,1);log(c.tr+' savunmadan çıkarıldı.');}
+    else{D.push(c);log(c.tr+' savunmaya katıldı.','d');}
+    G.d=D[0]||null;G.a=null;G.team.A=[];
+    refreshTeamMarks();mapDirty=true;updatePhase();return;}
+  if(G.phase==='pickA'){
+    const k=A.indexOf(c);
+    if(k>=0){A.splice(k,1);log(`${c.tr} saldıran taraftan çıkarıldı.`);}
+    else{if(D.indexOf(c)>=0)return;A.push(c);
+      log(A.length>1?`${c.tr} saldırana müttefik olarak katıldı.`:`Saldıran: ${c.tr}`,'a');}
+    G.a=A[0]||null;
+  }else if(G.phase==='pickD'){
+    const k=D.indexOf(c);
+    if(k>=0){D.splice(k,1);log(`${c.tr} savunan taraftan çıkarıldı.`);}
+    else{if(A.indexOf(c)>=0){hint(c.tr+' zaten saldıran tarafta.');return;}D.push(c);
+      log(D.length>1?`${c.tr} savunana müttefik olarak katıldı.`:`Hedef: ${c.tr}`,'d');}
+    G.d=D[0]||null;
+  }
+  refreshTeamMarks();mapDirty=true;updatePhase();
+}
+function updatePhase(){
+  if(G.pickFor==='mp'){updateMpBar();return;}
+  const nx=$('#b-next');
+  if(G.zomOn&&(G.phase==='pickA'||G.phase==='pickD')){
+    $('#phase').textContent=G.team.D.length
+      ?('SALGINA KARŞI: '+teamName('D')):'Salgına karşı savunacak ülkeleri seç';
+    nx.textContent='SAVAŞ ›';nx.style.display=G.team.D.length?'':'none';
+    updateDiffBtn();updateAllBtn();
+    if(typeof updateZomBtns==='function')updateZomBtns();
+    const f0=$('#b-find');if(f0)f0.style.display='';
+    return;}
+  if(G.phase==='pickA'){
+    $('#phase').textContent=G.team.A.length?'SALDIRAN: '+teamName('A'):'Saldıran ülkeyi seç';
+    nx.textContent='DEVAM ›';nx.style.display=G.team.A.length?'':'none';
+  }else if(G.phase==='pickD'){
+    $('#phase').textContent=G.team.D.length?'HEDEF: '+teamName('D'):'Saldırılan ülkeyi seç';
+    nx.textContent='SAVAŞ ›';nx.style.display=G.team.D.length?'':'none';
+  }else nx.style.display='none';
+  updateDiffBtn();updateAllBtn();
+  if(typeof updateZomBtns==='function')updateZomBtns();
+  const pick=(G.phase==='pickA'||G.phase==='pickD');
+  $('#b-find').style.display=pick?'':'none';
+}
+function allFree(side){
+  const foe=G.team[side==='A'?'D':'A'];
+  return CLIST.filter(c=>foe.indexOf(c)<0);}
+function toggleAllSP(){
+  const side=G.zomOn?'D':(G.phase==='pickA'?'A':'D');
+  const free=allFree(side);
+  G.team[side]=(G.team[side].length>=free.length)?[]:free.slice();
+  G.a=G.team.A[0]||null;G.d=G.team.D[0]||null;
+  refreshTeamMarks();mapDirty=true;updatePhase();
+  log(G.team[side].length?('Tüm dünya seçildi ('+G.team[side].length+' ülke).'):'Seçim temizlendi.','w');}
+function allVisible(){
+  const mp=(typeof NET!=='undefined'&&NET.on);
+  if(mp)return NET.stage==='pick';
+  return G.phase==='pickA'||G.phase==='pickD';}
+function updateAllBtn(){
+  const b=$('#b-all');if(!b)return;
+  b.style.display=allVisible()?'':'none';
+  const mp=(typeof NET!=='undefined'&&NET.on);
+  const n=mp?(typeof myCountries==='function'?myCountries().length:0)
+           :(G.team[(G.zomOn||G.phase==='pickD')?'D':'A']||[]).length;
+  b.textContent=n>6?('TÜM DÜNYA ✓ '+n):'TÜM DÜNYA';
+  b.classList.toggle('on',n>6);}
+on('#b-all','click',()=>{
+  if(typeof NET!=='undefined'&&NET.on){if(typeof toggleAllMP==='function')toggleAllMP();return;}
+  toggleAllSP();});
+function nextPhase(){
+  if(G.pickFor==='mp'){toggleReady();return;}
+  if(G.zomOn){
+    if(!G.team.D.length)return;
+    G.team.A=[];G.a=null;G.d=G.team.D[0];
+    G.side=(G.mode==='manual')?'D':'W';
+    G.aiSides={A:false,D:(G.mode!=='manual')};
+    startWar();return;}
+  if(G.phase==='pickA'&&G.team.A.length){
+    G.phase='pickD';updatePhase();
+    log('Şimdi savunan tarafı seç. Birden çok ülke ekleyebilirsin.','w');
+  }else if(G.phase==='pickD'&&G.team.D.length){
+    if(G.mode==='manual'){
+      $('#side-a').textContent='SALDIRAN — '+teamName('A');
+      $('#side-d').textContent='SAVUNAN — '+teamName('D');
+      $('#side-sub').textContent=`${teamName('A')} ile ${teamName('D')} arasında savaş. Hangi tarafı komuta edeceksin?`;
+      $('#ov-side').classList.remove('hide');
+    }else{G.side='W';startWar();}
+  }
+}
+function tap(sx,sy){
+  const [wx,wy]=s2w(sx,sy);
+  if(G.pickFor==='mp'){const c=countryAt(wx,wy);if(c)setMyCountry(c.name);return;}
+  if(G.place&&G.phase==='war'){if(placeTap(wx,wy))return;}
+  if(typeof RT!=='undefined'&&RT.on&&!RT.savas){rtTap(wx,wy);return;}
+  if(G.phase==='pickA'||G.phase==='pickD'){pickToggle(countryAt(wx,wy));return;}
+  if(G.phase==='war'&&G.mode==='manual'&&G.side!=='W'&&G.tool){
+    if(issueFire(G.side,G.tool,wx,wy)){
+      G.fxs.push({t:'boom',x:wx,y:wy,r:1,mr:3,a:.5});
+      if(G.stock[G.side][G.tool]<=0){G.tool=null;
+        $$('.tool').forEach(t=>t.classList.remove('sel'));$('#troop').classList.remove('show');
+        hint('Bu silahtan kalmadı.');}
+    }else if((G.cd[G.side][G.tool]||0)>G.t)hint('Yeniden yükleniyor…');
+  }
+}
+/* ================= MENÜ / DÜĞMELER ================= */
+/* tarayıcıda açıldıysa üst/alt çubukları gizle */
+function goFS(){
+  try{const e=document.documentElement;
+    if(!document.fullscreenElement&&e.requestFullscreen)
+      e.requestFullscreen({navigationUI:'hide'}).catch(()=>{});
+    if(screen.orientation&&screen.orientation.lock)screen.orientation.lock('any').catch(()=>{});
+  }catch(e){}}
+$$('#ov-start [data-mode]').forEach(b=>b.addEventListener('click',()=>{
+  b.classList.add('secili');
+  goFS();
+  G.mode=b.dataset.mode;
+  G.zomOn=b.dataset.zom==='1';
+  if(typeof updateZomBtns==='function')updateZomBtns();
+  setTimeout(()=>{$('#ov-start').classList.add('hide');b.classList.remove('secili');},260);
+  if(G.mode!=='mp'){G.aiSides=null;if(typeof NET!=='undefined'&&NET.on){try{NET.peer&&NET.peer.destroy();}catch(e){}NET.on=false;}}
+  if(G.mode==='world'){
+    resetWorld();G.warCount=0;
+    log('Dünya fethi başladı — rastgele cepheler açılacak.','w');
+    startWorldWar();return;}
+  $('#phase').textContent='Saldıran ülkeyi seç';
+  updatePhase();
+  hint('');
+  log(G.mode==='manual'?'Manuel komuta seçildi.':'Otomatik savaş seçildi.','w');
+}));
+$$('#ov-side .big').forEach(b=>b.addEventListener('click',()=>{
+  G.side=b.dataset.side;$('#ov-side').classList.add('hide');startWar();
+}));
+on('#b-next','click',nextPhase);
+on('#inv-harita','click',invHarita);
+$$('#inv-adet .btn').forEach(b=>b.addEventListener('click',()=>invAdet(+b.dataset.n)));
+on('#b-inv','click',()=>{buildInvList();updateEco();$('#ov-eco').classList.remove('hide');});
+on('#inv-close','click',()=>$('#ov-eco').classList.add('hide'));
+function diffAllowed(){
+  const mp=(typeof NET!=='undefined'&&NET.on);
+  if(mp)return NET.stage==='pick'&&NET.host;
+  return G.phase==='pickA'||G.phase==='pickD';}
+function diffVisible(){
+  const mp=(typeof NET!=='undefined'&&NET.on);
+  if(mp)return NET.stage==='pick';
+  return G.phase==='pickA'||G.phase==='pickD';}
+function updateDiffBtn(){
+  const b=$('#b-diff');if(!b)return;
+  const vis=diffVisible();
+  b.style.display=vis?'':'none';
+  if(vis)b.textContent='YZ: '+dif().n;
+  b.style.opacity=diffAllowed()?'1':'.55';}
+on('#b-diff','click',()=>{
+  if(!diffAllowed()){log('Zorluğu oda sahibi belirler.','w');return;}
+  G.diff=(G.diff+1)%DIFF.length;
+  updateDiffBtn();
+  if(typeof NET!=='undefined'&&NET.on&&NET.host){pushLobby();
+    log('Yapay zekâ zorluğu: '+dif().n,'w');}});
+on('#eco-row','click',()=>{
+  G.ecoOn=!G.ecoOn;
+  const s=$('#eco-state');s.textContent=G.ecoOn?'AÇIK':'KAPALI';s.classList.toggle('off',!G.ecoOn);});
+on('#b-log','click',()=>{
+  G.logOn=!G.logOn;
+  $('#log').classList.toggle('off',!G.logOn);
+  $('#b-log').textContent=G.logOn?'🔔':'🔕';
+  $('#b-log').classList.toggle('on',!G.logOn);});
+on('#b-speed','click',()=>{
+  if(typeof NET!=='undefined'&&NET.on){log('Çok oyuncuda hız sabittir.','w');return;}
+  G.speed=G.speed===1?2:G.speed===2?4:G.speed===4?8:1;$('#b-speed').textContent=G.speed+'x';});
+on('#b-pause','click',()=>{
+  if(typeof NET!=='undefined'&&NET.on){log('Çok oyuncuda duraklatma yok.','w');return;}
+  G.paused=!G.paused;$('#b-pause').textContent=G.paused?'▶':'II';
+  $('#b-pause').classList.toggle('on',G.paused);});
+let fpsAcc=0,fpsN=0,slowN=0;
+function perfWatch(dt){
+  if(!QUAL.auto||QUAL.low)return;
+  fpsAcc+=dt;fpsN++;
+  if(fpsN>=30){
+    const avg=fpsAcc/fpsN;fpsAcc=0;fpsN=0;
+    if(avg>0.042)slowN++;else slowN=Math.max(0,slowN-1);
+    if(slowN>=3){QUAL.set(true);slowN=0;
+      log('Performans için grafik kalitesi düşürüldü (menüden değiştirilebilir).','w');}}}
+function goHome(){
+  if(G.phase==='war'||G.phase==='between'){
+    if(!confirm('Ana menüye dönülsün mü? Süren savaş sona erer.'))return;}
+  try{if(typeof NET!=='undefined'&&NET.on){NET.peer&&NET.peer.destroy();NET.on=false;
+    NET.players=[];NET.conns=[];NET.code=null;}}catch(e){}
+  G.phase='pickA';G.mode='manual';G.side='A';G.aiSides=null;G.tool=null;G.hover=null;
+  G.team.A=[];G.team.D=[];G.a=G.d=null;G.paused=false;G.speed=1;
+  G.units.length=0;G.fxs.length=0;G.sol.A.length=0;G.sol.D.length=0;
+  G.cityList=[];G.cmdq.length=0;G.pend&&(G.pend.length=0);
+  for(const c of CLIST)c.ruler=c;
+  for(const id of ['#ov-menu','#ov-res','#ov-eco','#ov-find','#ov-side','#ov-mp','#ov-lobby'])
+    {const e=$(id);if(e)e.classList.add('hide');}
+  $('#hud').classList.remove('show');$('#troop').classList.remove('show');
+  $('#eco').classList.remove('show');
+  $('#b-speed').textContent='1x';$('#b-pause').textContent='II';
+  $('#ov-start').classList.remove('hide');
+  updatePhase();hint('');
+  cam.tx=W0/2;cam.ty=H0*.46;cam.tz=Math.min(cw/W0,ch/H0)*1.05;
+  mapDirty=true;}
+on('#b-home','click',goHome);
+on('#dn-kapat','click',()=>{$('#dunya-pnl').classList.add('hide');$('#dn-ac').style.display='';});
+on('#dn-ac','click',()=>{$('#dunya-pnl').classList.remove('hide');$('#dn-ac').style.display='none';dunyaPanel();});
+on('#b-menu','click',()=>{
+  $('#m-mode-t').textContent=G.mode==='manual'?'OTOMATİĞE GEÇ':'MANUELE GEÇ';
+  $('#m-qual-t').textContent=QUAL.low?'GRAFİK: DÜŞÜK (hızlı)':'GRAFİK: YÜKSEK';
+  $('#ov-menu').classList.remove('hide');});
+on('#m-qual','click',()=>{
+  QUAL.auto=false;QUAL.set(!QUAL.low);
+  $('#m-qual-t').textContent=QUAL.low?'GRAFİK: DÜŞÜK (hızlı)':'GRAFİK: YÜKSEK';});
+on('#m-resume','click',()=>$('#ov-menu').classList.add('hide'));
+on('#m-new','click',()=>{$('#ov-menu').classList.add('hide');
+  if(G.mode==='world'){resetWorld();G.warCount=0;startWorldWar();}else reset();});
+on('#m-mode','click',()=>{
+  G.mode=G.mode==='manual'?'auto':'manual';
+  if(G.mode==='auto')G.side='W';else if(G.side==='W')G.side='A';
+  $('#ov-menu').classList.add('hide');
+  if(G.phase==='war'){buildTools();updateHUD();}
+  log(G.mode==='manual'?'Manuel komutaya geçildi.':'Otomatiğe geçildi.','w');});
+on('#r-again','click',()=>{
+  if(typeof RT!=='undefined'&&RT.on&&typeof rtDon==='function'){rtDon();return;}
+  if(typeof backToRoom==='function'&&backToRoom())return;
+  $('#ov-res').classList.add('hide');reset();});
+on('#tslider','input',e=>{G.troopN=+e.target.value;$('#tval').textContent=G.troopN;});
+
+function reset(){
+  G.aiSides=null;
+  if(typeof NET!=='undefined'&&NET.on){
+    try{if(NET.peer)NET.peer.destroy();}catch(e){}
+    NET.on=false;NET.host=false;NET.peer=null;NET.conns=[];NET.players=[];
+    NET.code=null;NET.stage='off';NET.cdown=null;}
+  G.pickFor=null;G.mpPickSet=null;
+       G.phase='pickA';G.a=G.d=null;G.tool=null;G.hover=null;G.team.A=[];G.team.D=[];
+  for(const c of CLIST)c.ruler=c;
+  G.units.length=0;G.fxs.length=0;G.sol.A.length=0;G.sol.D.length=0;G.cityList=[];
+  $('#hud').classList.remove('show');$('#troop').classList.remove('show');$('#eco').classList.remove('show');
+  updatePhase();
+  cam.tx=W0/2;cam.ty=H0*.46;cam.tz=Math.min(cw/W0,ch/H0)*1.05;
+  hint('');mapDirty=true;
+}
+
+/* ---------- ülke arama ---------- */
+on('#b-find','click',()=>{
+  if(G.phase!=='pickA'&&G.phase!=='pickD'){log('Arama yalnızca ülke seçerken kullanılır.','w');return;}
+  $('#find-sub').textContent=G.phase==='pickA'?'Saldıran ülkeyi seç.':'Saldırılan ülkeyi seç.';
+  $('#ov-find').classList.remove('hide');$('#q').value='';renderList('');$('#q').focus();});
+on('#find-close','click',()=>$('#ov-find').classList.add('hide'));
+on('#q','input',e=>renderList(e.target.value));
+function norm(s){return s.toLocaleLowerCase('tr').replace(/[ıi]/g,'i').replace(/[şs]/g,'s')
+  .replace(/[ğg]/g,'g').replace(/[üu]/g,'u').replace(/[öo]/g,'o').replace(/[çc]/g,'c');}
+function renderList(q){
+  const L=$('#clist');L.innerHTML='';
+  const qq=norm(q.trim());
+  const arr=CLIST.filter(c=>!qq||norm(c.tr).includes(qq)||norm(c.name).includes(qq)).slice(0,80);
+  for(const c of arr){
+    const d=document.createElement('div');d.className='crow';
+    const cv=document.createElement('canvas');cv.className='fl';cv.width=36;cv.height=24;
+    cv.getContext('2d').drawImage(drawFlag(c.spec),0,0);
+    const sp=document.createElement('span');sp.textContent=c.tr;
+    d.appendChild(cv);d.appendChild(sp);
+    d.addEventListener('click',()=>{
+      $('#ov-find').classList.add('hide');
+      if(G.pickFor==='mp'){G.pickFor=null;setMyCountry(c.name);return;}
+      cam.tx=c.cx;cam.ty=c.cy;
+      cam.tz=clamp(Math.min(cw/(Math.max(20,c.bbox[2]-c.bbox[0])*2),ch/(Math.max(20,c.bbox[3]-c.bbox[1])*2)),.2,3);
+      const p=w2s(c.cx,c.cy);setTimeout(()=>tapCountry(c),40);});
+    L.appendChild(d);}
+}
+function tapCountry(c){
+  if(G.pickFor==='mp'){G.pickFor=null;setMyCountry(c.name);return;}
+  pickToggle(c);}
+
+/* ================= DÖNGÜ ================= */
+let prev=performance.now(),hudT=0,acc=0,toolT=0,errT=0;
+/* çizim hatası oyunu dondurmasın: bir kez bildir, döngü devam etsin */
+function softErr(e){
+  const now=Date.now();
+  if(now-errT>8000){errT=now;showErr(e);}
+}
+function loop(now){
+  let dt=Math.min(.05,(now-prev)/1000);prev=now;
+  // kamera animasyonu
+  if(cam.tx!==null&&cam.tx!==undefined){cam.x+=(cam.tx-cam.x)*.09;
+    if(Math.abs(cam.tx-cam.x)<.4){cam.x=cam.tx;cam.tx=null;}mapDirty=true;}
+  if(cam.ty!==null&&cam.ty!==undefined){cam.y+=(cam.ty-cam.y)*.09;
+    if(Math.abs(cam.ty-cam.y)<.4){cam.y=cam.ty;cam.ty=null;}mapDirty=true;}
+  if(cam.tz){cam.z+=(cam.tz-cam.z)*.09;
+    if(Math.abs(cam.tz-cam.z)<.002){cam.z=cam.tz;cam.tz=null;}mapDirty=true;}
+  if(G.phase==='between'&&!G.paused){
+    G.gap-=dt*G.speed;
+    if(G.gap<=0)startWorldWar();
+  }
+  if(G.phase==='war'&&!G.paused){
+    const FIX=1/30,mp=(typeof NET!=='undefined'&&NET.on);
+    acc+=dt*(mp?1:G.speed);
+    if(acc>FIX*12)acc=FIX*12;
+    let guard=0;
+    while(acc>=FIX&&guard++<14){acc-=FIX;G.tick++;
+      try{runCmds();step(FIX);}catch(e){softErr(e);}
+      if(G.phase!=='war')break;}
+    hudT+=dt*(mp?1:G.speed);
+    if(hudT>.25){hudT=0;updateHUD();dunyaPanel();
+      if(G.zomOn){const ph=$('#phase');
+        if(ph)ph.textContent='WAVE '+G.wave+(G.waveMax?('/'+G.waveMax):'')+' · zombi '+G.zom.length;}}
+    else{toolT+=dt;if(toolT>.1){toolT=0;refreshTools();}}
+  }
+  perfWatch(dt);
+  if(typeof rtTick==='function')rtTick(dt);
+  try{if(typeof netTick==='function')netTick(dt);}catch(e){softErr(e);}
+  try{if(mapDirty)drawMap();}catch(e){mapDirty=false;softErr(e);}
+  try{drawUnits();}catch(e){softErr(e);}
+  requestAnimationFrame(loop);
+}
+resize();
+cam.z=Math.min(cw/W0,ch/H0)*1.05;
+cam.x=W0/2;cam.y=H0*.46;
+requestAnimationFrame(loop);
+
+/* çevrimdışı çalışsın */
+const HARP_SURUM='1.3';
+if('serviceWorker' in navigator)
+  window.addEventListener('load',()=>{
+    navigator.serviceWorker.register('sw.js').then(r=>{
+      r.update();
+      setInterval(()=>r.update(),60000);
+      r.addEventListener('updatefound',()=>{
+        const w=r.installing;
+        if(w)w.addEventListener('statechange',()=>{
+          if(w.state==='activated')location.reload();});
+      });
+    }).catch(()=>{});
+  });
+
+/* ================= ZOMBİ SALGINI ================= */
+const ZCOL='#5bd14a', ZDARK='#1e3d1c';
+const ZCAP=520;                 // aynı anda ekranda en fazla zombi
+const ZKILL={msl:30,bomb:12,shell:8,nuke:250};   // bir patlamanın öldürebileceği en fazla zombi
+
+function zomReset(){
+  G.towers=[];G.towerT=0;
+  G.zom=[];G.wave=0;G.waveLeft=0;G.spawnT=0;G.zomOver=false;
+  G.infect=new Set();
+  for(const c of CLIST)c.infected=false;}
+
+function zomStart(){
+  zomReset();
+  /* salgın rastgele orta ya da büyük bir ülkeden başlar */
+  /* kaynak: oyuncunun ülkesi değil, ne çok yakın ne çok uzak, arada deniz yok */
+  const mine=new Set(),refs=[];
+  for(const s of['A','D'])for(const c of (G.team[s]||[])){mine.add(c.name);refs.push(c);}
+  const nearRef=c=>{let b=1e18;for(const r0 of refs){const d=dist(c.cx,c.cy,r0.cx,r0.cy);if(d<b)b=d;}return b;};
+  const dryTo=c=>{for(const r0 of refs)if(landFraction(r0.cx,r0.cy,c.cx,c.cy)>=.82)return true;return false;};
+  const base=CLIST.filter(c=>!mine.has(c.name)&&c.power>=15&&c.cities.length>=2);
+  let pool=base.filter(c=>{const d=nearRef(c);return d>55&&d<260&&dryTo(c);});
+  if(!pool.length)pool=base.filter(c=>{const d=nearRef(c);return d>40&&d<400&&dryTo(c);});
+  if(!pool.length)pool=base.filter(c=>{const d=nearRef(c);return d>40&&d<400;});
+  if(!pool.length)pool=base.length?base:CLIST;
+  const src=pool[(R()*pool.length)|0];
+  infect(src);
+  G.wave=1;G.waveLeft=10;G.spawnT=0;
+  log('SALGIN BAŞLADI — kaynak: '+src.tr,'w');}
+
+function infect(c){
+  if(!c||c.infected)return;
+  c.infected=true;G.infect.add(c.name);mapDirty=true;}
+
+function zomSpawnPoint(){
+  const src=[...G.infect];
+  if(!src.length)return null;
+  const c=COUNTRIES[src[(R()*src.length)|0]];
+  if(!c)return null;
+  const ci=c.cities[(R()*c.cities.length)|0];
+  return [ci.x+rnd(-6,6),ci.y+rnd(-6,6)];}
+
+function addZombie(x,y){
+  if(G.zom.length>=ZCAP)return;
+  G.zom.push({z:true,x,y,tx:x,ty:y,hp:6,sp:rnd(3.4,4.6),
+    rt:rnd(0,.6),fc:rnd(0,1),tgt:null,city:null,bob:rnd(0,6)});}
+
+function nextWave(){
+  if(G.stat&&!G.stat.waveLoss&&G.wave>0&&typeof unlockAch==='function')unlockAch('quar');
+  if(G.stat)G.stat.waveLoss=false;
+  G.wave++;
+  if(typeof waveAch==='function')waveAch(G.wave);
+  if(G.wave>=10&&G.infect&&G.infect.size<=1&&typeof unlockAch==='function')unlockAch('clean');
+  if(G.waveMax&&G.wave>G.waveMax){
+    G.zomOver=true;
+    endWar(citiesOf('A').length>=citiesOf('D').length?'A':'D','survived');
+    return;}
+  G.waveLeft=G.wave*10;G.spawnT=2;
+  log('WAVE '+G.wave+' — '+G.waveLeft+' zombi geliyor.','w');}
+
+function zomStep(dt){
+  if(!G.zomOn||G.phase!=='war')return;
+  /* --- doğurma: 5 saniyede bir grup --- */
+  G.spawnT-=dt;
+  if(G.spawnT<=0&&G.waveLeft>0){
+    G.spawnT=5;
+    const n=Math.min(10,G.waveLeft);
+    for(let i=0;i<n;i++){
+      const p=zomSpawnPoint();
+      if(p){addZombie(p[0],p[1]);G.waveLeft--;}
+      else{G.waveLeft=0;break;}}}
+  /* --- hareket ve saldırı --- */
+  const zs=G.zom;
+  for(let i=zs.length-1;i>=0;i--){
+    const z=zs[i];
+    if(z.hp<=0){zs.splice(i,1);G.fxs.push({t:'dead',x:z.x,y:z.y,a:1});continue;}
+    z.rt-=dt;
+    if(z.rt<=0){z.rt=.6+R()*.5;z.tgt=null;
+      let bd=42,best=null;
+      for(const s of['A','D']){
+        const arr=G.sol[s],stp=arr.length>60?3:1;
+        for(let j=(z.bob|0)%stp;j<arr.length;j+=stp){
+          const f=arr[j],d=dist(z.x,z.y,f.x,f.y);
+          if(d<bd){bd=d;best=f;}}}
+      if(best)z.tgt=best;
+      else{
+        let bc=null,b2=1e18;
+        for(const ci of G.cityList){
+          if(ci.owner==='Z'||ci.hp<=0)continue;
+          const d=dist(z.x,z.y,ci.x,ci.y);if(d<b2){b2=d;bc=ci;}}
+        z.city=bc;if(bc){z.tx=bc.x;z.ty=bc.y;}}}
+    const tg=(z.tgt&&z.tgt.hp>0)?z.tgt:null;
+    const gx=tg?tg.x:z.tx, gy=tg?tg.y:z.ty;
+    const d=dist(z.x,z.y,gx,gy);
+    if(d>(tg?2.5:4)){
+      const a=Math.atan2(gy-z.y,gx-z.x);
+      let nx=z.x+Math.cos(a)*z.sp*dt,ny=z.y+Math.sin(a)*z.sp*dt;
+      if(!isLand(nx,ny)){nx=z.x+Math.cos(a)*z.sp*dt*.25;ny=z.y+Math.sin(a)*z.sp*dt*.25;}
+      z.x=nx;z.y=ny;z.bob+=dt*7;}
+    else{
+      z.fc-=dt;
+      if(z.fc<=0){z.fc=.7+R()*.5;
+        if(tg){tg.hp-=rnd(3,6);
+          if(tg.hp<=0){const arr=G.sol[tg.side],k=arr.indexOf(tg);
+            if(k>=0)arr.splice(k,1);
+            G.fxs.push({t:'dead',x:tg.x,y:tg.y,a:1});}}
+        else if(z.city&&z.city.hp>0){
+          z.city.hp-=rnd(2.5,4.5);
+          if(z.city.hp<=0){
+            z.city.hp=0;z.city.owner='Z';if(G.stat)G.stat.waveLoss=true;
+            const land=z.city.land;
+            if(land)infect(land);
+            log('Bir şehir salgına düştü.','w');
+            updateHUD();mapDirty=true;}}}}
+  }
+  zomTowers(dt);
+  /* --- dalga tamamlandı mı --- */
+  if(G.waveLeft<=0&&zs.length===0&&!G.zomOver)nextWave();
+  /* --- insanlık yenildi mi --- */
+  if(!citiesOf('A').length&&!citiesOf('D').length&&!G.zomOver){
+    G.zomOver=true;endWar(null,'zombie');}
+}
+
+/* ---------- ZOMBİ KULELERİ ---------- */
+const TOWER_HP=2, TOWER_SEC=20;
+function towerAt(name){
+  for(const t of G.towers)if(t.land&&t.land.name===name)return t;
+  return null;}
+function zomTowers(dt){
+  if(!G.towers)G.towers=[];
+  /* virüsün geçtiği temiz ülkelere kule dikilir */
+  G.towerT-=dt;
+  if(G.towerT<=0&&G.zom.length){
+    G.towerT=1.5;
+    const n=Math.min(8,G.zom.length);
+    for(let i=0;i<n;i++){
+      const z=G.zom[((R()*G.zom.length)|0)];
+      const c=countryAt(z.x,z.y);
+      if(!c||c.infected||towerAt(c.name))continue;
+      G.towers.push({x:z.x,y:z.y,land:c,hp:TOWER_HP,t:0});
+      log(c.tr+' üzerine zombi kulesi dikildi — '+TOWER_SEC+' sn içinde yıkılmazsa ülke düşer.','w');
+      break;}}
+  /* sayaç */
+  for(let i=G.towers.length-1;i>=0;i--){
+    const t=G.towers[i];
+    if(t.hp<=0){G.towers.splice(i,1);continue;}
+    if(t.land&&t.land.infected){G.towers.splice(i,1);continue;}
+    t.t+=dt;
+    if(t.t>=TOWER_SEC){
+      infect(t.land);
+      log(t.land.tr+' salgına düştü — kule yıkılamadı.','w');
+      G.towers.splice(i,1);}}
+}
+/* patlamalar kuleyi de vurur: iki füze yıkar */
+function towerHit(x,y,r0,dmg){
+  if(!G.towers)return;
+  for(let i=G.towers.length-1;i>=0;i--){
+    const t=G.towers[i];
+    if(dist(t.x,t.y,x,y)<r0+6){
+      t.hp-=dmg;
+      G.fxs.push({t:'boom',x:t.x,y:t.y,r:4,mr:12,a:1});
+      if(t.hp<=0){G.towers.splice(i,1);
+        if(typeof addTowerKill==='function')addTowerKill();
+        log((t.land?t.land.tr:'Bir ülke')+' kulesi yıkıldı.','d');}}}}
+function drawTowers(g,z0){
+  if(!G.towers||!G.towers.length)return;
+  const h=clamp(12+z0*8,12,34),w=clamp(5+z0*3,5,13);
+  for(const t of G.towers){
+    const p=w2s(t.x,t.y);
+    if(p[0]<-30||p[0]>cw+30||p[1]<-40||p[1]>ch+30)continue;
+    const x=p[0],y=p[1];
+    g.fillStyle='rgba(0,0,0,.35)';
+    g.beginPath();g.ellipse(x,y+2,w*.9,w*.35,0,0,7);g.fill();
+    g.fillStyle='#1d4a1c';
+    g.beginPath();g.moveTo(x-w*.6,y);g.lineTo(x-w*.35,y-h);g.lineTo(x+w*.35,y-h);
+    g.lineTo(x+w*.6,y);g.closePath();g.fill();
+    g.strokeStyle=ZCOL;g.lineWidth=1.4;g.stroke();
+    for(let k=1;k<3;k++){const yy=y-h*k/3;
+      g.beginPath();g.moveTo(x-w*.5,yy);g.lineTo(x+w*.5,yy);g.stroke();}
+    g.fillStyle=ZCOL;
+    g.beginPath();g.arc(x,y-h-w*.35,w*.42,0,7);g.fill();
+    g.strokeStyle='rgba(120,255,110,.55)';g.lineWidth=1;
+    g.beginPath();g.arc(x,y-h-w*.35,w*.75+Math.sin(G.t*4)*1.5,0,7);g.stroke();
+    /* geri sayım halkası */
+    const fr=clamp(t.t/TOWER_SEC,0,1);
+    g.strokeStyle='rgba(0,0,0,.55)';g.lineWidth=3.2;
+    g.beginPath();g.arc(x,y-h-w*.35,w*1.35,0,7);g.stroke();
+    g.strokeStyle=fr>.7?'#ff5a45':ZCOL;g.lineWidth=2.4;
+    g.beginPath();g.arc(x,y-h-w*.35,w*1.35,-Math.PI/2,-Math.PI/2+fr*6.283);g.stroke();
+    /* can */
+    g.fillStyle='#0a1319';g.fillRect(x-w*.8,y+4,w*1.6,2.4);
+    g.fillStyle=ZCOL;g.fillRect(x-w*.8,y+4,w*1.6*(Math.max(0,t.hp)/TOWER_HP),2.4);
+  }}
+
+/* patlamalar zombileri öldürür — üst sınırlı */
+function zomBlast(x,y,r,kind){
+  if(!G.zomOn)return 0;
+  let cap=ZKILL[kind]||10,n=0;
+  const zs=G.zom;
+  for(let i=zs.length-1;i>=0&&n<cap;i--){
+    const z=zs[i];
+    if(dist(z.x,z.y,x,y)<r){zs.splice(i,1);n++;
+      G.fxs.push({t:'dead',x:z.x,y:z.y,a:1});}}
+  if(kind==='msl'&&n>=30&&typeof unlockAch==='function')unlockAch('perf');
+  return n;}
+
+/* asker zombiyi hedefler mi */
+function zomTargetFor(u,curBest,curDist){
+  if(!G.zomOn||!G.zom.length)return curBest;
+  const zs=G.zom,stp=zs.length>80?3:1;
+  let bd=curDist,best=curBest;
+  for(let j=(u.bob|0)%stp;j<zs.length;j+=stp){
+    const z=zs[j],d=dist(u.x,u.y,z.x,z.y);
+    if(d<bd){bd=d;best=z;}}
+  return best;}
+
+/* ---------- çizim ---------- */
+function drawZombies(g,z0){
+  if(!G.zomOn||!G.zom.length)return;
+  const r=clamp(2.6+z0*1.1,2.6,6);
+  for(const z of G.zom){
+    const p=w2s(z.x,z.y);
+    if(p[0]<-14||p[0]>cw+14||p[1]<-14||p[1]>ch+14)continue;
+    const bo=Math.sin(z.bob)*.5;
+    g.fillStyle=ZCOL;
+    g.beginPath();g.arc(p[0],p[1]+bo,r,0,7);g.fill();
+    g.fillStyle=ZDARK;
+    g.beginPath();g.arc(p[0]-r*.36,p[1]-r*.18+bo,r*.22,0,7);
+    g.arc(p[0]+r*.36,p[1]-r*.18+bo,r*.22,0,7);g.fill();
+  }}
+
+/* ---------- arayüz ---------- */
+function zomVisible(){
+  const mp=(typeof NET!=='undefined'&&NET.on);
+  if(mp)return NET.stage==='pick';
+  return G.phase==='pickA'||G.phase==='pickD';}
+function zomAllowed(){
+  const mp=(typeof NET!=='undefined'&&NET.on);
+  return mp?(NET.stage==='pick'&&NET.host):zomVisible();}
+function updateZomBtns(){
+  const b=$('#b-zom'),w=$('#b-wave');
+  const vis=zomVisible();
+  if(b){b.style.display=vis?'':'none';
+    b.textContent=G.zomOn?'ZOMBİ: AÇIK':'ZOMBİ: KAPALI';
+    b.classList.toggle('on',!!G.zomOn);
+    b.style.opacity=zomAllowed()?'1':'.55';}
+  if(w){w.style.display=(vis&&G.zomOn)?'':'none';
+    w.textContent=G.waveMax?('WAVE: '+G.waveMax):'WAVE: ∞';
+    w.style.opacity=zomAllowed()?'1':'.55';}}
+on('#b-zom','click',()=>{
+  if(!zomAllowed()){log('Bu ayarı oda sahibi belirler.','w');return;}
+  G.zomOn=!G.zomOn;
+  if(!(typeof NET!=='undefined'&&NET.on)&&(G.phase==='pickA'||G.phase==='pickD')){
+    const all=G.team.A.concat(G.team.D.filter(c=>G.team.A.indexOf(c)<0));
+    G.team.D=all;G.team.A=[];G.a=null;G.d=all[0]||null;
+    G.phase='pickD';refreshTeamMarks();mapDirty=true;}
+  updateZomBtns();updatePhase();
+  if(typeof NET!=='undefined'&&NET.on&&NET.host)pushLobby();
+  log(G.zomOn?'Zombi salgını açık.':'Zombi salgını kapalı.','w');});
+on('#b-wave','click',()=>{
+  if(!zomAllowed()){log('Bu ayarı oda sahibi belirler.','w');return;}
+  G.waveMax=G.waveMax?0:50;updateZomBtns();
+  if(typeof NET!=='undefined'&&NET.on&&NET.host)pushLobby();});
+
+/* ================= ÇOK OYUNCULU (yeniden yazıldı) ================= */
+const MAXP=5;
+const ICE={iceServers:[
+  {urls:'stun:stun.l.google.com:19302'},
+  {urls:'stun:stun1.l.google.com:19302'},
+  {urls:'turn:openrelay.metered.ca:80',username:'openrelayproject',credential:'openrelayproject'},
+  {urls:'turn:openrelay.metered.ca:443',username:'openrelayproject',credential:'openrelayproject'},
+  {urls:'turn:openrelay.metered.ca:443?transport=tcp',username:'openrelayproject',credential:'openrelayproject'}
+]};
+
+const NET={on:false,host:false,peer:null,conns:[],code:null,
+  id:'',name:'Komutan',players:[],lead:14,snapT:0,stage:'off'};
+
+/* ---------- kullanıcı adı ---------- */
+function loadName(){
+  let n='Komutan';
+  try{n=localStorage.getItem('harp_name')||n;}catch(e){}
+  NET.name=n;const e=$('#user-name');if(e)e.textContent=n;
+  try{renderUser();}catch(e2){}}
+function saveName(n){
+  n=(n||'').trim().slice(0,14)||'Komutan';
+  NET.name=n;
+  try{localStorage.setItem('harp_name',n);}catch(e){}
+  const el=$('#user-name');if(el)el.textContent=n;
+  try{renderUser();}catch(e){}
+  try{nameSync();}catch(e){}
+  const me=NET.players.find(p=>p.id===NET.id);
+  if(me){me.name=n;
+    if(NET.host){pushLobby();renderRoom();}else sendHost({t:'set',id:NET.id,name:n});}}
+
+/* ---------- yardımcılar ---------- */
+function code5(){const A='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';let s='';
+  for(let i=0;i<5;i++)s+=A[(Math.random()*A.length)|0];return s;}
+function roomMsg(t,warn){const e=$('#room-msg');
+  if(e){e.textContent=t||'';e.style.color=warn?'#e05b52':'var(--dim)';}}
+function joinMsg(t){const e=$('#join-msg');if(e)e.textContent=t||'';}
+function show(id){const e=$(id);if(e)e.classList.remove('hide');}
+function hide(id){const e=$(id);if(e)e.classList.add('hide');}
+function hideAllMP(){['#ov-name','#ov-join','#ov-room','#ov-pick'].forEach(hide);}
+function peerMsg(e){
+  const t=String((e&&(e.type||e.message))||e||'');
+  if(t.indexOf('unavailable-id')>=0)return 'Kod çakıştı, tekrar dene.';
+  if(t.indexOf('peer-unavailable')>=0)return 'Bu kodla açık oda yok.';
+  if(t.indexOf('network')>=0||t.indexOf('socket')>=0||t.indexOf('server')>=0)
+    return 'Bağlantı sunucusuna ulaşılamadı.';
+  if(t.indexOf('browser')>=0)return 'Tarayıcı desteklemiyor, Chrome dene.';
+  return 'Hata: '+t;}
+function needSecure(){
+  if(window.isSecureContext)return true;
+  roomMsg('Çok oyunculu için oyunu https:// adresinden aç — dosyadan açınca tarayıcı engelliyor.',1);
+  joinMsg('Çok oyunculu için oyunu https:// adresinden aç.');
+  return false;}
+function sendAll(m,not){for(const c of NET.conns){if(c===not)continue;try{c.send(m);}catch(e){}}}
+function sendHost(m){try{if(NET.conns[0])NET.conns[0].send(m);}catch(e){}}
+function pushLobby(){if(NET.host)sendAll({t:'lobby',players:NET.players,stage:NET.stage,diff:G.diff,zom:G.zomOn,wmax:G.waveMax});}
+
+/* ---------- ODA KUR ---------- */
+function createRoom(){
+  hide('#ov-start');show('#ov-room');
+  $('#room-code').textContent='…';
+  NET.host=true;NET.code=code5();NET.id='H';NET.stage='lobby';
+  NET.players=[{id:'H',name:NET.name,cs:[],country:null,side:'A',host:true}];
+  renderRoom();
+  if(!window.Peer){roomMsg('Bağlantı kütüphanesi yüklenemedi.',1);return;}
+  if(!needSecure())return;
+  roomMsg('Sunucuya bağlanılıyor…');
+  try{NET.peer=new Peer('harp5-'+NET.code,{debug:0,config:ICE});}
+  catch(err){roomMsg(peerMsg(err),1);return;}
+  const wd=setTimeout(()=>{if(!NET.on){
+    $('#room-code').textContent='YOK';
+    roomMsg('Sunucu yanıt vermiyor. ODADAN ÇIK deyip tekrar dene.',1);}},12000);
+  NET.peer.on('open',()=>{clearTimeout(wd);NET.on=true;
+    $('#room-code').textContent=NET.code;
+    roomMsg('Oda açık — kodu arkadaşlarına gönder.');renderRoom();
+    if(typeof fbOdaAc==='function')fbOdaAc(NET.code);});
+  NET.peer.on('error',e=>{clearTimeout(wd);roomMsg(peerMsg(e),1);});
+  NET.peer.on('connection',conn=>{
+    conn.on('open',()=>{
+      if(NET.players.length>=MAXP){try{conn.send({t:'full'});}catch(e){}return;}
+      NET.conns.push(conn);});
+    conn.on('data',d=>onHostData(conn,d));
+    conn.on('close',()=>{
+      NET.conns=NET.conns.filter(c=>c!==conn);
+      NET.players=NET.players.filter(p=>p.id!==conn.__id);
+      log('Bir oyuncu ayrıldı.','w');pushLobby();renderRoom();updateMpBar();});
+  });
+}
+
+/* ---------- KODLA KATIL ---------- */
+function joinRoom(code){
+  code=(code||'').toUpperCase().replace(/[^A-Z0-9]/g,'');
+  if(code.length<5){joinMsg('5 haneli kodu yaz.');return;}
+  if(!window.Peer){joinMsg('Bağlantı kütüphanesi yüklenemedi.');return;}
+  if(!needSecure())return;
+  NET.host=false;NET.code=code;NET.stage='lobby';
+  joinMsg('Bağlanılıyor…');
+  try{NET.peer=new Peer({debug:0,config:ICE});}
+  catch(err){joinMsg(peerMsg(err));return;}
+  NET.peer.on('open',myid=>{
+    NET.id=myid;
+    const conn=NET.peer.connect('harp5-'+code,{reliable:true});
+    NET.conns=[conn];
+    const wd=setTimeout(()=>{if(!NET.on)
+      joinMsg('Oda bulunamadı ya da sunucuya ulaşılamıyor.');},12000);
+    conn.on('open',()=>{clearTimeout(wd);NET.on=true;
+      conn.send({t:'join',id:myid,name:NET.name});
+      hide('#ov-join');hide('#ov-start');show('#ov-room');
+      $('#room-code').textContent=code;
+      roomMsg('Odaya katıldın — oda sahibinin başlatmasını bekle.');});
+    conn.on('data',d=>onClientData(d));
+    conn.on('close',()=>{NET.on=false;roomMsg('Bağlantı koptu.',1);});
+  });
+  NET.peer.on('error',e=>joinMsg(peerMsg(e)));
+}
+
+/* ---------- mesajlar ---------- */
+function onHostData(conn,d){
+  if(d.t==='req'){
+    const tick=G.tick+NET.lead;
+    G.cmdq.push({tick,c:d.c});sendAll({t:'cmd',tick,c:d.c});return;}
+  if(d.t==='chat'){sendAll(d,conn);chatAdd(d.name,d.text);return;}
+  if(d.t==='join'){
+    if(NET.players.length>=MAXP){try{conn.send({t:'full'});}catch(e){}return;}
+    conn.__id=d.id;
+    const side=(NET.players.length%2)?'D':'A';
+    NET.players.push({id:d.id,name:(d.name||'Oyuncu').slice(0,14),country:null,side,host:false});
+    log(d.name+' odaya katıldı.','w');
+    pushLobby();renderRoom();
+    if(typeof fbOdaGuncelle==='function')fbOdaGuncelle();
+    return;}
+  if(d.t==='set'){
+    const p=NET.players.find(x=>x.id===d.id);
+    if(p){if(d.name)p.name=d.name;
+      if(d.cs!==undefined){p.cs=d.cs;p.country=d.cs[0]||null;p.ready=false;}}
+    pushLobby();renderRoom();updateMpBar();return;}
+  if(d.t==='side'){
+    const p=NET.players.find(x=>x.id===d.id);
+    if(p){p.side=d.side;p.spec=!!d.spec;p.ready=false;}
+    pushLobby();renderRoom();return;}
+  if(d.t==='ready'){
+    const p=NET.players.find(x=>x.id===d.id);
+    if(p)p.ready=!!d.ready;
+    pushLobby();updateMpBar();maybeStart();}
+}
+function onClientData(d){
+  if(d.t==='full'){roomMsg('Oda dolu (5 kişi).',1);joinMsg('Oda dolu.');}
+  else if(d.t==='lobby'){
+    NET.players=d.players;
+    if(d.diff!=null)G.diff=d.diff;
+  if(d.zom!=null)G.zomOn=d.zom;
+  if(d.wmax!=null)G.waveMax=d.wmax;
+    if(d.zom!=null)G.zomOn=d.zom;
+    if(d.wmax!=null)G.waveMax=d.wmax;
+    if(d.stage==='pick'&&NET.stage!=='pick'){openPick();}
+    syncPick();
+    renderRoom();updateMpBar();updateDiffBtn();updateZomBtns();}
+  else if(d.t==='cd'){startCountdown();}
+  else if(d.t==='chat'){chatAdd(d.name,d.text);}
+  else if(d.t==='begin'){openPick();}
+  else if(d.t==='start'){applyStart(d);}
+  else if(d.t==='cmd'){G.cmdq.push({tick:d.tick,c:d.c});}
+  else if(d.t==='snap'){applySnap(d.s);}
+}
+NET.request=function(c){
+  if(NET.host){const tick=G.tick+NET.lead;G.cmdq.push({tick,c});sendAll({t:'cmd',tick,c});}
+  else sendHost({t:'req',c});};
+
+/* ---------- ekranlar ---------- */
+function canMove(p){return p.id===NET.id||NET.host;}
+function rowFor(p,withPick){
+  const d=document.createElement('div');
+  d.className='oyuncu'+(p.id===NET.id?' ben':'');
+  const cs=p.cs||[];
+  const f0=cs[0]||p.country;
+  const cv=document.createElement('canvas');cv.className='fl';cv.width=36;cv.height=24;
+  cv.style.width='30px';cv.style.height='20px';
+  if(f0&&COUNTRIES[f0])cv.getContext('2d').drawImage(drawFlag(COUNTRIES[f0].spec),0,0);
+  else cv.style.background='#2a323a';
+  d.appendChild(cv);
+  const txt=!cs.length?(p.spec?'izliyor':(withPick?'seçiyor…':'ülke seçilmedi'))
+    :(cs.length===1?COUNTRIES[cs[0]].tr
+      :(cs.length>=CLIST.length-6?('TÜM DÜNYA · '+cs.length+' ülke')
+        :(COUNTRIES[cs[0]].tr+' +'+(cs.length-1)+' ülke')));
+  const n=document.createElement('div');n.className='oy-ad';
+  n.innerHTML='<b>'+(p.name||'Oyuncu')+(p.host?'<span class="etiketcik">ODA SAHİBİ</span>':'')+'</b>'+
+    '<span>'+txt+(withPick?(p.cs&&p.cs.length?' · hazır':' · bekliyor'):'')+'</span>';
+  d.appendChild(n);
+  const sd=document.createElement('div');
+  sd.className='taraf '+(p.spec?'w':(p.side==='A'?'a':'d'));
+  sd.textContent=specLabel(p);
+  if(canMove(p)&&NET.stage==='lobby')sd.addEventListener('click',()=>cycleSide(p.id));
+  else sd.style.cursor='default';
+  d.appendChild(sd);
+  if(withPick){const t=document.createElement('div');t.className='tick';
+    t.textContent=(p.cs&&p.cs.length)?'✅':'⏳';d.appendChild(t);}
+  return d;}
+function setSide(id,side){
+  const p=NET.players.find(x=>x.id===id);if(!p)return;
+  p.side=side;p.ready=false;
+  if(NET.host){pushLobby();renderRoom();}else sendHost({t:'side',id,side});
+  renderRoom();}
+function pickAiCountry(used,power){
+  const cand=[];
+  for(const c of CLIST){
+    if(used.indexOf(c.name)>=0||c.power<8)continue;
+    cand.push([Math.abs(c.power-power),c.name]);}
+  cand.sort((a,b)=>a[0]-b[0]);
+  const top=cand.slice(0,5);
+  return top.length?top[(Math.random()*top.length)|0][1]:'Russia';}
+function renderRoom(){
+  const L=$('#room-list');if(!L)return;
+  L.innerHTML='';
+  for(const sd of ['A','D']){
+    const grp=NET.players.filter(p=>p.side===sd&&!p.spec);
+    const h=document.createElement('div');
+    h.className='grup '+(sd==='A'?'a':'d');
+    h.textContent=(sd==='A'?'SALDIRAN':'SAVUNAN')+' — '+
+      (grp.length?grp.length+' OYUNCU':'BOŞ · YAPAY ZEKÂ');
+    L.appendChild(h);
+    for(const p of grp)L.appendChild(rowFor(p,false));}
+  const izle=NET.players.filter(p=>p.spec);
+  if(izle.length){
+    const h2=document.createElement('div');h2.className='grup w';
+    h2.textContent='İZLEYİCİLER — '+izle.length+' KİŞİ';
+    L.appendChild(h2);
+    for(const p of izle)L.appendChild(rowFor(p,false));}
+  const c=$('#room-count');if(c)c.textContent=NET.players.length+'/'+MAXP;
+  const b=$('#room-start');
+  if(b){b.style.display=NET.host?'':'none';
+    const oyun=NET.players.filter(p=>!p.spec);
+    const solo=oyun.length&&oyun.every(p=>p.side===oyun[0].side);
+    b.textContent=solo?'BAŞLA · YZ RAKİP':'BAŞLA';
+    b.classList.toggle('pas',!oyun.length);}
+  renderChat();}
+function openPick(){
+  /* oda ve kod ekranlarını kapat, dünya haritasına dön */
+  hideAllMP();hide('#ov-start');hide('#ov-find');
+  NET.stage='pick';G.pickFor='mp';G.mpPickSet=null;
+  syncPick();mapDirty=true;updateMpBar();updateAllBtn();
+  log('Haritadan ülkeni seç, sonra sağ üstten HAZIR ver.','w');}
+function meP(){return NET.players.find(p=>p.id===NET.id);}
+function updateMpBar(){
+  if(NET.stage!=='pick'){return;}
+  const me=meP()||{};
+  const rd=NET.players.filter(p=>p.ready).length;
+  const cs=myCountries();
+  const nm=!cs.length?'ülke seçilmedi'
+    :(cs.length===1?COUNTRIES[cs[0]].tr:(cs.length+' ülke'));
+  const ph=$('#phase');
+  if(ph)ph.textContent=(NET.cdown!=null?('SAVAŞ '+NET.cdown+'…'):
+    (nm+' · hazır '+rd+'/'+NET.players.length));
+  const b=$('#b-next'),f=$('#b-find');
+  if(f)f.style.display='none';
+  if(b){b.style.display='';
+    b.textContent=me.ready?'HAZIR':'HAZIR DEĞİL';
+    b.classList.toggle('on',!!me.ready);}
+  updateDiffBtn();updateZomBtns();}
+function toggleReady(){
+  const me=meP();if(!me)return;
+  if(me.spec){log('İzleyicisin — hazır olmana gerek yok.','w');return;}
+  if(!myCountries().length&&!me.ready){log('Önce haritadan en az bir ülke seç.','w');return;}
+  me.ready=!me.ready;
+  if(NET.host){pushLobby();maybeStart();}
+  else sendHost({t:'ready',id:NET.id,ready:me.ready});
+  updateMpBar();}
+function startCountdown(){
+  if(NET.cdown!=null)return;
+  NET.cdown=3;updateMpBar();
+  const tick=()=>{
+    NET.cdown--;
+    if(NET.cdown<=0){NET.cdown=null;
+      if(NET.host)doStart();else updateMpBar();return;}
+    updateMpBar();setTimeout(tick,1000);};
+  setTimeout(tick,1000);}
+function doStart(){
+  const ps=NET.players.map(p=>({id:p.id,cs:(p.cs||[]).slice(),side:p.side,spec:!!p.spec}));
+  let ai=null;
+  for(const sd of (G.zomOn?[]:['A','D'])){
+    if(ps.some(p=>p.side===sd))continue;
+    const foe=ps.filter(p=>p.side!==sd);
+    let power=0,used=[];
+    for(const p of foe)for(const n of p.cs){used.push(n);
+      power+=COUNTRIES[n]?COUNTRIES[n].power:20;}
+    const c=pickAiCountry(used,power);
+    ai={side:sd,country:c};
+    ps.push({id:'AI',cs:[c],side:sd});}
+  const msg={t:'start',seed:(Math.random()*2147483647)|0,eco:G.ecoOn,diff:G.diff,
+    zom:G.zomOn,wmax:G.waveMax,players:ps,ai};
+  sendAll(msg);applyStart(msg);}
+function renderPick(){
+  const L=$('#pick-list');if(!L)return;
+  L.innerHTML='';for(const p of NET.players)L.appendChild(rowFor(p,true));
+  const me=NET.players.find(p=>p.id===NET.id);
+  const lbl=$('#pick-lbl');
+  if(lbl)lbl.textContent=(me&&me.country&&COUNTRIES[me.country])
+    ?('ÜLKEM: '+COUNTRIES[me.country].tr+' — değiştir'):'ÜLKE SEÇ';
+  const s=$('#pick-sub');
+  if(s)s.textContent=NET.players.length&&NET.players.every(p=>p.country)
+    ?'Herkes seçti — savaş başlıyor…':'Herkes ülkesini seçince savaş otomatik başlar.';}
+function myCountries(){const me=meP();return (me&&me.cs)||[];}
+function takenBy(name,exceptId){
+  return NET.players.some(p=>p.id!==exceptId&&(p.cs||[]).indexOf(name)>=0);}
+function syncPick(){
+  const me=meP();
+  G.mpPickSet=new Set(me?(me.cs||[]):[]);
+  mapDirty=true;}
+function pushMine(){
+  const me=meP();if(!me)return;
+  me.country=(me.cs&&me.cs[0])||null;
+  syncPick();
+  if(NET.host){pushLobby();renderRoom();}
+  else sendHost({t:'set',id:NET.id,cs:me.cs});
+  updateMpBar();updateAllBtn();}
+function setMyCountry(name){
+  const me=meP();if(!me)return;
+  if(me.ready){log('Hazır durumdayken ülke değiştirilemez — önce HAZIR DEĞİL yap.','w');return;}
+  if(!me.cs)me.cs=[];
+  const i=me.cs.indexOf(name);
+  if(i>=0)me.cs.splice(i,1);
+  else{
+    if(!G.zomOn&&takenBy(name,NET.id)){log(COUNTRIES[name].tr+' başka bir oyuncuda.','w');return;}
+    me.cs.push(name);}
+  pushMine();}
+function toggleAllMP(){
+  const me=meP();if(!me)return;
+  if(me.ready){log('Önce HAZIR DEĞİL yap.','w');return;}
+  if(!me.cs)me.cs=[];
+  const free=CLIST.filter(c=>G.zomOn||!takenBy(c.name,NET.id)).map(c=>c.name);
+  me.cs=(me.cs.length>=free.length)?[]:free;
+  log(me.cs.length?('Tüm dünya seçildi ('+me.cs.length+' ülke).'):'Seçim temizlendi.','w');
+  pushMine();}
+function maybeStart(){
+  if(!NET.host||NET.stage!=='pick'||NET.cdown!=null)return;
+  if(!NET.players.length)return;
+  const oyun=NET.players.filter(p=>!p.spec);
+  if(!oyun.length)return;
+  if(!oyun.every(p=>(p.cs&&p.cs.length)&&p.ready))return;
+  sendAll({t:'cd'});startCountdown();}
+function applyStart(d){
+  hideAllMP();hide('#ov-start');hide('#ov-find');
+  NET.stage='war';NET.snapT=0;NET.cdown=null;G.pickFor=null;G.mpPickSet=null;
+  const A=[],D=[];
+  const zomOn=!!d.zom;
+  for(const p of d.players){
+    if(p.spec)continue;
+    const list=p.cs||(p.country?[p.country]:[]);
+    const sd=zomOn?'D':p.side;
+    for(const n of list){const c=COUNTRIES[n];if(c)(sd==='A'?A:D).push(c);}
+    const mine=NET.players.find(x=>x.id===p.id);if(mine)mine.side=sd;}
+  const uniq=a=>[...new Set(a)];
+  G.team.A=uniq(A);G.team.D=uniq(D);
+  if(!G.team.D.length&&!G.team.A.length){roomMsg('Takımlar kurulamadı.',1);show('#ov-room');return;}
+  if(!zomOn&&(!G.team.A.length||!G.team.D.length)){roomMsg('Takımlar kurulamadı.',1);show('#ov-room');return;}
+  G.a=G.team.A[0]||null;G.d=G.team.D[0]||null;
+  const me=d.players.find(p=>p.id===NET.id);
+  G.side=(me&&me.spec)?'W':(zomOn?'D':(me?me.side:'A'));
+  G.mode='manual';G.ecoOn=!!d.eco;G.seed=d.seed;
+  if(d.diff!=null)G.diff=d.diff;
+  const insan={A:false,D:false};
+  for(const p of d.players)if(!p.spec)insan[zomOn?'D':p.side]=true;
+  G.aiSides={A:!insan.A,D:!insan.D};
+  if(d.ai){G.aiSides[d.ai.side]=true;
+    log('Karşı tarafı yapay zekâ yönetiyor: '+(COUNTRIES[d.ai.country]||{tr:'?'}).tr,'w');}
+  G.speed=1;G.paused=false;
+  startWar();
+  log('Savaş başladı — '+d.players.length+' oyuncu.','w');}
+
+/* ---------- durum eşitleme ---------- */
+function r2(v){return Math.round(v*100)/100;}
+const OWN={A:0,D:1,Z:2};
+const OWNR=['A','D','Z',null];
+function ciIdx(c){return CLIST.indexOf(c);}
+function makeSnap(){
+  const ix=c=>{const a=G.team.A.indexOf(c);return a>=0?a:16+G.team.D.indexOf(c);};
+  return {tick:G.tick,t:r2(G.t),
+    /* salgın durumu */
+    zw:G.zomOn?[G.wave,G.waveLeft,r2(G.spawnT)]:null,
+    zi:G.zomOn?CLIST.filter(c=>c.infected).map(ciIdx):null,
+    zz:G.zomOn?G.zom.map(z=>[r2(z.x),r2(z.y),Math.round(z.hp)]):null,
+    zt:G.zomOn?(G.towers||[]).map(t=>[r2(t.x),r2(t.y),ciIdx(t.land),r2(t.hp),r2(t.t)]):null,
+    ci:G.cityList.map(c=>[Math.round(c.hp),(OWN[c.owner]!=null?OWN[c.owner]:3),r2(c.lock||0)]),
+    st:[G.stock.A,G.stock.D],
+    u:G.units.filter(u=>u.t==='ship'||u.t==='lship').map(u=>
+      [u.t==='ship'?0:1,u.side==='A'?0:1,r2(u.x),r2(u.y),r2(u.dx),r2(u.dy),
+       u.cargo|0,Math.round(u.hp),ix(u.land)]),
+    sA:G.sol.A.map(s=>[r2(s.x),r2(s.y),r2(s.tx),r2(s.ty),Math.round(s.hp),s.li|0]),
+    sD:G.sol.D.map(s=>[r2(s.x),r2(s.y),r2(s.tx),r2(s.ty),Math.round(s.hp),s.li|0])};}
+function applySnap(s){
+  if(!s||G.phase!=='war')return;
+  G.tick=s.tick;G.t=s.t;
+  s.ci.forEach((v,i)=>{const c=G.cityList[i];if(!c)return;
+    c.hp=v[0];c.owner=OWNR[v[1]]||null;c.lock=v[2];});
+  /* salgın durumunu birebir eşitle */
+  if(s.zi){
+    for(const c of CLIST)c.infected=false;
+    G.infect=new Set();
+    for(const i of s.zi){const c=CLIST[i];if(c){c.infected=true;G.infect.add(c.name);}}}
+  if(s.zw){G.wave=s.zw[0];G.waveLeft=s.zw[1];G.spawnT=s.zw[2];}
+  if(s.zz){
+    G.zom=s.zz.map(v=>({z:true,x:v[0],y:v[1],tx:v[0],ty:v[1],hp:v[2],
+      sp:rnd(3.4,4.6),rt:rnd(0,.6),fc:rnd(0,1),tgt:null,city:null,bob:rnd(0,6)}));}
+  if(s.zt){
+    G.towers=s.zt.map(v=>({x:v[0],y:v[1],land:CLIST[v[2]]||null,hp:v[3],t:v[4]}))
+      .filter(t=>t.land);}
+  G.stock.A=s.st[0];G.stock.D=s.st[1];
+  G.units=G.units.filter(u=>u.t!=='ship'&&u.t!=='lship');
+  for(const v of s.u){
+    const side=v[1]?'D':'A';
+    const land=(v[8]<16?G.team.A[v[8]]:G.team.D[v[8]-16])||ctry(side);
+    const path=seaPath(v[2],v[3],v[4],v[5])||[[v[2],v[3]],[v[4],v[5]]];
+    G.units.push({t:v[0]?'lship':'ship',side,x:v[2],y:v[3],path,i:1,sp:v[0]?13:11,
+      hp:v[7],cd:0,cargo:v[6],dx:v[4],dy:v[5],land,fl:drawFlag(land.spec)});}
+  for(const pair of [['A',s.sA],['D',s.sD]]){
+    const k=pair[0],arr=pair[1],list=G.sol[k];list.length=0;
+    for(const v of arr){
+      const L=G.team[k][v[5]]||G.team[k][0];
+      list.push({t:'sol',side:k,x:v[0],y:v[1],tx:v[2],ty:v[3],hp:v[4],
+        fc:rnd(0,1),tgt:null,rt:rnd(0,.5),sp:rnd(5,7),bob:rnd(0,6),li:v[5],fl:drawFlag(L.spec)});}}
+  updateHUD();mapDirty=true;}
+function netTick(dt){
+  if(!NET.on||!NET.host||G.phase!=='war')return;
+  NET.snapT-=dt;
+  if(NET.snapT<=0){NET.snapT=8;sendAll({t:'snap',s:makeSnap()});}}
+
+/* maç bitince oyuncuları odaya geri al */
+function backToRoom(){
+  if(!NET.on)return false;
+  NET.stage='lobby';NET.cdown=null;
+  G.pickFor=null;G.mpPickSet=null;G.aiSides=null;
+  G.phase='pickA';G.team.A=[];G.team.D=[];G.a=G.d=null;
+  G.units.length=0;G.fxs.length=0;G.sol.A.length=0;G.sol.D.length=0;
+  G.cityList=[];G.cmdq.length=0;
+  for(const p of NET.players)p.ready=false;
+  G.mpPickSet=null;
+  hide('#ov-res');hide('#ov-eco');hide('#ov-menu');
+  const hud=$('#hud');if(hud)hud.classList.remove('show');
+  const eco=$('#eco');if(eco)eco.classList.remove('show');
+  show('#ov-room');
+  $('#room-code').textContent=NET.code||'…';
+  roomMsg('Maç bitti — herkes odaya döndü. Yeniden BAŞLA diyebilirsin.');
+  if(NET.host)pushLobby();
+  renderRoom();mapDirty=true;
+  return true;}
+function leaveRoom(){
+  if(typeof fbOdaKapat==='function')fbOdaKapat();
+  try{if(NET.peer)NET.peer.destroy();}catch(e){}
+  NET.on=false;NET.host=false;NET.peer=null;NET.conns=[];NET.players=[];
+  NET.code=null;NET.stage='off';NET.cdown=null;G.pickFor=null;G.mpPickSet=null;
+  hideAllMP();show('#ov-start');}
+
+/* ---------- düğmeler ---------- */
+on('#user-edit','click',()=>{$('#name-input').value=NET.name;show('#ov-name');});
+on('#name-ok','click',()=>{saveName($('#name-input').value);hide('#ov-name');});
+on('#name-cancel','click',()=>hide('#ov-name'));
+on('#mp-create','click',createRoom);
+on('#mp-enter','click',()=>{hide('#ov-start');show('#ov-join');joinMsg('');$('#join-code').value='';});
+function haneCiz(){
+  const v=($('#join-code').value||'').toUpperCase().replace(/[^A-Z0-9]/g,'').slice(0,5);
+  $('#join-code').value=v;
+  const box=$('#join-hane');if(!box)return;
+  const ku=box.children;
+  for(let i=0;i<5;i++){
+    const k=ku[i];if(!k)continue;
+    k.textContent=v[i]||(i===v.length?'_':'·');
+    k.className=v[i]?'':(i===v.length?'aktif':'bos');}
+  const g=$('#join-go');if(g)g.classList.toggle('pas',v.length<5);}
+on('#join-code','input',haneCiz);
+on('#join-hane','click',()=>{const i=$('#join-code');if(i){i.style.pointerEvents='auto';i.focus();}});
+on('#join-go','click',()=>joinRoom($('#join-code').value));
+on('#room-copy','click',()=>{
+  const c=NET.code||'';
+  try{navigator.clipboard.writeText(c);log('Kod kopyalandı: '+c,'d');}
+  catch(e){log('Kod: '+c,'d');}});
+on('#join-back','click',()=>{hide('#ov-join');show('#ov-start');});
+on('#room-leave','click',leaveRoom);
+on('#pick-leave','click',leaveRoom);
+on('#room-start','click',()=>{
+  if(!NET.host||NET.players.length<2)return;
+  NET.stage='pick';sendAll({t:'begin'});pushLobby();openPick();});
+on('#pick-open','click',openPick);
+loadName();
+
+/* ================= PROFİL · BAŞARIM · ETİKET · YÜKSELTME ================= */
+function LS(k,d){try{const v=localStorage.getItem(k);return v==null?d:JSON.parse(v);}catch(e){return d;}}
+function SS(k,v){try{localStorage.setItem(k,JSON.stringify(v));}catch(e){}}
+
+const PROF={
+  wins:LS('harp_wins',0),
+  gold:LS('harp_gold',0),
+  games:LS('harp_games',0),
+  towers:LS('harp_towers',0),
+  ach:LS('harp_ach',[]),
+  tags:LS('harp_tags',[]),
+  tag:LS('harp_tag',''),
+  used:LS('harp_used',[]),
+  fcode:LS('harp_fcode',''),
+  friends:LS('harp_friends',[]),
+  admin:LS('harp_admin',false)
+};
+function saveProf(){
+  if(typeof fbPush==='function'){try{const _p=fbPush();if(_p&&_p.catch)_p.catch(()=>{});}catch(e){}}
+  SS('harp_gold',PROF.gold);SS('harp_wins',PROF.wins);SS('harp_ach',PROF.ach);
+  SS('harp_games',PROF.games);SS('harp_towers',PROF.towers);
+  SS('harp_tags',PROF.tags);SS('harp_tag',PROF.tag);SS('harp_admin',PROF.admin);
+  SS('harp_used',PROF.used);
+  SS('harp_fcode',PROF.fcode);SS('harp_friends',PROF.friends);}
+
+/* ---------- başarımlar ---------- */
+const ACH=[
+  {id:'start', n:'Yeni Başlangıç',   d:'Oyunu ilk kez aç.'},
+  {id:'nuke',  n:'Kıyamet Düğmesi',  d:'Nükleer başlık ateşle.'},
+  {id:'riot',  n:'Halkın Sesi',      d:'Halkı isyan ettir.'},
+  {id:'w10',   n:'Çaylak Komutan',   d:'10 galibiyet kazan.'},
+  {id:'w20',   n:'Tecrübeli',        d:'20 galibiyet kazan.'},
+  {id:'w30',   n:'Savaş Kurdu',      d:'30 galibiyet kazan.'},
+  {id:'w40',   n:'Cephe Ustası',     d:'40 galibiyet kazan.'},
+  {id:'w50',   n:'Yenilmez',         d:'50 galibiyet kazan.'},
+  {id:'v10',   n:'Karantina',        d:'Zombi salgınında 10. dalgaya ulaş.'},
+  {id:'v20',   n:'Direniş',          d:'20. dalgaya ulaş.'},
+  {id:'v30',   n:'Son Sığınak',         d:'30. dalgaya ulaş.'},
+  {id:'v40',   n:'İnsanlığın Umudu', d:'40. dalgaya ulaş.'},
+  {id:'v50',   n:'Salgın Avcısı',    d:'50. dalgaya ulaş.'},
+  {id:'first', n:'İlk Kan',           d:'İlk savaşını kazan.'},
+  {id:'blitz', n:'Yıldırım Harekâtı', d:'60 saniyeden kısa sürede kazan.'},
+  {id:'stand', n:'Son Kale',          d:'Canın %10 altına düştükten sonra kazan.'},
+  {id:'conq',  n:'Fatih',             d:'Tek savaşta 10 şehir işgal et.'},
+  {id:'landg', n:'Çıkarma',           d:'Karadan hiç asker göndermeden, sadece denizden kazan.'},
+  {id:'coal',  n:'Koalisyon Lideri',  d:'3 veya daha çok ülkeyle aynı safta kazan.'},
+  {id:'world', n:'Dünya Fatihi',      d:'Dünya fethi modunu tamamla.'},
+  {id:'oneman',n:'Tek Adam',          d:'Tüm dünyaya karşı tek ülkeyle kazan.'},
+  {id:'bilio', n:'Milyarder',         d:'5 milyar bütçeye ulaş.'},
+  {id:'hero',  n:'Halk Kahramanı',    d:'Halk memnuniyetini %95 yap.'},
+  {id:'brink', n:'Uçurumun Kenarı',   d:'Memnuniyet %5 altına düşsün ama isyan çıkmasın.'},
+  {id:'arsen', n:'Cephanelik',        d:'Bir silahı seviye 5 yap.'},
+  {id:'fullk', n:'Tam Donanım',       d:'Altı silahın hepsini seviye 5 yap.'},
+  {id:'perf',  n:'Tam İsabet',        d:'Tek füzeyle 30 zombi öldür.'},
+  {id:'air',   n:'Hava Üstünlüğü',    d:'Tek savaşta 10 helikopter görevi yap.'},
+  {id:'winter',n:'Nükleer Kış',       d:'Tek savaşta 3 nükleer ateşle.'},
+  {id:'tower', n:'Kule Avcısı',       d:'Toplam 10 zombi kulesi yık.'},
+  {id:'quar',  n:'Karantina Başarılı',d:'Bir dalgayı hiç şehir kaybetmeden bitir.'},
+  {id:'clean', n:'Sıfır Bulaşma',     d:'10. dalgaya kadar başka ülke bulaşmasın.'},
+  {id:'buddy', n:'Omuz Omuza',        d:'Çok oyunculuda müttefikle birlikte kazan.'},
+  {id:'grind', n:'Israrcı',           d:'50 savaş oyna.'},
+  {id:'coll',  n:'Koleksiyoncu',      d:'Tüm etiketleri satın al.'}
+];
+function hasAch(id){return PROF.ach.indexOf(id)>=0;}
+function toast(ust,ad,ac){
+  const box=document.getElementById('toast');if(!box)return;
+  const d=document.createElement('div');d.className='tst';
+  d.innerHTML='<div class="ust">'+ust+'</div><div class="adi"></div>'+
+    (ac?'<div class="aciklama"></div>':'');
+  d.querySelector('.adi').textContent=ad;
+  if(ac)d.querySelector('.aciklama').textContent=ac;
+  box.appendChild(d);
+  while(box.children.length>4)box.removeChild(box.firstChild);
+  setTimeout(()=>{d.classList.add('out');setTimeout(()=>d.remove(),420);},4200);}
+function unlockAch(id){
+  if(hasAch(id))return;
+  const a=ACH.find(x=>x.id===id);if(!a)return;
+  PROF.ach.push(id);saveProf();
+  toast('🏆 BAŞARIM KAZANILDI',a.n,a.d);
+  if(G.stat&&G.phase==='war')G.stat.ach=a.n;
+  if(PROF.ach.length>=ACH.length)toast('👑 UNVAN AÇILDI','Başarımlar Başkanı','Tüm başarımları topladın.');
+  renderAch();renderUser();}
+function achDone(){return PROF.ach.length>=ACH.length;}
+function fmtGold(v){return (v||0).toLocaleString('tr-TR');}
+function addGold(n,neden){
+  if(!n)return;
+  PROF.gold=Math.max(0,(PROF.gold||0)+n);saveProf();
+  if(n>0)toast('🪙 ALTIN','+'+fmtGold(n),neden||'');
+  renderUser();renderTags();}
+/* savaşta ne kadar az silah kullanırsan o kadar çok altın */
+function savasAltini(){
+  const k=(G.stat&&G.stat.silah)||0;
+  const alt=Math.max(100,Math.round(3200*Math.pow(0.5,k/10)));
+  return {k,alt};}
+function addWin(){
+  PROF.wins++;saveProf();
+  for(const n of [10,20,30,40,50])if(PROF.wins>=n)unlockAch('w'+n);
+  renderUser();renderTags();}
+function waveAch(w){
+  for(const n of [50,40,30,20,10])if(w>=n){unlockAch('v'+n);break;}}
+
+function addGame(){PROF.games++;saveProf();if(PROF.games>=50)unlockAch('grind');}
+function addTowerKill(){PROF.towers++;saveProf();if(PROF.towers>=10)unlockAch('tower');}
+/* maç içi sayaçlar */
+function statReset(){
+  G.stat={cap:0,nuke:0,heli:0,land:false,sea:false,low:false,dip:false,waveLoss:false};}
+function statCheck(){
+  const s=G.stat;if(!s)return;
+  const e=G.eco;
+  if(e&&e.on){
+    if(e.money>=5e9)unlockAch('bilio');
+    if(e.morale>=95)unlockAch('hero');
+    if(e.morale<5)s.dip=true;
+    else if(s.dip&&e.morale>=20)unlockAch('brink');}
+  if(G.side!=='W'&&hpOf(G.side)<=.10)s.low=true;}
+function winAch(w){
+  const s=G.stat||{};
+  unlockAch('first');
+  if(G.t<60)unlockAch('blitz');
+  if(s.low)unlockAch('stand');
+  if(s.cap>=10)unlockAch('conq');
+  if(s.sea&&!s.land)unlockAch('landg');
+  const mine=(G.team[w]||[]).length,foe=(G.team[w==='A'?'D':'A']||[]).length;
+  if(mine>=3)unlockAch('coal');
+  if(mine===1&&foe>=CLIST.length-8)unlockAch('oneman');
+  if(typeof NET!=='undefined'&&NET.on&&
+     NET.players.filter(p=>p.side===w).length>=2)unlockAch('buddy');}
+
+/* ---------- etiketler ---------- */
+const NADIR={
+  sik:     {n:'SIK',      renk:'#8b98a2'},
+  orta:    {n:'ORTA',     renk:'#3d7fbf'},
+  nadir:   {n:'NADİR',    renk:'#9b59d0'},
+  efsane:  {n:'EFSANEVİ', renk:'#d9a441'},
+  ozel:    {n:'ÖZEL',     renk:'#c1332d'}
+};
+const TAGS=[
+  {id:'',        n:'Etiketsiz',        g:0,    r:'sik'},
+  /* --- SIK --- */
+  {id:'acemi',   n:'Acemi',            g:100,  r:'sik'},
+  {id:'er',      n:'Er',               g:120,  r:'sik'},
+  {id:'onbasi',  n:'Onbaşı',           g:150,  r:'sik'},
+  {id:'nobetci', n:'Nöbetçi',          g:170,  r:'sik'},
+  {id:'izci',    n:'İzci',             g:190,  r:'sik'},
+  {id:'gozcu',   n:'Gözcü',            g:210,  r:'sik'},
+  {id:'taze',    n:'Tazelenmiş',       g:230,  r:'sik'},
+  {id:'merakli', n:'Meraklı',          g:250,  r:'sik'},
+  {id:'yolcu',   n:'Yolcu',            g:275,  r:'sik'},
+  {id:'caylak',  n:'Çaylak Komutan',   g:300,  r:'sik'},
+  /* --- ORTA --- */
+  {id:'cavus',   n:'Çavuş',            g:500,  r:'orta'},
+  {id:'yuzbasi', n:'Yüzbaşı',          g:560,  r:'orta'},
+  {id:'binbasi', n:'Binbaşı',          g:620,  r:'orta'},
+  {id:'albay',   n:'Albay',            g:700,  r:'orta'},
+  {id:'kurmay',  n:'Kurmay',           g:760,  r:'orta'},
+  {id:'sinir',   n:'Sınır Bekçisi',    g:800,  r:'orta'},
+  {id:'topcu',   n:'Topçu',            g:840,  r:'orta'},
+  {id:'pilot',   n:'Pilot',            g:880,  r:'orta'},
+  {id:'denizci', n:'Denizci',          g:920,  r:'orta'},
+  {id:'tankci',  n:'Tankçı',           g:950,  r:'orta'},
+  {id:'parasut', n:'Paraşütçü',        g:980,  r:'orta'},
+  {id:'istihkam',n:'İstihkâm',         g:1000, r:'orta'},
+  /* --- NADİR --- */
+  {id:'general', n:'General',          g:2000, r:'nadir'},
+  {id:'amiral',  n:'Amiral',           g:2200, r:'nadir'},
+  {id:'maresal', n:'Mareşal',          g:2500, r:'nadir'},
+  {id:'genkur',  n:'Genelkurmay',      g:2800, r:'nadir'},
+  {id:'kusatma', n:'Kuşatmacı',        g:3000, r:'nadir'},
+  {id:'fatih',   n:'Fatih',            g:3200, r:'nadir'},
+  {id:'strateji',n:'Stratejist',       g:3400, r:'nadir'},
+  {id:'sessiz',  n:'Sessiz Ölüm',      g:3600, r:'nadir'},
+  {id:'gece',    n:'Gece Nöbeti',      g:3800, r:'nadir'},
+  {id:'celik',   n:'Çelik Yumruk',     g:3900, r:'nadir'},
+  {id:'kanli',   n:'Kanlı Bayrak',     g:4000, r:'nadir'},
+  /* --- EFSANEVİ --- */
+  {id:'baron',   n:'Savaş Baronu',     g:8000, r:'efsane'},
+  {id:'kiyamet', n:'Kıyamet Süvarisi', g:9000, r:'efsane'},
+  {id:'dunya',   n:'Dünya Fatihi',     g:10000,r:'efsane'},
+  {id:'salgin',  n:'Salgın Avcısı',    g:11000,r:'efsane'},
+  {id:'olumsuz', n:'Ölümsüz',          g:12000,r:'efsane'},
+  {id:'golge',   n:'Gölge Komutan',    g:13000,r:'efsane'},
+  {id:'kartal',  n:'Kara Kartal',      g:14000,r:'efsane'},
+  {id:'imparator',n:'Son İmparator',   g:15000,r:'efsane'},
+  /* --- ÖZEL (hediye kodu ile) --- */
+  {id:'admin',   n:'Admin',            g:0, r:'ozel', pw:'2349852123'},
+  {id:'tester',  n:'Tester',           g:0, r:'ozel', gift:1},
+  {id:'bug',     n:'Bug Bulucu',       g:0, r:'ozel', gift:1},
+  {id:'beyin',   n:'Mr.Beyin',         g:0, r:'ozel', gift:1},
+  {id:'knk',     n:'knk',              g:0, r:'ozel', gift:1},
+  {id:'beta',    n:'Beta Tester',      g:0, r:'ozel', gift:1},
+  {id:'hata',    n:'Hata Avcısı',      g:0, r:'ozel', gift:1},
+  {id:'fikir',   n:'Fikir Babası',     g:0, r:'ozel', gift:1},
+  {id:'harita',  n:'Harita Ustası',    g:0, r:'ozel', gift:1},
+  {id:'denge',   n:'Denge Uzmanı',     g:0, r:'ozel', gift:1},
+  {id:'kidem',   n:'Kıdemli',          g:0, r:'ozel', gift:1},
+  {id:'onur',    n:'Onursal Komutan',  g:0, r:'ozel', gift:1},
+  {id:'kayit',   n:'Kayıt Dışı',       g:0, r:'ozel', gift:1},
+  {id:'sifir',   n:'Sıfır Numara',     g:0, r:'ozel', gift:1},
+  {id:'hayalet', n:'Kod Adı: Hayalet', g:0, r:'ozel', gift:1},
+  {id:'ekonomi', n:'Ekonomi Bakanı',   g:0, r:'ozel', gift:1},
+  {id:'baris',   n:'Barışsever',       g:0, r:'ozel', gift:1},
+  {id:'nukleer', n:'Nükleer Meraklısı',g:0, r:'ozel', gift:1}
+];
+const GIFTS=TAGS.filter(t=>t.gift);
+function tagName(){
+  const t=TAGS.find(x=>x.id===PROF.tag);
+  return t&&t.id?t.n:'';}
+function fullName(base){
+  const parts=[base||NET.name||'Komutan'];
+  const t=tagName();if(t)parts.push('['+t+']');
+  if(achDone())parts.push('· Başarımlar Başkanı');
+  return parts.join(' ');}
+function buyTag(t){
+  if(t.gift&&PROF.tags.indexOf(t.id)<0){
+    toast('🎁 HEDİYE ETİKETİ',t.n,'Satın alınamaz, kodla gelir.');return;}
+  if(t.id==='admin'&&!PROF.admin){
+    const pw=prompt('Admin parolası:');
+    if(pw!==t.pw){log('Parola yanlış.','w');return;}
+    PROF.admin=true;}
+  if(PROF.tags.indexOf(t.id)<0){
+    if((PROF.gold||0)<t.g){
+      toast('🪙 ALTIN YETMİYOR',t.n,fmtGold(t.g)+' altın gerekiyor · sende '+fmtGold(PROF.gold));return;}
+    PROF.gold-=t.g;PROF.tags.push(t.id);
+    toast('🏷 ETİKET ALINDI',t.n,'-'+fmtGold(t.g)+' altın');}
+  PROF.tag=t.id;saveProf();
+  if(TAGS.every(x=>!x.id||PROF.tags.indexOf(x.id)>=0))unlockAch('coll');
+  renderTags();renderUser();
+  if(t.id)toast('🏷 ETİKET SEÇİLDİ',t.n);}
+
+/* ---------- hediye kodları (admin üretir, herkes kullanır) ---------- */
+const KALP='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+function kdChk(body){
+  let h=7;const s=body+'HARP-2026-KOD';
+  for(let i=0;i<s.length;i++)h=(Math.imul(h,31)+s.charCodeAt(i))>>>0;
+  return KALP[h%32];}
+function kdYap(idx){
+  let body=KALP[idx];
+  for(let i=0;i<5;i++)body+=KALP[(Math.random()*32)|0];
+  return body+kdChk(body);}
+function kdBic(c){return c.slice(0,3)+'-'+c.slice(3);}
+function kdCoz(code){
+  code=(code||'').toUpperCase().replace(/[^A-Z0-9]/g,'');
+  if(code.length!==7)return null;
+  const body=code.slice(0,6);
+  if(kdChk(body)!==code[6])return null;
+  const idx=KALP.indexOf(body[0]);
+  if(idx<0||idx>=GIFTS.length)return null;
+  return {tag:GIFTS[idx],code};}
+function kdKullan(raw){
+  const r=kdCoz(raw);
+  if(!r){toast('❌ GEÇERSİZ KOD','Kod tanınmadı','Harfleri ve rakamları kontrol et.');return;}
+  if(!PROF.used)PROF.used=[];
+  if(PROF.used.indexOf(r.code)>=0){
+    toast('❌ KOD KULLANILMIŞ',r.tag.n,'Bu kod daha önce kullanıldı.');return;}
+  PROF.used.push(r.code);
+  if(PROF.tags.indexOf(r.tag.id)<0)PROF.tags.push(r.tag.id);
+  saveProf();
+  toast('🎁 HEDİYE GELDİ','Hediye geldi ('+r.tag.n+')!','Etiket dükkânından seçebilirsin.');
+  renderTags();renderUser();
+  const inp=$('#ach-code');if(inp)inp.value='';}
+function renderGift(){
+  const L=$('#gift-list');if(!L)return;
+  L.innerHTML='';
+  GIFTS.forEach((t,i)=>{
+    const d=document.createElement('div');d.className='grow';
+    const nm=document.createElement('div');nm.className='gnm';
+    nm.innerHTML='<b>'+t.n+'</b><span>özel etiket</span>';
+    const kod=document.createElement('div');kod.className='gkod';
+    kod.textContent='— — —';
+    const btn=document.createElement('button');
+    btn.className='gbtn';btn.textContent='OLUŞTUR';
+    btn.addEventListener('click',()=>{
+      const c=kdYap(i);
+      kod.textContent=kdBic(c);
+      kod.classList.add('dolu');
+      log(t.n+' kodu üretildi: '+kdBic(c),'d');});
+    d.appendChild(nm);d.appendChild(kod);d.appendChild(btn);
+    L.appendChild(d);});
+  const s=$('#gift-msg');
+  if(s)s.textContent='Kodu üret, arkadaşına gönder. O da Başarımlar ekranından girsin.';}
+
+/* ---------- yükseltmeler (maç içi, para ile) ---------- */
+const UPG=[
+  {k:'msl', ic:'🚀', n:'Füze'},
+  {k:'jet', ic:'✈️', n:'Savaş Uçağı'},
+  {k:'heli',ic:'🚁', n:'Helikopter'},
+  {k:'ship',ic:'🚢', n:'Savaş Gemisi'},
+  {k:'sol', ic:'🪖', n:'Asker'},
+  {k:'nuke',ic:'☢️', n:'Nükleer Başlık'}
+];
+const UPG_MAX=5;
+function upgLvl(k){return (G.upg&&G.upg[k])||0;}
+function upgCost(k){return 200e6*(upgLvl(k)+1);}
+function upg(k){const l=upgLvl(k);return{l,d:1+.22*l,r:1+.13*l};}
+function buyUpg(k,side,who){
+  side=side||G.side;
+  const e=(G.ecoS&&G.ecoS[side])||G.eco;
+  if(!e||!e.on){log('Yükseltme için ekonomi açık olmalı.','w');return;}
+  if(upgLvl(k)>=UPG_MAX){log('Bu silah zaten tam yükseltilmiş.','w');return;}
+  const c=upgCost(k);
+  if(e.money<c){log('Bütçe yetmiyor ('+fmtM(c)+').','w');return;}
+  e.money-=c;
+  if(!G.upg)G.upg={};
+  G.upg[k]=upgLvl(k)+1;
+  const u=UPG.find(x=>x.k===k);
+  log((who?who+' · ':'')+u.n+' seviye '+G.upg[k]+' — hasar +%'+Math.round((upg(k).d-1)*100)+
+      ', etki alanı +%'+Math.round((upg(k).r-1)*100),'d');
+  if(G.upg[k]>=UPG_MAX)unlockAch('arsen');
+  if(UPG.every(x=>upgLvl(x.k)>=UPG_MAX))unlockAch('fullk');
+  renderUpg();updateEco();}
+
+/* ---------- arayüz ---------- */
+function nameSync(){
+  try{
+    if(typeof NET!=='undefined'&&NET.on){
+      const me=NET.players.find(p=>p.id===NET.id);
+      if(me)me.name=NET.name;
+      if(NET.host){pushLobby();renderRoom();}
+      else sendHost({t:'set',id:NET.id,name:NET.name});}
+    if(typeof frList==='function')
+      for(const f of frList())frSend(f.code,{t:'hi',code:frCode(),name:NET.name});
+  }catch(e){}}
+function renderUser(){
+  const e=$('#user-name');if(e)e.textContent=NET.name||'Komutan';
+  const r=$('#user-rank'),tn=tagName();
+  if(r){r.textContent=tn||'';r.style.display=tn?'':'none';}
+  const ar=$('#adm-row');if(ar)ar.style.display=PROF.admin?'':'none';
+  const u=$('#user-unvan');
+  if(u)u.textContent=achDone()?'👑 Başarımlar Başkanı':'Cephe kaydı açık';
+  const w=$('#user-wins');if(w)w.textContent=PROF.wins;
+  const gd=$('#user-gold');if(gd)gd.textContent=fmtGold(PROF.gold);
+  const a=$('#user-ach');if(a)a.textContent=PROF.ach.length;
+  const pr=$('#user-prog');
+  if(pr)pr.style.width=Math.round(PROF.ach.length/ACH.length*100)+'%';
+  const pt=$('#user-progtxt');
+  if(pt)pt.textContent=PROF.ach.length+'/'+ACH.length+' başarım'+
+    (PROF.ach.length<ACH.length?(' · '+(ACH.length-PROF.ach.length)+' tanesi kaldı'):' · tamamlandı');}
+function renderAch(){
+  const L=$('#ach-list');if(!L)return;
+  L.innerHTML='';
+  for(const a of ACH){
+    const got=hasAch(a.id);
+    const d=document.createElement('div');
+    d.className='arow'+(got?' got':'');
+    d.innerHTML='<div class="aic">'+(got?'🏆':'🔒')+'</div><div class="atx">'+
+      '<b>'+a.n+'</b><span>'+a.d+'</span></div>';
+    L.appendChild(d);}
+  const s=$('#ach-sum');
+  if(s)s.textContent=PROF.ach.length+'/'+ACH.length+' başarım'+
+    (achDone()?' · 👑 Başarımlar Başkanı':'');}
+function renderTags(){
+  const L=$('#tag-list');if(!L)return;
+  L.innerHTML='';
+  for(const t of TAGS){
+    const own=!t.id||PROF.tags.indexOf(t.id)>=0;
+    const can=own||t.id==='admin'||(!t.gift&&(PROF.gold||0)>=t.g);
+    const d=document.createElement('div');
+    d.className='trow'+(PROF.tag===t.id?' on':'')+(can?'':' no')+(t.id==='admin'?' admin':'');
+    const nd=NADIR[t.r||'sik'];
+    d.style.borderLeft='3px solid '+nd.renk;
+    d.innerHTML='<div class="ttx"><b style="color:'+nd.renk+'">'+(t.id?t.n:'Etiketsiz')+'</b>'+
+      '<span>'+nd.n+' · '+(t.id==='admin'?'parola gerekir'
+        :(t.gift?(own?'hediye edildi':'hediye kodu ile'):(own?'sahipsin':fmtGold(t.g)+' altın')))+'</span></div>'+
+      '<div class="tst">'+(PROF.tag===t.id?'SEÇİLİ':(own?'SEÇ':(t.id==='admin'?'🔑':(t.gift?'🎁':'🪙'))))+'</div>';
+    d.addEventListener('click',()=>buyTag(t));
+    L.appendChild(d);}
+  const w=$('#tag-wins');if(w)w.textContent=PROF.wins;
+  const gg=$('#tag-gold');if(gg)gg.textContent=fmtGold(PROF.gold);}
+function renderUpg(){
+  const L=$('#upg-list');if(!L)return;
+  L.innerHTML='';
+  for(const u of UPG){
+    const l=upgLvl(u.k),max=l>=UPG_MAX,c=upgCost(u.k);
+    const e=G.eco,afford=e&&e.on&&e.money>=c&&!max;
+    const d=document.createElement('div');
+    d.className='iv'+(afford?'':' no');
+    d.innerHTML='<div class="ic">'+u.ic+'</div><div class="tx">'+
+      '<div class="tt">'+u.n+' · SV '+l+'/'+UPG_MAX+'</div>'+
+      '<div class="dd">hasar +%'+Math.round(upg(u.k).d*100-100)+
+      ' · etki alanı +%'+Math.round(upg(u.k).r*100-100)+'</div></div>'+
+      '<div class="pr">'+(max?'TAM':fmtM(c))+'</div>';
+    d.addEventListener('click',()=>{if(!max)issueUpg(u.k);});
+    L.appendChild(d);}
+  const t=$('#upg-top');
+  if(t&&G.eco)t.textContent='Bütçe: '+fmtM(G.eco.money)+
+    ' · yükseltmeler halkı etkilemez';}
+
+on('#user-ach-btn','click',()=>{renderAch();show('#ov-ach');});
+on('#ach-close','click',()=>hide('#ov-ach'));
+on('#ach-al','click',()=>kdKullan($('#ach-code').value));
+on('#user-tag-btn','click',()=>{renderTags();show('#ov-tags');});
+on('#adm-row','click',()=>{renderGift();show('#ov-gift');});
+on('#gift-close','click',()=>hide('#ov-gift'));
+on('#tag-close','click',()=>hide('#ov-tags'));
+on('#b-upg','click',()=>{renderUpg();show('#ov-upg');});
+on('#upg-close','click',()=>hide('#ov-upg'));
+unlockAch('start');
+renderUser();
+
+/* ================= ARKADAŞLAR ================= */
+const FR={peer:null,online:false,cd:{},pop:null,popT:0};
+
+function frCode(){
+  if(!PROF.fcode){
+    let c='';for(let i=0;i<6;i++)c+=KALP[(Math.random()*KALP.length)|0];
+    PROF.fcode=c;saveProf();}
+  return PROF.fcode;}
+function frList(){if(!PROF.friends)PROF.friends=[];return PROF.friends;}
+function frFind(c){return frList().find(f=>f.code===c);}
+
+/* ---------- bağlantı ---------- */
+function frStart(){
+  if(FR.peer||!window.Peer||!window.isSecureContext)return;
+  try{FR.peer=new Peer('harpf-'+frCode(),{debug:0,config:ICE});}catch(e){return;}
+  FR.peer.on('open',()=>{FR.online=true;renderFriends();});
+  FR.peer.on('error',()=>{});
+  FR.peer.on('connection',c=>{
+    c.on('data',d=>frData(c,d));
+    c.on('error',()=>{});});
+}
+function frSend(code,msg){
+  frStart();
+  if(!FR.peer){log('Arkadaş sunucusuna bağlanılamadı.','w');return null;}
+  let c;
+  try{c=FR.peer.connect('harpf-'+code,{reliable:true});}catch(e){return null;}
+  const wd=setTimeout(()=>{try{c.close();}catch(e){}},9000);
+  c.on('open',()=>{try{c.send(msg);}catch(e){}});
+  c.on('data',d=>{clearTimeout(wd);frData(c,d);});
+  c.on('error',()=>{clearTimeout(wd);});
+  return c;}
+
+function frData(c,d){
+  if(!d||!d.t)return;
+  if(d.t==='hi'){
+    const f=frFind(d.code);
+    if(f&&d.name){f.name=d.name;saveProf();renderFriends();}
+    try{c.send({t:'hi2',code:frCode(),name:NET.name});}catch(e){}
+  }
+  else if(d.t==='hi2'){
+    const f=frFind(d.code);
+    if(f&&d.name){f.name=d.name;saveProf();renderFriends();}
+  }
+  else if(d.t==='inv'){showInvite(d,c);}
+  else if(d.t==='rej'){
+    FR.cd[d.code]=Date.now()+5000;
+    toast('✖ DAVET REDDEDİLDİ',d.name||'Arkadaşın','5 saniye sonra tekrar davet edebilirsin.');
+    renderFriends();}
+  else if(d.t==='acc'){
+    toast('✔ DAVET KABUL EDİLDİ',d.name||'Arkadaşın','Odaya katılıyor.');}
+}
+
+/* ---------- davet penceresi ---------- */
+function showInvite(d,conn){
+  hideInvite();
+  const box=$('#inv-pop');if(!box)return;
+  FR.pop={conn,room:d.room,name:d.name||'Bir oyuncu',code:d.code};
+  FR.popT=10;
+  $('#inv-ad').textContent=FR.pop.name;
+  $('#inv-oda').textContent='Oda kodu: '+d.room;
+  $('#inv-sn').textContent='10';
+  $('#inv-bar').style.transition='none';
+  $('#inv-bar').style.width='100%';
+  box.classList.remove('hide');
+  requestAnimationFrame(()=>{
+    $('#inv-bar').style.transition='width 10s linear';
+    $('#inv-bar').style.width='0%';});
+  clearInterval(FR.tick);
+  FR.tick=setInterval(()=>{
+    FR.popT--;
+    const s=$('#inv-sn');if(s)s.textContent=Math.max(0,FR.popT);
+    if(FR.popT<=0)invReject(true);},1000);
+}
+function hideInvite(){
+  clearInterval(FR.tick);
+  const box=$('#inv-pop');if(box)box.classList.add('hide');
+  FR.pop=null;}
+function invAccept(){
+  const p=FR.pop;if(!p)return;
+  try{p.conn.send({t:'acc',code:frCode(),name:NET.name});}catch(e){}
+  hideInvite();
+  if(NET.on)leaveRoom();
+  hide('#ov-start');
+  joinRoom(p.room);}
+function invReject(zaman){
+  const p=FR.pop;if(!p)return;
+  try{p.conn.send({t:'rej',code:frCode(),name:NET.name});}catch(e){}
+  hideInvite();
+  if(!zaman)log('Davet reddedildi.','w');}
+
+/* ---------- davet gönder ---------- */
+function inviteFriend(code){
+  if(!NET.on||!NET.code){log('Önce bir oda kur.','w');return;}
+  const left=(FR.cd[code]||0)-Date.now();
+  if(left>0){log('Biraz bekle: '+Math.ceil(left/1000)+' sn','w');return;}
+  const f=frFind(code);
+  frSend(code,{t:'inv',room:NET.code,code:frCode(),name:NET.name});
+  FR.cd[code]=Date.now()+5000;
+  toast('📨 DAVET GÖNDERİLDİ',(f&&f.name)||code,'Cevap bekleniyor.');
+  renderFriends();}
+
+/* ---------- arayüz ---------- */
+function addFriend(code){
+  code=(code||'').toUpperCase().replace(/[^A-Z0-9]/g,'');
+  if(code.length<6){log('6 haneli arkadaş kodunu yaz.','w');return;}
+  if(code===frCode()){log('Bu senin kendi kodun.','w');return;}
+  if(frFind(code)){log('Bu arkadaş zaten listende.','w');return;}
+  frList().push({code,name:''});saveProf();
+  frSend(code,{t:'hi',code:frCode(),name:NET.name});
+  renderFriends();
+  toast('👥 ARKADAŞ EKLENDİ',code,'Çevrimiçiyse adı birazdan görünür.');
+  const i=$('#fr-add');if(i)i.value='';}
+function delFriend(code){
+  PROF.friends=frList().filter(f=>f.code!==code);saveProf();renderFriends();}
+function renderFriends(){
+  const m=$('#fr-mykod');if(m)m.textContent=frCode();
+  const st=$('#fr-durum');
+  if(st)st.textContent=FR.online?'Çevrimiçisin — davet alabilirsin.'
+    :'Bağlanıyor… (çok oyunculu için internet gerekir)';
+  const L=$('#fr-list');if(!L)return;
+  L.innerHTML='';
+  const arr=frList();
+  if(!arr.length){
+    const d=document.createElement('div');d.className='frow bos';
+    d.textContent='Henüz arkadaş yok. Kodunu paylaş ya da arkadaşının kodunu ekle.';
+    L.appendChild(d);return;}
+  for(const f of arr){
+    const d=document.createElement('div');d.className='frow';
+    const n=document.createElement('div');n.className='fnm';
+    n.innerHTML='<b>'+(f.name||'—')+'</b><span>'+f.code+'</span>';
+    const b=document.createElement('button');b.className='gbtn';
+    const left=Math.ceil(((FR.cd[f.code]||0)-Date.now())/1000);
+    const acik=NET.on&&NET.code;
+    b.textContent=left>0?(left+' sn'):'DAVET';
+    b.disabled=left>0||!acik;
+    b.style.opacity=(left>0||!acik)?'.45':'1';
+    b.addEventListener('click',()=>inviteFriend(f.code));
+    const x=document.createElement('button');x.className='fdel';x.textContent='✕';
+    x.title='Listeden çıkar';
+    x.addEventListener('click',()=>delFriend(f.code));
+    d.appendChild(n);d.appendChild(b);d.appendChild(x);
+    L.appendChild(d);}
+}
+
+on('#fr-btn','click',()=>{frStart();renderFriends();show('#ov-friends');});
+on('#fr-close','click',()=>hide('#ov-friends'));
+on('#fr-ekle','click',()=>addFriend($('#fr-add').value));
+on('#room-invite','click',()=>{frStart();renderFriends();show('#ov-friends');});
+on('#inv-kabul','click',invAccept);
+on('#inv-red','click',()=>invReject(false));
+setInterval(()=>{const o=$('#ov-friends');
+  if(o&&!o.classList.contains('hide'))renderFriends();},1000);
+setTimeout(frStart,1500);
+
+/* ================= SOHBET & SEYİRCİ ================= */
+const CHAT={log:[],unread:0};
+
+function chatAdd(name,text,kendi){
+  CHAT.log.push({n:name,t:text,me:!!kendi});
+  if(CHAT.log.length>60)CHAT.log.shift();
+  if(!kendi)CHAT.unread++;
+  renderChat();
+  const b=$('#b-chat');
+  if(b&&CHAT.unread)b.textContent='💬 '+CHAT.unread;
+  if(!kendi&&G.phase==='war')log('💬 '+name+': '+text,'d');}
+
+function chatSend(inp){
+  const el=$(inp);if(!el)return;
+  const t=(el.value||'').trim().slice(0,120);
+  if(!t)return;
+  el.value='';
+  if(!(NET&&NET.on)){log('Sohbet için odada olmalısın.','w');return;}
+  const msg={t:'chat',name:NET.name,text:t};
+  if(NET.host)sendAll(msg);else sendHost(msg);
+  chatAdd(NET.name,t,true);}
+
+function renderChat(){
+  for(const id of ['#chat-list','#chat-list2']){
+    const L=$(id);if(!L)continue;
+    L.innerHTML='';
+    if(!CHAT.log.length){
+      const d=document.createElement('div');d.className='cmsg bos';
+      d.textContent='Henüz mesaj yok.';L.appendChild(d);continue;}
+    for(const m of CHAT.log){
+      const d=document.createElement('div');d.className='cmsg'+(m.me?' me':'');
+      const n=document.createElement('b');n.textContent=m.n;
+      const s=document.createElement('span');s.textContent=m.t;
+      d.appendChild(n);d.appendChild(s);L.appendChild(d);}
+    L.scrollTop=L.scrollHeight;}}
+
+function openChat(){
+  CHAT.unread=0;
+  const b=$('#b-chat');if(b)b.textContent='💬';
+  renderChat();show('#ov-chat');
+  const i=$('#chat-in2');if(i)i.focus();}
+function updateChatBtn(){
+  const b=$('#b-chat');if(!b)return;
+  b.style.display=(NET&&NET.on&&(G.phase==='war'||G.phase==='between'))?'':'none';}
+
+/* ---------- seyirci ---------- */
+function isSpec(p){return !!(p&&p.spec);}
+function cycleSide(id){
+  const p=NET.players.find(x=>x.id===id);if(!p)return;
+  if(!p.spec&&p.side==='A')p.side='D';
+  else if(!p.spec&&p.side==='D'){p.spec=true;}
+  else{p.spec=false;p.side='A';}
+  p.ready=false;
+  if(NET.host){pushLobby();renderRoom();}
+  else sendHost({t:'side',id,side:p.side,spec:!!p.spec});
+  renderRoom();}
+function specLabel(p){return p.spec?'İZLEYİCİ':(p.side==='A'?'SALDIRAN':'SAVUNAN');}
+
+on('#b-chat','click',openChat);
+on('#chat-close','click',()=>hide('#ov-chat'));
+on('#chat-gonder','click',()=>chatSend('#chat-in'));
+on('#chat-gonder2','click',()=>chatSend('#chat-in2'));
+on('#chat-in','keydown',e=>{if(e.key==='Enter')chatSend('#chat-in');});
+on('#chat-in2','keydown',e=>{if(e.key==='Enter')chatSend('#chat-in2');});
+setInterval(updateChatBtn,700);
+
+/* ================= FIREBASE: HESAP · BULUT · SKOR ================= */
+const FB={
+  cfg:{
+    /* Firebase web anahtarı gizli değildir (tarayıcıya gitmek zorunda),
+       ama tarayıcılar düz metin görünce uyarı veriyor — parçalı tutuluyor */
+    apiKey:["AIza","SyAtRzkkYC1RIMefm0","Ms8D9D4_Yb2CWU5YA"].join(""),
+    authDomain:"harp-3baab.firebaseapp.com",
+    projectId:"harp-3baab",
+    storageBucket:"harp-3baab.firebasestorage.app",
+    messagingSenderId:"996856588323",
+    appId:"1:996856588323:web:033c4cd76a18d2edc92996"
+  },
+  ready:false, loading:false, user:null, db:null, auth:null, roomRef:null
+};
+const FB_SDK='https://www.gstatic.com/firebasejs/10.12.2/';
+
+function fbScript(src){
+  return new Promise((res,rej)=>{
+    const s=document.createElement('script');
+    s.src=src;s.onload=()=>res();s.onerror=()=>rej(new Error(src));
+    document.head.appendChild(s);});
+}
+async function fbInit(){
+  if(FB.ready)return true;
+  if(FB.loading)return false;
+  if(!window.isSecureContext){authMsg('Hesap için oyunu https:// adresinden aç.');return false;}
+  FB.loading=true;authMsg('Bağlanılıyor…');
+  try{
+    await fbScript(FB_SDK+'firebase-app-compat.js');
+    await fbScript(FB_SDK+'firebase-auth-compat.js');
+    await fbScript(FB_SDK+'firebase-firestore-compat.js');
+    firebase.initializeApp(FB.cfg);
+    FB.auth=firebase.auth();FB.db=firebase.firestore();
+    FB.ready=true;FB.loading=false;
+    FB.auth.onAuthStateChanged(u=>{FB.user=u;if(u)fbPull();renderHesap();});
+    authMsg('');
+    return true;
+  }catch(e){FB.loading=false;authMsg('Firebase yüklenemedi — internet bağlantını kontrol et.');return false;}
+}
+
+/* ---------- yardımcılar ---------- */
+function authMsg(t,warn){
+  const e=$('#auth-msg');
+  if(e){e.textContent=t||'';e.style.color=warn?'#e05b52':'var(--amber)';}}
+function fbHata(e){
+  const c=String((e&&e.code)||'');
+  if(c.indexOf('email-already')>=0)return 'Bu e-posta zaten kayıtlı.';
+  if(c.indexOf('invalid-email')>=0)return 'E-posta adresi geçersiz.';
+  if(c.indexOf('weak-password')>=0)return 'Parola en az 6 karakter olmalı.';
+  if(c.indexOf('wrong-password')>=0||c.indexOf('invalid-credential')>=0)return 'E-posta ya da parola yanlış.';
+  if(c.indexOf('user-not-found')>=0)return 'Böyle bir hesap yok.';
+  if(c.indexOf('too-many')>=0)return 'Çok fazla deneme — biraz bekle.';
+  if(c.indexOf('network')>=0)return 'Bağlantı hatası.';
+  if(c.indexOf('unauthorized-domain')>=0)return 'Bu adres Firebase\'de izinli değil.';
+  return 'Hata: '+((e&&e.message)||c||'bilinmiyor');}
+
+/* ---------- kayıt / giriş / çıkış ---------- */
+async function fbKayit(){
+  if(!await fbInit())return;
+  const em=($('#auth-mail').value||'').trim();
+  const pw=$('#auth-pw').value||'';
+  const ad=($('#auth-ad').value||'').trim()||NET.name;
+  if(pw.length<6){authMsg('Parola en az 6 karakter olmalı.',1);return;}
+  authMsg('Hesap oluşturuluyor…');
+  try{
+    const c=await FB.auth.createUserWithEmailAndPassword(em,pw);
+    if(ad)saveName(ad);
+    let mailOk=true;
+    try{await c.user.sendEmailVerification();}catch(e){mailOk=false;}
+    await fbPush();
+    authMsg('');hide('#ov-auth');
+    toast('👤 HESAP AÇILDI',ad||em,mailOk
+      ?'Doğrulama e-postası gönderildi (zorunlu değil).'
+      :'Doğrulama e-postası gönderilemedi — sicilden tekrar deneyebilirsin.');
+    renderHesap();
+  }catch(e){authMsg(fbHata(e),1);}
+}
+async function fbGiris(){
+  if(!await fbInit())return;
+  const em=($('#auth-mail').value||'').trim();
+  const pw=$('#auth-pw').value||'';
+  authMsg('Giriş yapılıyor…');
+  try{
+    await FB.auth.signInWithEmailAndPassword(em,pw);
+    await fbPull();
+    authMsg('');hide('#ov-auth');
+    toast('👤 GİRİŞ YAPILDI',NET.name,'Kayıtların buluttan yüklendi.');
+    renderHesap();
+  }catch(e){authMsg(fbHata(e),1);}
+}
+async function fbCikis(){
+  if(!FB.ready||!FB.user)return;
+  try{await fbPush();}catch(e){}
+  await FB.auth.signOut();
+  FB.user=null;renderHesap();
+  toast('👤 ÇIKIŞ YAPILDI','Yerel kayıtlar cihazda kaldı');
+}
+async function fbSifirla(){
+  if(!await fbInit())return;
+  const em=($('#auth-mail').value||'').trim();
+  if(!em){authMsg('Önce e-posta adresini yaz.',1);return;}
+  try{
+    await FB.auth.sendPasswordResetEmail(em);
+    authMsg('Sıfırlama bağlantısı gönderildi: '+em);
+  }catch(e){authMsg(fbHata(e),1);}
+}
+async function fbDogrula(){
+  if(!FB.ready){
+    toast('⚠️ BAĞLANTI YOK','Firebase yüklenmedi','Oyunu https:// adresinden aç.');
+    await fbInit();}
+  if(!FB.user){
+    toast('⚠️ GİRİŞ GEREKLİ','Önce hesabına giriş yap');
+    authAc('giris');return;}
+  try{await FB.user.reload();}catch(e){}
+  if(FB.user.emailVerified){
+    toast('✅ ZATEN DOĞRULANMIŞ',FB.user.email);renderHesap();return;}
+  try{
+    await FB.user.sendEmailVerification();
+    toast('✉️ E-POSTA GÖNDERİLDİ',FB.user.email,'Gelen kutuna ve spam klasörüne bak.');
+  }catch(e){
+    const c=String((e&&e.code)||'');
+    if(c.indexOf('too-many')>=0)
+      toast('⏳ ÇOK SIK DENEDİN',FB.user.email,'Birkaç dakika sonra tekrar dene.');
+    else toast('❌ GÖNDERİLEMEDİ',fbHata(e));}
+}
+async function fbHesapSil(){
+  if(!FB.user)return;
+  const pw=prompt('Hesabı silmek için parolanı yaz:');
+  if(!pw)return;
+  try{
+    const cred=firebase.auth.EmailAuthProvider.credential(FB.user.email,pw);
+    await FB.user.reauthenticateWithCredential(cred);
+    await FB.db.collection('users').doc(FB.user.uid).delete().catch(()=>{});
+    await FB.user.delete();
+    FB.user=null;renderHesap();
+    toast('🗑 HESAP SİLİNDİ','Bulut kaydın kaldırıldı','Cihazdaki kayıtlar duruyor.');
+  }catch(e){log(fbHata(e),'w');}
+}
+
+/* ---------- profil eşitleme ---------- */
+function fbProfil(){
+  return {name:NET.name,wins:PROF.wins,games:PROF.games,towers:PROF.towers,
+    ach:PROF.ach,tags:PROF.tags,tag:PROF.tag,admin:!!PROF.admin,
+    fcode:PROF.fcode||'',friends:PROF.friends||[],
+    ts:Date.now()};}
+async function fbPush(){
+  if(!FB.ready||!FB.user)return;
+  try{await FB.db.collection('users').doc(FB.user.uid).set(fbProfil(),{merge:true});}
+  catch(e){}}
+async function fbPull(){
+  if(!FB.ready||!FB.user)return;
+  try{
+    const d=await FB.db.collection('users').doc(FB.user.uid).get();
+    if(!d.exists){await fbPush();return;}
+    const v=d.data()||{};
+    /* buluttaki daha ilerideyse onu al */
+    if((v.wins||0)>=PROF.wins){
+      PROF.wins=v.wins||0;PROF.games=v.games||PROF.games;PROF.towers=v.towers||PROF.towers;
+      PROF.ach=v.ach||PROF.ach;PROF.tags=v.tags||PROF.tags;PROF.tag=v.tag||PROF.tag;
+      PROF.admin=!!v.admin||PROF.admin;
+      if(v.fcode)PROF.fcode=v.fcode;
+      if(v.friends&&v.friends.length)PROF.friends=v.friends;
+      if(v.name)saveName(v.name);
+      saveProf();renderUser();renderTags();renderAch();
+    }else await fbPush();
+  }catch(e){}}
+
+/* ---------- skor tablosu ---------- */
+async function fbSkor(){
+  const L=$('#lb-liste');if(!L)return;
+  L.innerHTML='<div class="frow bos">Yükleniyor…</div>';
+  if(!await fbInit()){L.innerHTML='<div class="frow bos">Bağlanılamadı.</div>';return;}
+  try{
+    const q=await FB.db.collection('users').orderBy('wins','desc').limit(20).get();
+    L.innerHTML='';
+    let i=0;
+    q.forEach(d=>{
+      const v=d.data()||{};i++;
+      const ben=FB.user&&d.id===FB.user.uid;
+      const row=document.createElement('div');
+      row.className='devlet'+(ben?' ben':'');
+      row.innerHTML='<div class="sira">'+i+'</div><div class="ad">'+
+        (v.name||'Komutan')+(v.tag?' <span class="etiketcik">'+(TAGS.find(t=>t.id===v.tag)||{}).n+'</span>':'')+
+        '</div><div class="say">'+(v.wins||0)+'</div>';
+      L.appendChild(row);});
+    if(!i)L.innerHTML='<div class="frow bos">Henüz kayıt yok.</div>';
+  }catch(e){L.innerHTML='<div class="frow bos">Skorlar okunamadı.</div>';}}
+
+/* ---------- açık oda listesi ---------- */
+async function fbOdaAc(code){
+  if(!FB.ready||!FB.user)return;
+  try{
+    FB.roomRef=FB.db.collection('rooms').doc(code);
+    await FB.roomRef.set({code,host:NET.name,players:1,
+      zom:!!G.zomOn,ts:Date.now()});
+  }catch(e){}}
+async function fbOdaGuncelle(){
+  if(!FB.roomRef)return;
+  try{await FB.roomRef.set({players:NET.players.length,ts:Date.now()},{merge:true});}catch(e){}}
+async function fbOdaKapat(){
+  if(!FB.roomRef)return;
+  try{await FB.roomRef.delete();}catch(e){}
+  FB.roomRef=null;}
+async function fbOdalar(){
+  const L=$('#oda-liste');if(!L)return;
+  L.innerHTML='<div class="frow bos">Yükleniyor…</div>';
+  if(!await fbInit()){L.innerHTML='<div class="frow bos">Bağlanılamadı.</div>';return;}
+  try{
+    const esik=Date.now()-1000*60*20;
+    const q=await FB.db.collection('rooms').orderBy('ts','desc').limit(20).get();
+    L.innerHTML='';let n=0;
+    q.forEach(d=>{
+      const v=d.data()||{};
+      if((v.ts||0)<esik)return;
+      n++;
+      const row=document.createElement('div');row.className='frow';
+      row.innerHTML='<div class="fnm"><b>'+(v.host||'Oyuncu')+'</b>'+
+        '<span>'+v.code+' · '+(v.players||1)+'/5'+(v.zom?' · zombi':'')+'</span></div>';
+      const b=document.createElement('button');b.className='gbtn';b.textContent='KATIL';
+      b.addEventListener('click',()=>{hide('#ov-odalar');joinRoom(v.code);});
+      row.appendChild(b);L.appendChild(row);});
+    if(!n)L.innerHTML='<div class="frow bos">Şu an açık oda yok.</div>';
+  }catch(e){L.innerHTML='<div class="frow bos">Odalar okunamadı.</div>';}}
+
+/* ---------- arayüz ---------- */
+function renderHesap(){
+  const g=$('#hesap-giris'),k=$('#hesap-kayit'),c=$('#hesap-cikis'),
+        s=$('#hesap-sil'),d=$('#hesap-durum'),v=$('#hesap-dogrula');
+  const acik=!!(FB.user);
+  if(g)g.style.display=acik?'none':'';
+  if(k)k.style.display=acik?'none':'';
+  if(c)c.style.display=acik?'':'none';
+  if(s)s.style.display=acik?'':'none';
+  if(v){v.style.display=acik?'':'none';
+    v.textContent=acik&&FB.user.emailVerified?'E-POSTA DOĞRULANDI ✅':'E-POSTAYI DOĞRULA';}
+  if(d)d.textContent=acik
+    ?(FB.user.email+(FB.user.emailVerified?' · doğrulandı':' · doğrulanmamış'))
+    :(FB.ready?'Hesap yok — kayıtların sadece bu cihazda'
+      :(window.isSecureContext?'Hesap yok — kayıtların sadece bu cihazda'
+        :'Hesap için oyunu https:// adresinden aç'));}
+function authAc(mod){
+  $('#auth-bas').textContent=mod==='kayit'?'HESAP OLUŞTUR':'GİRİŞ YAP';
+  $('#auth-ad').style.display=mod==='kayit'?'':'none';
+  $('#auth-yap').textContent=mod==='kayit'?'OLUŞTUR':'GİRİŞ';
+  $('#auth-yap').dataset.mod=mod;
+  authMsg('');show('#ov-auth');fbInit();}
+
+on('#hesap-giris','click',()=>authAc('giris'));
+on('#hesap-kayit','click',()=>authAc('kayit'));
+on('#hesap-cikis','click',fbCikis);
+on('#hesap-sil','click',fbHesapSil);
+on('#hesap-dogrula','click',fbDogrula);
+on('#auth-yap','click',()=>{
+  ($('#auth-yap').dataset.mod==='kayit')?fbKayit():fbGiris();});
+on('#auth-unut','click',fbSifirla);
+on('#auth-close','click',()=>hide('#ov-auth'));
+on('#lb-btn','click',()=>{show('#ov-lb');fbSkor();});
+on('#lb-close','click',()=>hide('#ov-lb'));
+on('#oda-btn','click',()=>{show('#ov-odalar');fbOdalar();});
+on('#oda-close','click',()=>hide('#ov-odalar'));
+on('#oda-yenile','click',fbOdalar);
+setTimeout(()=>{try{if(localStorage.getItem('harp_fb'))fbInit();}catch(e){}},2000);
+renderHesap();
+
+/* ================= SEÇİMLER ================= */
+const SEC_ADAY=40, SEC_OY=25, SEC_GOREV=300;   // saniye
+
+function secReset(){
+  G.sec={stage:'off',cands:[],oyum:null,winner:null,tasks:[],timer:0,uyari:false};}
+
+function secStart(){
+  secReset();
+  if(!G.secimOn||!G.eco||!G.eco.on)return;
+  G.sec.stage='aday';G.sec.timer=SEC_ADAY;
+  secRender();show('#ov-sec');
+  log('SEÇİM DÖNEMİ — adaylığını koy ve ne yapacağını söyle.','w');}
+
+/* ---------- adaylık ---------- */
+function secVaatler(){
+  const v=[];
+  for(const it of INV){
+    const n=(G.sec.taslak&&G.sec.taslak[it.id])||0;
+    if(n>0)v.push({id:it.id,n});}
+  return v;}
+function secTaslak(id,d){
+  if(!G.sec.taslak)G.sec.taslak={};
+  G.sec.taslak[id]=clamp((G.sec.taslak[id]||0)+d,0,20);
+  secRender();}
+function secAdayOl(){
+  const v=secVaatler();
+  if(!v.length){
+    toast('⚠️ VAAT YOK','En az bir kalem seç','+ düğmesiyle adet ver.');return;}
+  const id=(typeof NET!=='undefined'&&NET.on)?NET.id:'ben';
+  const ad=(typeof NET!=='undefined'&&NET.name)?NET.name:'Komutan';
+  const c={k:'aday',id,name:ad,v};
+  if(typeof NET!=='undefined'&&NET.on)NET.request(c);else runCmd(c);
+  G.sec.benAday=true;
+  toast('🗳 ADAYLIĞINI KOYDUN',ad,
+    v.map(x=>{const it=INV.find(y=>y.id===x.id);return (it?it.n:x.id)+' ×'+x.n;}).join(', '));
+  secRender();}
+function secAdayEkle(id,name,v){
+  if(G.sec.cands.some(c=>c.id===id))
+    G.sec.cands=G.sec.cands.filter(c=>c.id!==id);
+  G.sec.cands.push({id,name,v,oy:0});
+  log(name+' adaylığını koydu.','d');
+  secRender();}
+function secYzAday(){
+  const isim=['Halkçı Cephe','Sanayi Partisi','Ordu Bloğu'];
+  const n=1+((R()*2)|0);
+  for(let i=0;i<n;i++){
+    const v=[];
+    const havuz=INV.filter(x=>x.c>0);
+    for(let k=0;k<2+((R()*2)|0);k++){
+      const it=havuz[(R()*havuz.length)|0];
+      if(!v.some(x=>x.id===it.id))v.push({id:it.id,n:1+((R()*4)|0)});}
+    secAdayEkle('yz'+i,isim[i%isim.length],v);}}
+
+/* ---------- oylama ---------- */
+function secOyVer(id){
+  if(G.sec.stage!=='oy'){log('Oylama başlamadı.','w');return;}
+  if(G.sec.oyum){log('Zaten oy verdin.','w');return;}
+  const c={k:'oy',hedef:id,kim:(NET&&NET.on)?NET.id:'ben'};
+  if(NET&&NET.on)NET.request(c);else runCmd(c);}
+function secOyEkle(hedef,kim){
+  const c=G.sec.cands.find(x=>x.id===hedef);
+  if(!c)return;
+  c.oy++;
+  if(kim===((NET&&NET.on)?NET.id:'ben'))G.sec.oyum=hedef;
+  secRender();}
+function secYzOy(){
+  const n=1+((R()*3)|0);
+  for(let i=0;i<n;i++){
+    const c=G.sec.cands[(R()*G.sec.cands.length)|0];
+    if(c)c.oy++;}
+  secRender();}
+
+/* ---------- sonuç ve görevler ---------- */
+function secBitir(){
+  if(!G.sec.cands.length){G.sec.stage='off';hide('#ov-sec');return;}
+  let w=G.sec.cands[0];
+  for(const c of G.sec.cands)if(c.oy>w.oy)w=c;
+  G.sec.winner=w;
+  G.sec.tasks=w.v.map(x=>({id:x.id,hedef:x.n,yapilan:0}));
+  G.sec.stage='gorev';G.sec.timer=SEC_GOREV;
+  hide('#ov-sec');
+  const ben=w.id===((NET&&NET.on)?NET.id:'ben');
+  toast(ben?'🗳 SEÇİMİ KAZANDIN':'🗳 SEÇİM SONUCU',w.name,
+    ben?'Vaatlerini 5 dakikada yerine getir.':'Yatırımı artık o yönetiyor.');
+  log(w.name+' seçimi kazandı ('+w.oy+' oy).','w');
+  gorevRender();}
+function secYapildi(id,adet){
+  const s=G.sec;
+  if(!s||s.stage!=='gorev')return;
+  for(const t of s.tasks)if(t.id===id){t.yapilan+=adet||1;}
+  gorevRender();
+  if(s.tasks.every(t=>t.yapilan>=t.hedef)){
+    s.stage='bitti';
+    const e=G.eco;if(e&&e.on)e.morale=clamp(e.morale+15,0,100);
+    toast('✅ VAATLER TUTULDU','Halk memnun','Memnuniyet +15');
+    gorevRender();}}
+function secKontrol(){
+  return !(G.sec&&G.sec.stage==='gorev'&&G.sec.winner&&
+    G.sec.winner.id!==((NET&&NET.on)?NET.id:'ben'));}
+
+function secStep(dt){
+  const s=G.sec;
+  if(!s||s.stage==='off'||s.stage==='bitti')return;
+  s.timer-=dt;
+  if(s.stage==='aday'){
+    if(!s.yzAday&&s.timer<SEC_ADAY-6){s.yzAday=1;secYzAday();}
+    if(s.timer<=0){s.stage='oy';s.timer=SEC_OY;secRender();
+      log('OYLAMA BAŞLADI — adayını seç.','w');}
+    secTick();return;}
+  if(s.stage==='oy'){
+    if(!s.yzOy&&s.timer<SEC_OY-5){s.yzOy=1;secYzOy();}
+    if(s.timer<=0)secBitir();
+    secTick();return;}
+  if(s.stage==='gorev'){
+    if(s.timer<=60&&!s.uyari){s.uyari=true;
+      toast('⏳ SON 1 DAKİKA','Vaatler tamamlanmadı','Halk sabırsızlanıyor.');}
+    if(s.timer<=0){
+      s.stage='bitti';
+      const e=G.eco;
+      if(e&&e.on){e.morale=0;e.riot=9.2;}
+      toast('🔥 VAATLER TUTULMADI','Halk sokakta','İsyan başlıyor.');
+      log('Seçim vaatleri tutulmadı — halk isyan ediyor.','w');}
+    gorevRender();}}
+function secTick(){
+  const t=$('#sec-sure');
+  if(t)t.textContent=Math.max(0,Math.ceil(G.sec.timer))+' sn';}
+
+/* ---------- arayüz ---------- */
+function secRender(){
+  const s=G.sec;if(!s)return;
+  const bas=$('#sec-bas'),alt=$('#sec-alt');
+  if(bas)bas.textContent=s.stage==='aday'?'ADAYLIK':'OYLAMA';
+  if(alt)alt.textContent=s.stage==='aday'
+    ?'Seçilirsen ne yapacağını söyle — adetleriyle birlikte.'
+    :'Adaylardan birine oy ver. En çok oyu alan yatırımı yönetir.';
+  const V=$('#sec-vaat'),O=$('#sec-oy');
+  if(V)V.style.display=s.stage==='aday'?'':'none';
+  if(O)O.style.display=s.stage==='oy'?'':'none';
+  const b=$('#sec-adayol');
+  if(b){b.style.display=s.stage==='aday'?'':'none';
+    b.textContent=s.benAday?'VAADİ GÜNCELLE':'ADAY OL';}
+  const AL=$('#sec-adaylar');
+  if(AL){
+    AL.style.display=s.stage==='aday'?'':'none';
+    AL.innerHTML='';
+    if(s.stage==='aday'){
+      if(!s.cands.length)AL.innerHTML='<div class="frow bos">Henüz aday yok.</div>';
+      for(const c of s.cands){
+        const d=document.createElement('div');d.className='frow';
+        d.innerHTML='<div class="fnm"><b>'+c.name+'</b><span>'+
+          c.v.map(x=>{const it=INV.find(y=>y.id===x.id);return (it?it.n:x.id)+' ×'+x.n;}).join(', ')+
+          '</span></div>';
+        AL.appendChild(d);}}}
+  /* vaat listesi */
+  if(V&&s.stage==='aday'){
+    V.innerHTML='';
+    for(const it of INV){
+      if(!it.c)continue;
+      const n=(s.taslak&&s.taslak[it.id])||0;
+      const d=document.createElement('div');d.className='iv'+(n?' sec':'');
+      d.addEventListener('click',()=>secTaslak(it.id,1));
+      d.innerHTML='<div class="ic">'+it.ic+'</div><div class="tx">'+
+        '<div class="tt">'+it.n+'</div><div class="dd">'+fmtM(it.c)+' · halk '+
+        (it.m>0?'+':'')+it.m+'</div></div>';
+      const box=document.createElement('div');box.className='sayac';
+      const eks=document.createElement('button');eks.className='btn';eks.textContent='−';
+      const say=document.createElement('b');say.textContent=n;
+      const art=document.createElement('button');art.className='btn';art.textContent='+';
+      eks.addEventListener('click',e=>{e.stopPropagation();secTaslak(it.id,-1);});
+      art.addEventListener('click',e=>{e.stopPropagation();secTaslak(it.id,1);});
+      box.appendChild(eks);box.appendChild(say);box.appendChild(art);
+      d.appendChild(box);V.appendChild(d);}}
+  /* oy listesi */
+  if(O&&s.stage==='oy'){
+    O.innerHTML='';
+    if(!s.cands.length)O.innerHTML='<div class="frow bos">Aday çıkmadı.</div>';
+    for(const c of s.cands){
+      const d=document.createElement('div');
+      d.className='frow'+(s.oyum===c.id?' secili':'');
+      const vaat=c.v.map(x=>{const it=INV.find(y=>y.id===x.id);
+        return (it?it.n:x.id)+' ×'+x.n;}).join(', ');
+      d.innerHTML='<div class="fnm"><b>'+c.name+'</b><span>'+vaat+'</span></div>'+
+        '<div class="oysay">'+c.oy+' oy</div>';
+      const b2=document.createElement('button');b2.className='gbtn';
+      b2.textContent=s.oyum===c.id?'OYUN':'OY VER';
+      b2.disabled=!!s.oyum;
+      b2.addEventListener('click',()=>secOyVer(c.id));
+      d.appendChild(b2);O.appendChild(d);}}
+  secTick();}
+function gorevRender(){
+  const p=$('#gorev-pnl');if(!p)return;
+  const s=G.sec;
+  const acik=!!(s&&(s.stage==='gorev'||(s.stage==='bitti'&&s.tasks&&s.tasks.length)));
+  p.classList.toggle('hide',!acik);
+  if(!acik)return;
+  const dk=Math.max(0,Math.floor(s.timer/60)),sn=Math.max(0,Math.floor(s.timer%60));
+  const sr=$('#gorev-sure');
+  if(sr){sr.textContent=dk+':'+String(sn).padStart(2,'0');
+    sr.style.color=s.timer<60?'var(--atk)':'var(--amber)';}
+  const ad=$('#gorev-ad');
+  if(ad)ad.textContent=s.winner?s.winner.name:'—';
+  const L=$('#gorev-liste');if(!L)return;
+  L.innerHTML='';
+  for(const t of s.tasks){
+    const it=INV.find(x=>x.id===t.id);
+    const ok=t.yapilan>=t.hedef;
+    const d=document.createElement('div');d.className='gorev'+(ok?' ok':'');
+    d.innerHTML='<span>'+(ok?'✅':'▫️')+' '+(it?it.n:t.id)+'</span>'+
+      '<b>'+Math.min(t.yapilan,t.hedef)+'/'+t.hedef+'</b>';
+    L.appendChild(d);}}
+
+on('#sec-adayol','click',secAdayOl);
+on('#sec-kapat','click',()=>hide('#ov-sec'));
+on('#sec-ac','click',()=>{secRender();show('#ov-sec');});
+on('#secim-row','click',()=>{
+  G.secimOn=!G.secimOn;
+  const b=$('#secim-state');
+  if(b){b.textContent=G.secimOn?'AÇIK':'KAPALI';b.classList.toggle('off',!G.secimOn);}});
+
+/* ================= GERÇEK ZAMANLI DÜNYA ================= */
+const RT={on:false,doc:null,data:null,timer:0,busy:false,son:0,cd:0,savas:null};
+const RT_HP=100, RT_HASAR=[26,38], RT_BEKLE=25, RT_YENILE=6, RT_REJEN=0.6;
+
+function rtRenk(uid){
+  if(!uid)return '#3b4a3e';
+  let h=0;for(let i=0;i<uid.length;i++)h=(Math.imul(h,31)+uid.charCodeAt(i))>>>0;
+  return 'hsl('+(h%360)+' 58% 46%)';}
+function rtBenim(uid){return FB.user&&uid===FB.user.uid;}
+function rtUlkeler(){return (RT.data&&RT.data.c)||{};}
+function rtSayim(uid){let n=0;const c=rtUlkeler();
+  for(const k in c)if(c[k].u===uid)n++;return n;}
+function rtGuc(){return 1+Math.min(6,rtSayim(FB.user&&FB.user.uid)*0.35);}
+function rtCan(o){
+  if(!o)return 0;
+  const gecen=(Date.now()-(o.t||0))/60000;
+  return clamp((o.hp||RT_HP)+gecen*RT_REJEN*60,0,RT_HP);}
+
+/* ---------- açılış ---------- */
+async function rtBasla(){
+  if(!await fbInit()){toast('⚠️ BAĞLANTI YOK','Gerçek zamanlı dünya','https:// adresinden aç.');return;}
+  if(!FB.user){toast('⚠️ GİRİŞ GEREKLİ','Dünyaya katılmak için hesap gerekir');authAc('giris');return;}
+  RT.doc=FB.db.collection('world').doc('state');
+  RT.on=true;G.mode='rt';G.phase='rt';
+  hide('#ov-start');show2('#rt-pnl');
+  mapDirty=true;
+  await rtCek(true);
+  log('GERÇEK ZAMANLI DÜNYA — boş bir ülkeye dokunup sahiplen.','w');}
+function show2(id){const e=$(id);if(e)e.classList.remove('hide');}
+function rtCik(){
+  RT.on=false;RT.data=null;
+  const e=$('#rt-pnl');if(e)e.classList.add('hide');
+  for(const c of CLIST)c.rtOwner=null;
+  goHome();}
+
+/* ---------- veri ---------- */
+async function rtCek(zorla){
+  if(!RT.on||RT.busy)return;
+  RT.busy=true;
+  try{
+    const d=await RT.doc.get();
+    RT.data=d.exists?(d.data()||{c:{}}):{c:{}};
+    if(!RT.data.c)RT.data.c={};
+    rtIsle();
+  }catch(e){if(zorla)toast('❌ DÜNYA OKUNAMADI','Kurallar veya bağlantı');}
+  RT.busy=false;}
+function rtIsle(){
+  const c=rtUlkeler();
+  for(const k of CLIST)k.rtOwner=null;
+  for(const ad in c){
+    const u=COUNTRIES[ad];
+    if(u){u.rtOwner=c[ad].u;u.rtAd=c[ad].n;u.rtHp=rtCan(c[ad]);}}
+  mapDirty=true;rtPanel();}
+
+async function rtSahiplen(ad){
+  if(RT.busy)return;RT.busy=true;
+  try{
+    await FB.db.runTransaction(async tx=>{
+      const d=await tx.get(RT.doc);
+      const v=d.exists?(d.data()||{}):{};
+      const c=v.c||{};
+      if(c[ad]&&c[ad].u)throw new Error('dolu');
+      c[ad]={u:FB.user.uid,n:NET.name,hp:RT_HP,t:Date.now()};
+      tx.set(RT.doc,{c,ts:Date.now()},{merge:true});
+    });
+    toast('🚩 ÜLKE ALINDI',COUNTRIES[ad].tr,'Sen çevrimdışıyken de saldırıya açık.');
+    await rtCek();
+  }catch(e){
+    toast(String(e.message)==='dolu'?'⚠️ DOLU':'❌ OLMADI',
+      COUNTRIES[ad]?COUNTRIES[ad].tr:ad);}
+  RT.busy=false;}
+
+async function rtSaldir(ad){
+  if(RT.busy)return;
+  if(RT.cd>Date.now()){
+    toast('⏳ BEKLE',Math.ceil((RT.cd-Date.now())/1000)+' sn','Saldırılar arası süre.');return;}
+  if(!rtSayim(FB.user.uid)){toast('⚠️ ÜLKEN YOK','Önce boş bir ülke sahiplen');return;}
+  RT.busy=true;
+  let sonuc='';
+  try{
+    await FB.db.runTransaction(async tx=>{
+      const d=await tx.get(RT.doc);
+      const v=d.exists?(d.data()||{}):{};
+      const c=v.c||{};
+      const o=c[ad];
+      const hasar=Math.round((RT_HASAR[0]+Math.random()*(RT_HASAR[1]-RT_HASAR[0]))*rtGuc());
+      if(!o||!o.u){
+        c[ad]={u:FB.user.uid,n:NET.name,hp:RT_HP,t:Date.now()};sonuc='bos';
+      }else{
+        const can=Math.max(0,rtCan(o)-hasar);
+        if(can<=0){c[ad]={u:FB.user.uid,n:NET.name,hp:Math.round(RT_HP*0.4),t:Date.now()};sonuc='fetih';}
+        else{c[ad]={u:o.u,n:o.n,hp:Math.round(can),t:Date.now()};sonuc=Math.round(can)+'';}
+      }
+      tx.set(RT.doc,{c,ts:Date.now()},{merge:true});
+    });
+    RT.cd=Date.now()+RT_BEKLE*1000;
+    const nm=COUNTRIES[ad].tr;
+    if(sonuc==='fetih')toast('🏴 ÜLKE FETHEDİLDİ',nm,'Artık senin.');
+    else if(sonuc==='bos')toast('🚩 SAHİPSİZ ÜLKE',nm,'Doğrudan alındı.');
+    else toast('💥 SALDIRI',nm,'Kalan direnç: %'+sonuc);
+    await rtCek();
+  }catch(e){toast('❌ SALDIRI BAŞARISIZ',(e&&e.message)||'');}
+  RT.busy=false;}
+
+/* ---------- dokunma ---------- */
+function rtTap(wx,wy){
+  const c=countryAt(wx,wy);
+  if(!c)return true;
+  const o=rtUlkeler()[c.name];
+  if(!o||!o.u){rtSahiplen(c.name);return true;}
+  if(rtBenim(o.u)){
+    if(confirm(c.tr+' senin.\n\nTAMAM = ülkeyi bırak (başkaları alabilir)\nİPTAL = vazgeç'))
+      rtBirak(c.name);
+    return true;}
+  rtSavasBaslat(c.name);return true;}
+
+/* ---------- ülkeyi bırak ---------- */
+async function rtBirak(ad){
+  if(RT.busy)return;RT.busy=true;
+  try{
+    await FB.db.runTransaction(async tx=>{
+      const d=await tx.get(RT.doc);
+      const v=d.exists?(d.data()||{}):{};
+      const c=v.c||{};
+      if(!c[ad]||c[ad].u!==FB.user.uid)throw new Error('senin değil');
+      delete c[ad];
+      tx.set(RT.doc,{c,ts:Date.now()},{merge:true});
+    });
+    toast('🏳️ ÜLKE BIRAKILDI',COUNTRIES[ad].tr,'Artık boşta, başkaları alabilir.');
+    await rtCek();
+  }catch(e){toast('❌ BIRAKILAMADI',(e&&e.message)||'');}
+  RT.busy=false;}
+
+/* ---------- gerçek savaş ---------- */
+function rtSavasBaslat(ad){
+  if(RT.cd>Date.now()){
+    toast('⏳ BEKLE',Math.ceil((RT.cd-Date.now())/1000)+' sn','Saldırılar arası süre.');return;}
+  const benim=[];
+  const c=rtUlkeler();
+  for(const k in c)if(rtBenim(c[k].u)&&COUNTRIES[k])benim.push(COUNTRIES[k]);
+  if(!benim.length){toast('⚠️ ÜLKEN YOK','Önce boş bir ülke sahiplen');return;}
+  const hedef=COUNTRIES[ad];if(!hedef)return;
+  benim.sort((a,b)=>dist(a.cx,a.cy,hedef.cx,hedef.cy)-dist(b.cx,b.cy,hedef.cx,hedef.cy));
+  RT.savas={hedef:ad,sahip:(c[ad]&&c[ad].n)||'Komutan'};
+  const p=$('#rt-pnl');if(p)p.classList.add('hide');
+  G.team.A=benim.slice(0,3);G.team.D=[hedef];
+  G.a=G.team.A[0];G.d=hedef;
+  G.mode='manual';G.side='A';G.aiSides={A:false,D:true};
+  G.zomOn=false;G.secimOn=false;
+  G.speed=1;G.paused=false;G.seed=(Math.random()*2147483647)|0;
+  startWar();
+  log('SEFER: '+G.team.A.map(x=>x.tr).join(' + ')+' → '+hedef.tr,'w');
+  toast('⚔️ SEFER BAŞLADI',hedef.tr,'Kazanırsan ülke senin olur.');}
+
+async function rtSonuc(w){
+  const s=RT.savas;if(!s)return;
+  RT.savas=null;
+  RT.cd=Date.now()+RT_BEKLE*1000;
+  if(w!=='A'){
+    toast('🛡 SEFER BAŞARISIZ',COUNTRIES[s.hedef].tr,'Ülke sahibinde kaldı.');
+    return;}
+  if(RT.busy)return;RT.busy=true;
+  try{
+    await FB.db.runTransaction(async tx=>{
+      const d=await tx.get(RT.doc);
+      const v=d.exists?(d.data()||{}):{};
+      const c=v.c||{};
+      c[s.hedef]={u:FB.user.uid,n:NET.name,hp:Math.round(RT_HP*0.45),t:Date.now()};
+      tx.set(RT.doc,{c,ts:Date.now()},{merge:true});
+    });
+    toast('🏴 ÜLKE FETHEDİLDİ',COUNTRIES[s.hedef].tr,'Artık senin.');
+    await rtCek();
+  }catch(e){toast('❌ KAYIT EDİLEMEDİ',(e&&e.message)||'');}
+  RT.busy=false;}
+
+/* savaştan dünyaya dön */
+function rtDon(){
+  hide('#ov-res');
+  G.phase='rt';G.mode='rt';
+  G.team.A=[];G.team.D=[];G.a=G.d=null;
+  G.units.length=0;G.fxs.length=0;G.sol.A.length=0;G.sol.D.length=0;
+  G.cityList=[];G.bina=[];
+  const hud=$('#hud');if(hud)hud.classList.remove('show');
+  const eco=$('#eco');if(eco)eco.classList.remove('show');
+  const p=$('#rt-pnl');if(p)p.classList.remove('hide');
+  refreshTeamMarks();rtIsle();mapDirty=true;}
+
+/* ---------- panel ---------- */
+function rtPanel(){
+  const p=$('#rt-pnl');if(!p||p.classList.contains('hide'))return;
+  const c=rtUlkeler();
+  const sahip={};
+  for(const k in c){const u=c[k].u;if(!u)continue;
+    if(!sahip[u])sahip[u]={n:c[k].n,say:0};sahip[u].say++;}
+  const liste=Object.entries(sahip).sort((a,b)=>b[1].say-a[1].say).slice(0,8);
+  const bos=CLIST.length-Object.keys(c).length;
+  const b1=$('#rt-benim'),b2=$('#rt-bos'),b3=$('#rt-oyuncu');
+  if(b1)b1.textContent=FB.user?rtSayim(FB.user.uid):0;
+  if(b2)b2.textContent=bos;
+  if(b3)b3.textContent=liste.length;
+  const L=$('#rt-liste');if(!L)return;
+  L.innerHTML='';
+  if(!liste.length){L.innerHTML='<div class="frow bos">Dünya boş — ilk ülkeyi sen al.</div>';return;}
+  let i=0;
+  for(const [uid,v] of liste){
+    i++;
+    const d=document.createElement('div');
+    d.className='devlet'+(rtBenim(uid)?' ben':'');
+    d.innerHTML='<div class="sira">'+i+'</div>'+
+      '<div class="ad" style="color:'+rtRenk(uid)+'">'+(v.n||'Komutan')+'</div>'+
+      '<div class="say">'+v.say+'</div>';
+    L.appendChild(d);}
+  const cd=$('#rt-cd');
+  if(cd){const k=Math.max(0,Math.ceil((RT.cd-Date.now())/1000));
+    cd.textContent=k?('saldırı: '+k+' sn'):'saldırıya hazır';}}
+
+function rtTick(dt){
+  if(!RT.on)return;
+  RT.timer-=dt;
+  if(RT.timer<=0){RT.timer=RT_YENILE;rtCek();}
+  rtPanel();}
+
+on('#rt-cik','click',rtCik);
+on('#rt-yenile','click',()=>rtCek(true));
+on('#mod-rt','click',rtBasla);
+
+/* ================= ADMIN TEST PANELİ (tek oyunculu) ================= */
+const TEST_KOD='19342345';
+let testBuf='';
+
+function testAcik(){
+  return !(typeof NET!=='undefined'&&NET.on);}
+function testAc(){
+  if(!testAcik()){toast('⚠️ KAPALI','Test paneli','Çok oyunculuda kullanılamaz.');return;}
+  testListe();show('#ov-test');}
+
+const TESTLER=[
+  {id:'isyan', ic:'🔥', n:'İsyan çıkar',        d:'Halk memnuniyeti sıfırlanır, isyan başlar.'},
+  {id:'kazan', ic:'🏆', n:'Savaşı kazan',       d:'Anında zafer ekranı.'},
+  {id:'kaybet',ic:'💀', n:'Savaşı kaybet',      d:'Anında yenilgi.'},
+  {id:'secKazan',ic:'🗳', n:'Seçimi kazan',     d:'Seçim biter, sen kazanırsın.'},
+  {id:'secKaybet',ic:'🗳', n:'Seçimi kaybet',   d:'Seçim biter, rakip kazanır.'},
+  {id:'gorevBitir',ic:'✅', n:'Görevleri tamamla', d:'Tüm seçim vaatleri yapılmış sayılır.'},
+  {id:'gorevSure',ic:'⏳', n:'Görev süresini 10 sn yap', d:'Zaman baskısını test et.'},
+  {id:'para',  ic:'💰', n:'+10 milyar bütçe',   d:'Kasaya para ekler.'},
+  {id:'halkTam',ic:'😀', n:'Halk %100',          d:'Memnuniyeti tavana çeker.'},
+  {id:'halkDip',ic:'😟', n:'Halk %3',            d:'İsyanın eşiğine getirir.'},
+  {id:'cephane',ic:'🚀', n:'Cephaneyi doldur',   d:'Tüm silahlar tavana.'},
+  {id:'nukleer',ic:'☢️', n:'+3 nükleer başlık',  d:'Can şartı yine geçerli.'},
+  {id:'yukselt',ic:'⚙️', n:'Tüm silahlar SV5',   d:'Yükseltmeleri tamamlar.'},
+  {id:'dalga',  ic:'🧟', n:'Zombi dalgası atla', d:'Sonraki dalgaya geçer.'},
+  {id:'zombiSil',ic:'🧹', n:'Zombileri temizle', d:'Haritadaki tüm zombiler ölür.'},
+  {id:'sehirAl',ic:'🏙', n:'Düşman şehri al',   d:'Bir düşman şehrini işgal eder.'},
+  {id:'sehirVer',ic:'🏚', n:'Şehir kaybet',     d:'Kendi şehrinden birini düşürür.'}
+];
+
+function testYap(id){
+  const e=G.ecoS&&G.ecoS[(G.side==='A'||G.side==='D')?G.side:'A'];
+  const ben=(G.side==='A'||G.side==='D')?G.side:'A';
+  switch(id){
+    case 'isyan':
+      if(e&&e.on){e.morale=0;e.riot=9.5;}
+      else endWar(other(ben),'riot',ben);
+      toast('🔥 TEST','İsyan tetiklendi');break;
+    case 'kazan': endWar(ben);toast('🏆 TEST','Zafer');break;
+    case 'kaybet': endWar(other(ben));toast('💀 TEST','Yenilgi');break;
+    case 'secKazan':
+      if(!G.sec||G.sec.stage==='off'){toast('⚠️ SEÇİM YOK','Seçimler kapalı');break;}
+      if(!G.sec.cands.length)G.sec.cands.push({id:'ben',name:NET.name,v:[{id:'konut',n:2}],oy:0});
+      for(const c of G.sec.cands)c.oy=(c.id==='ben')?99:0;
+      G.sec.stage='oy';G.sec.timer=0.1;toast('🗳 TEST','Seçimi kazanıyorsun');break;
+    case 'secKaybet':
+      if(!G.sec||G.sec.stage==='off'){toast('⚠️ SEÇİM YOK','Seçimler kapalı');break;}
+      if(G.sec.cands.length<2)G.sec.cands.push({id:'yz9',name:'Muhalefet',v:[{id:'konut',n:3}],oy:0});
+      for(const c of G.sec.cands)c.oy=(c.id==='ben')?0:99;
+      G.sec.stage='oy';G.sec.timer=0.1;toast('🗳 TEST','Seçimi kaybediyorsun');break;
+    case 'gorevBitir':
+      if(G.sec&&G.sec.tasks)for(const t of G.sec.tasks)secYapildi(t.id,t.hedef);
+      toast('✅ TEST','Görevler tamamlandı');break;
+    case 'gorevSure':
+      if(G.sec&&G.sec.stage==='gorev'){G.sec.timer=10;G.sec.uyari=false;}
+      toast('⏳ TEST','Görev süresi 10 sn');break;
+    case 'para': if(e)e.money+=10e9;toast('💰 TEST','+10 Mlr');break;
+    case 'halkTam': if(e)e.morale=100;toast('😀 TEST','Halk %100');break;
+    case 'halkDip': if(e)e.morale=3;toast('😟 TEST','Halk %3');break;
+    case 'cephane':
+      for(const k in G.stock[ben])G.stock[ben][k]=Math.max(G.stock[ben][k],G.cap[ben][k]||30);
+      updateHUD();toast('🚀 TEST','Cephane dolu');break;
+    case 'nukleer': G.stock[ben].nuke+=3;updateHUD();toast('☢️ TEST','+3 nükleer');break;
+    case 'yukselt':
+      if(!G.upg)G.upg={};
+      for(const u of UPG)G.upg[u.k]=5;
+      toast('⚙️ TEST','Tüm silahlar SV5');break;
+    case 'dalga':
+      if(G.zomOn){G.zom.length=0;G.waveLeft=0;toast('🧟 TEST','Dalga atlandı');}
+      else toast('⚠️ ZOMBİ KAPALI','');break;
+    case 'zombiSil':
+      if(G.zomOn){G.zom.length=0;toast('🧹 TEST','Zombiler silindi');}
+      else toast('⚠️ ZOMBİ KAPALI','');break;
+    case 'sehirAl':{
+      const cs=citiesOf(other(ben));
+      if(cs.length){capture(cs[0],ben);toast('🏙 TEST','Şehir alındı');}
+      else toast('⚠️ ŞEHİR YOK','');break;}
+    case 'sehirVer':{
+      const cs=citiesOf(ben);
+      if(cs.length>0){capture(cs[0],other(ben));toast('🏚 TEST','Şehir kaybedildi');}
+      else toast('⚠️ ŞEHİR YOK','');break;}
+  }
+  updateHUD();mapDirty=true;}
+
+function testListe(){
+  const L=$('#test-liste');if(!L)return;
+  L.innerHTML='';
+  for(const t of TESTLER){
+    const d=document.createElement('div');d.className='iv';
+    d.innerHTML='<div class="ic">'+t.ic+'</div><div class="tx">'+
+      '<div class="tt">'+t.n+'</div><div class="dd">'+t.d+'</div></div>';
+    d.addEventListener('click',()=>testYap(t.id));
+    L.appendChild(d);}}
+
+window.addEventListener('keydown',e=>{
+  if(e.target&&/INPUT|TEXTAREA/.test(e.target.tagName))return;
+  if(!/^[0-9]$/.test(e.key)){testBuf='';return;}
+  testBuf=(testBuf+e.key).slice(-TEST_KOD.length);
+  if(testBuf===TEST_KOD){testBuf='';testAc();}
+});
+/* telefon için: bildirim düğmesine 1,5 sn basılı tut */
+(function(){
+  const b=$('#b-log');if(!b)return;
+  let t=0;
+  const bas=()=>{t=setTimeout(()=>{
+    const k=prompt('Test kodu:');
+    if(k&&k.trim()===TEST_KOD)testAc();},1500);};
+  const birak=()=>clearTimeout(t);
+  b.addEventListener('pointerdown',bas);
+  b.addEventListener('pointerup',birak);
+  b.addEventListener('pointerleave',birak);
+})();
+on('#test-close','click',()=>hide('#ov-test'));
+
+</script>
+</body>
+</html>
