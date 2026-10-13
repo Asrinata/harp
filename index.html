@@ -358,6 +358,23 @@ canvas{display:block;position:absolute;inset:0;width:100%;height:100%}
   border-bottom:1px solid #1d242b;font-size:12px}
 .gorev.ok{color:var(--ok)}
 .gorev b{font-family:"Barlow Condensed",sans-serif;color:var(--bone)}
+.ogr-gorsel{height:150px;background:#0d1519;position:relative;overflow:hidden;
+  border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:center}
+.ogr-emoji{font-size:58px;line-height:1;filter:drop-shadow(0 6px 14px rgba(0,0,0,.6))}
+.ogr-arka{position:absolute;inset:0;opacity:.26;
+  background:repeating-linear-gradient(90deg,rgba(120,180,200,.25) 0 1px,transparent 1px 26px),
+             repeating-linear-gradient(0deg,rgba(120,180,200,.25) 0 1px,transparent 1px 26px)}
+.ogr-baslik{font-family:"Archivo Black","Barlow Condensed",sans-serif;font-size:19px;margin:0 0 8px;line-height:1.15}
+.ogr-metin{font-size:13.5px;line-height:1.6;color:#cbd7dd;margin:0 0 10px}
+.ogr-metin b{color:var(--bone)}
+.ogr-liste{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px}
+.ogr-liste span{font-family:"Barlow Condensed",sans-serif;font-size:12px;letter-spacing:.06em;
+  border:1px solid var(--line);color:#cbd7dd;padding:3px 9px}
+.ogr-ipuc{display:flex;gap:9px;background:#141a20;border-left:3px solid var(--amber);
+  padding:9px 11px;font-size:12px;color:var(--dim);line-height:1.5}
+.ogr-nokta{display:flex;gap:5px;justify-content:center;padding:10px 0 2px}
+.ogr-nokta i{width:7px;height:7px;border-radius:50%;background:#39424b;cursor:pointer;transition:.2s}
+.ogr-nokta i.on{background:var(--amber);width:20px;border-radius:4px}
 /* ===== YENİ PANO EKRANLARI ===== */
 .pano{width:100%;max-width:440px;background:linear-gradient(180deg,#232a33,#181e25);
   border:1px solid #333d47;overflow:hidden;box-shadow:0 12px 26px rgba(0,0,0,.45)}
@@ -557,6 +574,8 @@ canvas{display:block;position:absolute;inset:0;width:100%;height:100%}
   <div id="phase">Saldıran ülkeyi seç</div>
   <button class="btn on" id="b-next" style="display:none">DEVAM ›</button>
   <button class="btn" id="b-diff" style="display:none">YZ: NORMAL</button>
+  <button class="btn" id="b-ogr" title="Öğretici" style="display:none">📖</button>
+  <button class="btn" id="b-test" title="Test paneli" style="display:none">🧪</button>
   <button class="btn" id="b-all" style="display:none">TÜM DÜNYA</button>
   <button class="btn" id="b-zom" style="display:none">ZOMBİ: KAPALI</button>
   <button class="btn" id="b-wave" style="display:none">WAVE: 50</button>
@@ -743,7 +762,7 @@ canvas{display:block;position:absolute;inset:0;width:100%;height:100%}
 
       <div class="not">
         Haritayı sürükle · iki parmakla yakınlaştır · ülkeye dokunarak seç
-        <span id="srm-tag">sürüm 8.4 — altın ve etiketler</span>
+        <span id="srm-tag">sürüm 8.5 — öğretici</span>
       </div>
     </div>
   </section>
@@ -873,6 +892,25 @@ canvas{display:block;position:absolute;inset:0;width:100%;height:100%}
     <div class="dugmeler">
       <button class="ana" id="sec-adayol">ADAY OL</button>
       <button class="ikinci" id="sec-kapat">KAPAT</button>
+    </div>
+  </div>
+</div>
+
+<div class="ov hide" id="ov-ogr">
+  <div class="pano" style="max-width:520px">
+    <div class="pano-bas"><h3 id="ogr-bas">HOŞ GELDİN</h3><div class="rozet" id="ogr-no">1/9</div></div>
+    <div class="ogr-gorsel"><div class="ogr-arka"></div><div class="ogr-emoji" id="ogr-emoji">🌍</div></div>
+    <div class="pano-ic">
+      <h2 class="ogr-baslik" id="ogr-baslik"></h2>
+      <p class="ogr-metin" id="ogr-metin"></p>
+      <div class="ogr-liste" id="ogr-liste"></div>
+      <div class="ogr-ipuc"><span>💡</span><span id="ogr-ipuc"></span></div>
+      <div class="ogr-nokta" id="ogr-nokta"></div>
+    </div>
+    <div class="dugmeler">
+      <button class="ikinci" id="ogr-geri">GERİ</button>
+      <button class="ana" id="ogr-ileri">DEVAM</button>
+      <button class="ikinci" id="ogr-atla">ATLA</button>
     </div>
   </div>
 </div>
@@ -4858,10 +4896,14 @@ async function fbHesapSil(){
 
 /* ---------- profil eşitleme ---------- */
 function fbProfil(){
-  return {name:NET.name,wins:PROF.wins,games:PROF.games,towers:PROF.towers,
-    ach:PROF.ach,tags:PROF.tags,tag:PROF.tag,admin:!!PROF.admin,
+  return {name:NET.name,wins:PROF.wins||0,gold:PROF.gold||0,
+    games:PROF.games||0,towers:PROF.towers||0,
+    ach:PROF.ach||[],tags:PROF.tags||[],tag:PROF.tag||'',
+    used:PROF.used||[],admin:!!PROF.admin,
     fcode:PROF.fcode||'',friends:PROF.friends||[],
     ts:Date.now()};}
+function birlesUnique(a,b){
+  const s=new Set([...(a||[]),...(b||[])]);return [...s];}
 async function fbPush(){
   if(!FB.ready||!FB.user)return;
   try{await FB.db.collection('users').doc(FB.user.uid).set(fbProfil(),{merge:true});}
@@ -4873,15 +4915,20 @@ async function fbPull(){
     if(!d.exists){await fbPush();return;}
     const v=d.data()||{};
     /* buluttaki daha ilerideyse onu al */
-    if((v.wins||0)>=PROF.wins){
-      PROF.wins=v.wins||0;PROF.games=v.games||PROF.games;PROF.towers=v.towers||PROF.towers;
-      PROF.ach=v.ach||PROF.ach;PROF.tags=v.tags||PROF.tags;PROF.tag=v.tag||PROF.tag;
-      PROF.admin=!!v.admin||PROF.admin;
-      if(v.fcode)PROF.fcode=v.fcode;
-      if(v.friends&&v.friends.length)PROF.friends=v.friends;
-      if(v.name)saveName(v.name);
-      saveProf();renderUser();renderTags();renderAch();
-    }else await fbPush();
+    /* KAYIPSIZ BİRLEŞTİRME: hiçbir şey silinmez, büyük olan kazanır */
+    PROF.wins   =Math.max(PROF.wins||0,   v.wins||0);
+    PROF.gold   =Math.max(PROF.gold||0,   v.gold||0);
+    PROF.games  =Math.max(PROF.games||0,  v.games||0);
+    PROF.towers =Math.max(PROF.towers||0, v.towers||0);
+    PROF.ach    =birlesUnique(PROF.ach,   v.ach);
+    PROF.tags   =birlesUnique(PROF.tags,  v.tags);
+    PROF.used   =birlesUnique(PROF.used,  v.used);
+    PROF.admin  =!!(PROF.admin||v.admin);
+    if(!PROF.tag&&v.tag)PROF.tag=v.tag;
+    if(!PROF.fcode&&v.fcode)PROF.fcode=v.fcode;
+    if(v.friends&&v.friends.length>((PROF.friends||[]).length))PROF.friends=v.friends;
+    saveProf();renderUser();renderTags();renderAch();
+    await fbPush();
   }catch(e){}}
 
 /* ---------- skor tablosu ---------- */
@@ -5431,9 +5478,12 @@ const TEST_KOD='19342345';
 let testBuf='';
 
 function testAcik(){
+  if(typeof PROF!=='undefined'&&PROF&&PROF.admin)return true;   // admin her yerde
   return !(typeof NET!=='undefined'&&NET.on);}
 function testAc(){
-  if(!testAcik()){toast('⚠️ KAPALI','Test paneli','Çok oyunculuda kullanılamaz.');return;}
+  if(!testAcik()){toast('⚠️ KAPALI','Test paneli','Çok oyunculuda yalnızca Admin açabilir.');return;}
+  if(typeof NET!=='undefined'&&NET.on)
+    toast('⚠️ ÇOK OYUNCULU','Test etkileri yereldir','Diğer oyuncularda görünmez, oyun ayrışabilir.');
   testListe();show('#ov-test');}
 
 const TESTLER=[
@@ -5539,6 +5589,98 @@ window.addEventListener('keydown',e=>{
   b.addEventListener('pointerleave',birak);
 })();
 on('#test-close','click',()=>hide('#ov-test'));
+
+/* ================= ÖĞRETİCİ ================= */
+const OGR=[
+ {bas:'HOŞ GELDİN',ic:'🌍',baslik:"HARP'a hoş geldin",
+  metin:'Gerçek dünya haritası üzerinde savaş simülatörü. <b>177 ülke</b>, füzeler, uçaklar, tanklar, çıkarma gemileri ve zombiler. Bu rehber iki dakikanı alır.',
+  liste:['6 OYUN MODU','35 BAŞARIM','ÇOK OYUNCULU'],
+  ipuc:'Rehberi istediğin an üstteki 📖 düğmesinden tekrar açabilirsin.'},
+ {bas:'HARİTA',ic:'🗺️',baslik:'Haritada dolaş',
+  metin:'Haritayı <b>sürükle</b>, iki parmakla <b>yakınlaştır</b>. Bilgisayardaysan tekerlekle yakınlaşırsın. Ülkeye dokunmak onu seçer.',
+  liste:['SÜRÜKLE','İKİ PARMAK','DOKUN = SEÇ'],
+  ipuc:'Savaşan ülkelerin adı her zaman yazar, diğerleri yakınlaşınca çıkar.'},
+ {bas:'SAVAŞ AÇ',ic:'⚔️',baslik:'Önce saldıran, sonra hedef',
+  metin:'Manuel komutada önce <b>saldıran</b>, sonra <b>saldırılan</b> ülkeye dokunursun. Aynı safa birden çok ülke ekleyebilirsin. Sağ üstteki DEVAM ile ilerlersin.',
+  liste:['SALDIRAN','SAVUNAN','KOALİSYON','TÜM DÜNYA'],
+  ipuc:'İstersen savunan tarafı da oynayabilirsin.'},
+ {bas:'SİLAHLAR',ic:'🚀',baslik:'Alt panelden seç, haritaya dokun',
+  metin:'Bir silah seç, hedefe dokun. Her silahın stoğu ve bekleme süresi var. Nükleer başlık ancak <b>canın %50 altına</b> düşünce ateşlenir.',
+  liste:['🚀 FÜZE','✈️ UÇAK','🚁 HELİKOPTER','🛡️ TANK','🚢 GEMİ','⛴️ ÇIKARMA','🪖 ASKER','☢️ NÜKLEER'],
+  ipuc:'Kaç asker göndereceğini kaydırıcıdan ayarlarsın — bu tek hamle sayılır.'},
+ {bas:'DENİZ KURALI',ic:'⛴️',baslik:'Arada deniz varsa yürünmez',
+  metin:'İki ülke arasında <b>kara sınırı yoksa</b> asker yürüyemez. Çıkarma gemisi ya da nakliye uçağı gerekir. Gemiler gerçek deniz rotasından gider.',
+  liste:['KARA SINIRI → YÜRÜ','DENİZ → GEMİ / UÇAK'],
+  ipuc:'Türkiye–Suriye yürünür, Türkiye–Mısır yürünmez.'},
+ {bas:'İŞGAL',ic:'🏴',baslik:'Şehri al, toprağı boya',
+  metin:'Her şehir çevresini yönetir. Şehir düşünce <b>bölgenin rengi değişir</b> ve sınır kayar. Düşmanın bütün şehirleri düşünce kazanırsın.',
+  liste:['ŞEHİR DÜŞER','SINIR KAYAR','7 SN DOKUNULMAZLIK'],
+  ipuc:'Aldığın şehirden füze fırlatabilirsin — ileri üs olur.'},
+ {bas:'EKONOMİ',ic:'💰',baslik:'Bütçe, halk ve seçimler',
+  metin:'Bütçeyle konut, fabrika ve cephane alırsın. Savaş harcaması <b>halkı yorar</b>; memnuniyet dibe vurursa isyan çıkar ve hükümet düşer.',
+  liste:['💰 YATIRIM','⚙️ YÜKSELT','🗳 SEÇİMLER','🏭 FABRİKA'],
+  ipuc:'Seçimler açıksa vaat verir ve 5 dakikada tutmak zorunda kalırsın.'},
+ {bas:'MODLAR',ic:'🎮',baslik:'Altı ayrı oynanış',
+  metin:'<b>Manuel</b> sen yönetirsin · <b>Otomatik</b> izlersin · <b>Dünya Fethi</b> tek devlet kalana kadar · <b>Zombi</b> dalgalara karşı savunma · <b>Çok Oyunculu</b> oda koduyla 5 kişi · <b>Kalıcı Dünya</b> herkesin ortak haritası.',
+  liste:['MANUEL','OTOMATİK','DÜNYA FETHİ','ZOMBİ','ÇOK OYUNCULU','KALICI DÜNYA'],
+  ipuc:'Kalıcı dünyada çıksan bile ülken korunmaz.'},
+ {bas:'PROFİL',ic:'🏆',baslik:'Başarım, etiket, altın',
+  metin:'Kazandıkça <b>altın</b> ve galibiyet biriktirirsin. Altınla etiket alırsın, etiketin adının yanında görünür. 35 başarımın hepsini toplayan <b>Başarımlar Başkanı</b> olur.',
+  liste:['🏆 BAŞARIM','🏷 ETİKET','🪙 ALTIN','🏅 SKOR'],
+  ipuc:'Savaşta ne kadar az silah kullanırsan o kadar çok altın kazanırsın.'}
+];
+let ogrI=0;
+
+function ogrCiz(){
+  const a=OGR[ogrI];if(!a)return;
+  const set=(id,v,html)=>{const e=$(id);if(e){if(html)e.innerHTML=v;else e.textContent=v;}};
+  set('#ogr-bas',a.bas);set('#ogr-no',(ogrI+1)+'/'+OGR.length);
+  set('#ogr-emoji',a.ic);set('#ogr-baslik',a.baslik);
+  set('#ogr-metin',a.metin,1);set('#ogr-ipuc',a.ipuc);
+  const L=$('#ogr-liste');
+  if(L){L.innerHTML='';
+    for(const t of a.liste){const s=document.createElement('span');s.textContent=t;L.appendChild(s);}}
+  const N=$('#ogr-nokta');
+  if(N){N.innerHTML='';
+    for(let k=0;k<OGR.length;k++){
+      const d=document.createElement('i');if(k===ogrI)d.className='on';
+      d.addEventListener('click',()=>{ogrI=k;ogrCiz();});N.appendChild(d);}}
+  const g=$('#ogr-geri');if(g)g.disabled=ogrI===0;
+  const il=$('#ogr-ileri');if(il)il.textContent=ogrI===OGR.length-1?'BAŞLA':'DEVAM';}
+function ogrAc(bastan){
+  if(bastan)ogrI=0;
+  ogrCiz();show('#ov-ogr');}
+function ogrKapat(){
+  hide('#ov-ogr');
+  try{localStorage.setItem('harp_ogr','1');}catch(e){}}
+function ogrGorunur(){
+  const b=$('#b-ogr');if(!b)return;
+  b.style.display=(G.phase==='pickA'||G.phase==='pickD'||G.phase==='rt'
+    ||(typeof NET!=='undefined'&&NET.on&&NET.stage==='pick'))?'':'none';}
+
+on('#b-ogr','click',()=>ogrAc(true));
+on('#ogr-ileri','click',()=>{
+  if(ogrI<OGR.length-1){ogrI++;ogrCiz();}else ogrKapat();});
+on('#ogr-geri','click',()=>{if(ogrI>0){ogrI--;ogrCiz();}});
+on('#ogr-atla','click',ogrKapat);
+
+/* ilk açılışta otomatik */
+setTimeout(()=>{
+  let gor=null;
+  try{gor=localStorage.getItem('harp_ogr');}catch(e){}
+  if(!gor)ogrAc(true);
+},900);
+
+/* ================= ADMİN TEST DÜĞMESİ ================= */
+function admGorunur(){
+  const b=$('#b-test');if(!b)return;
+  const yetki=!!(PROF&&PROF.admin);
+  b.style.display=yetki?'':'none';}
+on('#b-test','click',()=>{
+  if(!(PROF&&PROF.admin)){log('Bu düğme yalnızca Admin etiketi olanlara açık.','w');return;}
+  if(typeof testAc==='function')testAc();
+  else if(typeof admAc==='function')admAc();});
+setInterval(()=>{try{ogrGorunur();admGorunur();}catch(e){}},800);
 
 </script>
 </body>
